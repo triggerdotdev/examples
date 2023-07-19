@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "./Button";
 import { sendText } from "./_actions";
 import { howYCombinatorStarted } from "./howYCombinatorStarted";
+import { CheckIcon } from "./checkIcon";
 
 const textLinkStyle =
   "hover:cursor-pointer underline underline-offset-2 decoration-slate-600 hover:decoration-slate-50 transition";
@@ -39,8 +40,9 @@ export default function SendTextForm() {
   return (
     <>
       {isLoading ? (
-        <div>
-          <p>
+        <div className="bg-slate-800 p-10 max-w-lg items-center rounded-md border border-slate-700 flex flex-col gap-10">
+          <CheckIcon />
+          <p className="text-center text-slate-400">
             Your text has been submitted and a message in Slack should appear in
             about 10 seconds.
           </p>
@@ -49,14 +51,14 @@ export default function SendTextForm() {
       ) : (
         <>
           <p className="max-w-2xl text-center text-slate-400">
-            Try{" "}
+            Test it out by inserting the essay{" "}
             <a
               className={textLinkStyle}
               onClick={handleInventingOnPrincipleClick}
             >
               How Y Combinator Started
             </a>{" "}
-            by Paul Graham
+            by Paul Graham.
           </p>
           <form
             action={action}
