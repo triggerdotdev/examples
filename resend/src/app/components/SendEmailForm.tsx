@@ -47,7 +47,10 @@ const SendEmailForm = () => {
         ⚠️ Resend requires you to have set up the domain that you are sending
         any emails from.
       </p>
-      <button className="w-full rounded transition bg-indigo-600 hover:bg-indigo-500 h-10 font-bold mt-2">
+      <button
+        type="submit"
+        className="w-full rounded transition bg-indigo-600 hover:bg-indigo-500 h-10 font-bold mt-2"
+      >
         Send test email
       </button>
     </form>
