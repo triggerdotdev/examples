@@ -1,8 +1,25 @@
 "use client";
 
+import { useState } from "react";
+import { Button } from "./Button";
 import { sendText } from "./_actions";
+import { howYCombinatorStarted } from "./howYCombinatorStarted";
+
+const textLinkStyle =
+  "hover:cursor-pointer underline underline-offset-2 decoration-slate-600 hover:decoration-slate-50 transition";
 
 export default function SendTextForm() {
+  const [isLoading, setHasSumbitted] = useState(false);
+
+  const handleSubmit = () => {
+    setHasSumbitted(true);
+  };
+
+  const handleReset = () => {
+    setHasSumbitted(false);
+    setText("");
+  };
+
   async function action(data: FormData) {
     const text = data.get("text");
     if (text === null || typeof text !== "string" || text.trim() === "") {
@@ -11,20 +28,53 @@ export default function SendTextForm() {
     }
     await sendText(text);
   }
+
+  const [text, setText] = useState("");
+
+  const handleInventingOnPrincipleClick = (event: React.MouseEvent) => {
+    event.preventDefault();
+    setText(howYCombinatorStarted);
+  };
+
   return (
-    <form action={action} className="flex flex-col gap-y-4 w-full max-w-lg">
-      <textarea
-        rows={10}
-        name="text"
-        placeholder="Paste some text or an article and click Summarize."
-        className="text-white w-full bg-slate-800 rounded py-4 px-6 border border-slate-700"
-      />
-      <button
-        type="submit"
-        className="w-full rounded transition bg-indigo-600 hover:bg-indigo-500 h-10 font-semibold"
-      >
-        Summarize
-      </button>
-    </form>
+    <>
+      {isLoading ? (
+        <div>
+          <p>
+            Your text has been submitted and a message in Slack should appear in
+            about 10 seconds.
+          </p>
+          <Button onClick={handleReset}>Try again</Button>
+        </div>
+      ) : (
+        <>
+          <p className="max-w-2xl text-center text-slate-400">
+            Try{" "}
+            <a
+              className={textLinkStyle}
+              onClick={handleInventingOnPrincipleClick}
+            >
+              How Y Combinator Started
+            </a>{" "}
+            by Paul Graham
+          </p>
+          <form
+            action={action}
+            onSubmit={handleSubmit}
+            className="flex max-w-2xl flex-col gap-y-4 w-full"
+          >
+            <textarea
+              rows={20}
+              name="text"
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder="Paste some long text here or an article and click Summarize."
+              className="text-white w-full bg-slate-800 rounded py-4 px-6 border border-slate-700"
+            />
+            <Button>✨ Summarize ✨</Button>
+          </form>
+        </>
+      )}
+    </>
   );
 }

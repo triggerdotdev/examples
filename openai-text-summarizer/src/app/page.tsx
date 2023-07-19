@@ -5,18 +5,23 @@ import {
 } from "@trigger.dev/companyicons";
 import Form from "./Form";
 
+const logoStyles =
+  "w-12 h-12 border border-slate-700 rounded-md bg-slate-800 p-2";
+const plusStyles = "text-2xl text-slate-500";
+
 export default function Home() {
   return (
-    <main className="flex h-screen flex-col gap-y-4 items-center justify-center bg-slate-900">
-      <div className="flex gap-x-4 mb-2">
-        <TriggerDotDevLightIcon className="w-8 h-8" />
-        <p>+</p>
-        <OpenAILightIcon className="w-8 h-8" />
-        <p>+</p>
-        <SlackIcon className="w-8 h-8" />
+    <main className="flex h-screen flex-col gap-y-6 items-center justify-center bg-slate-900">
+      <div className="flex gap-x-4 mb-2 items-center">
+        <TriggerDotDevLightIcon className={logoStyles} />
+        <p className={plusStyles}>+</p>
+        <OpenAILightIcon className={logoStyles} />
+        <p className={plusStyles}>+</p>
+        <SlackIcon className={logoStyles} />
       </div>
-      <h1 className="font-medium text-3xl text-center">
-        Open AI Text Summarizer
+      <h1 className="font-medium font-sans max-w-2xl text-3xl text-center">
+        Summarize an article using Open AI and post the result to a Slack
+        channel
       </h1>
       <Form />
     </main>

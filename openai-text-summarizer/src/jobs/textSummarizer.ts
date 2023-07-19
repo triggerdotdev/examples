@@ -30,6 +30,7 @@ new Job(client, {
   },
   logLevel: "debug",
   run: async (payload, io) => {
+    // If you want to summarize really long text, you should use a different model that has a higher token limit.
     const result = await io.openai.backgroundCreateChatCompletion(
       "background-chat-completion",
       {
