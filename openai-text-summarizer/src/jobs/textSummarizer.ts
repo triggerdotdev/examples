@@ -1,6 +1,7 @@
 import { Job, eventTrigger } from "@trigger.dev/sdk";
 import { client } from "@/trigger";
 import { OpenAI } from "@trigger.dev/openai";
+import { Slack } from "@trigger.dev/slack";
 import { z } from "zod";
 
 const openai = new OpenAI({
@@ -8,7 +9,11 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY!,
 });
 
-// text summarizer job
+const slack = new Slack({
+  id: "slack-2",
+});
+
+// use Open AI to summarize text from the form
 new Job(client, {
   id: "openai-summarizer",
   name: "OpenAI – Text Summarizer",
@@ -21,7 +26,9 @@ new Job(client, {
   }),
   integrations: {
     openai,
+    slack,
   },
+  logLevel: "debug",
   run: async (payload, io) => {
     const result = await io.openai.backgroundCreateChatCompletion(
       "background-chat-completion",
@@ -35,5 +42,18 @@ new Job(client, {
         ],
       }
     );
+
+    if (!result.choices || !result.choices[0] || !result.choices[0].message) {
+      io.logger.error(
+        "Failed to post your message to Slack. The content is undefined."
+      );
+      return;
+    }
+
+    await io.slack.postMessage("post message", {
+      // replace this with your own channel ID
+      channel: "C05HNRBV22H",
+      text: result.choices[0].message.content,
+    });
   },
 });
