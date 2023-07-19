@@ -14,29 +14,23 @@ new Job(client, {
   name: "OpenAI – Text Summarizer",
   version: "0.0.1",
   trigger: eventTrigger({
-    name: "openai.summarizer",
+    name: "summarize.text",
     schema: z.object({
-      textPrompt: z.string(),
+      text: z.string(),
     }),
   }),
   integrations: {
     openai,
   },
-  run: async (payload, io, ctx) => {
-    await io.openai.retrieveModel("get-model", {
-      model: "gpt-3.5-turbo",
-    });
-
-    const models = await io.openai.listModels("list-models");
-
-    await io.openai.backgroundCreateChatCompletion(
+  run: async (payload, io) => {
+    const result = await io.openai.backgroundCreateChatCompletion(
       "background-chat-completion",
       {
         model: "gpt-3.5-turbo",
         messages: [
           {
             role: "user",
-            content: payload.textPrompt,
+            content: `Summarize the following text with the most unique and helpful points, into a numbered list of key points and takeaways: \n ${payload.text}`,
           },
         ],
       }
