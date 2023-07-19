@@ -8,15 +8,15 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY!,
 });
 
-// tellMeAJoke
+// text summarizer job
 new Job(client, {
-  id: "openai-tasks",
-  name: "OpenAI – Tell me a joke",
+  id: "openai-summarizer",
+  name: "OpenAI – Text Summarizer",
   version: "0.0.1",
   trigger: eventTrigger({
-    name: "openai.tasks",
+    name: "openai.summarizer",
     schema: z.object({
-      jokePrompt: z.string(),
+      textPrompt: z.string(),
     }),
   }),
   integrations: {
@@ -36,7 +36,7 @@ new Job(client, {
         messages: [
           {
             role: "user",
-            content: payload.jokePrompt,
+            content: payload.textPrompt,
           },
         ],
       }
