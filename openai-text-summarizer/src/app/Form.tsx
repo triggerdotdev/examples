@@ -44,7 +44,7 @@ export default function SendTextForm() {
           <CheckIcon />
           <p className="text-center text-slate-400">
             Your text has been submitted and a message in Slack should appear in
-            about 10 seconds.
+            ~10 seconds.
           </p>
           <Button onClick={handleReset}>Try again</Button>
         </div>
@@ -66,14 +66,16 @@ export default function SendTextForm() {
             className="flex max-w-2xl flex-col gap-y-4 w-full"
           >
             <textarea
-              rows={20}
+              rows={16}
               name="text"
               value={text}
               onChange={(e) => setText(e.target.value)}
               placeholder="Paste some long text here or an article and click Summarize."
               className="text-white w-full bg-slate-800 rounded py-4 px-6 border border-slate-700"
             />
-            <Button>✨ Summarize ✨</Button>
+            <Button disabled={text === "" ? true : false}>
+              ✨ Summarize ✨
+            </Button>
           </form>
         </>
       )}
