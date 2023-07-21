@@ -10,14 +10,14 @@ const textLinkStyle =
   "hover:cursor-pointer underline underline-offset-2 decoration-slate-600 hover:decoration-slate-50 transition";
 
 export default function SendTextForm() {
-  const [isLoading, setHasSumbitted] = useState(false);
+  const [hasSubmitted, setHasSubmitted] = useState(false);
 
   const handleSubmit = () => {
-    setHasSumbitted(true);
+    setHasSubmitted(true);
   };
 
   const handleReset = () => {
-    setHasSumbitted(false);
+    setHasSubmitted(false);
     setText("");
   };
 
@@ -39,7 +39,7 @@ export default function SendTextForm() {
 
   return (
     <>
-      {isLoading ? (
+      {hasSubmitted ? (
         <div className="bg-slate-800 p-10 max-w-lg items-center rounded-md border border-slate-700 flex flex-col gap-10">
           <CheckIcon />
           <p className="text-center text-slate-400">
@@ -73,9 +73,7 @@ export default function SendTextForm() {
               placeholder="Paste some long text here or an article and click Summarize."
               className="text-white w-full bg-slate-800 rounded py-4 px-6 border border-slate-700"
             />
-            <Button disabled={text === "" ? true : false}>
-              ✨ Summarize ✨
-            </Button>
+            <Button disabled={text === ""}>✨ Summarize ✨</Button>
           </form>
         </>
       )}
