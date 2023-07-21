@@ -1,34 +1,67 @@
-This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# Text Summarizer example Job
 
-## Getting Started
+This folder contains an example Job using [Trigger.dev](https://trigger.dev), [OpenAI](https://openai.com) and [Slack](https://slack.com). You can use this Job as a starting point for creating your own Jobs.
 
-First, run the development server:
+The Job is located in `src/jobs/textSummarizer.ts`.
+
+## **Step 1.** Create accounts for Trigger.dev and Open AI
+
+Create accounts for [Trigger.dev](https://trigger.dev) and [OpenAI](https://openai.com) before moving to the next step. You'll also need a [Slack](https://slack.com) account.
+
+## **Step 2.** Setup your Project
+
+Create or select an Organization and Project on Trigger.dev. Then copy your API key from the "Environments & API Keys" page in your Project.
+
+## **Step 3.** Run the CLI `init` command
+
+In a new terminal window, run the Trigger.dev CLI and add your API key to your environment variables:
+
+```bash
+npx @trigger.dev/cli@latest init
+```
+
+## **Step 4.** Get your Open AI API key
+
+[Sign up](https://openai.com) to OpenAI and get your API key.
+
+Add your OpenAI API key to your .env.local file:
+
+```bash
+OPENAI_API_KEY=your-api-key
+```
+
+## **Step 5.** Get your Slack channel ID
+
+Open up Slack in the browser (http://[yourteam].slack.com) and create a new channel or open up an existing one you want to use. The channel ID is displayed in the browser URL beginning with the letter 'C'.
+
+Paste your channel ID in the textSummarizer.ts file on line 56.
+
+## **Step 6.** Install the dependencies
+
+```bash
+npm install
+```
+
+## **Step 7.** Run the Next.js project
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## **Step 8.** Run the CLI `dev` command
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npx @trigger.dev/cli@latest dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/basic-features/font-optimization) to automatically optimize and load Inter, a custom Google Font.
+## **Step 9.** Trigger the Job
 
-## Learn More
+To trigger the "Text Summarizer" Job, open your Next.js project in the browser:
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+http://localhost:3000
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+You can paste any text into the text field on the page and click Summarize or use the Paul Graham essay link provided.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js/) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/deployment) for more details.
+When you click the Summarize button, view the Job live in your Trigger.dev dashboard then head over to your Slack channel to view the result.
