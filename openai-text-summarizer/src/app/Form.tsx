@@ -16,9 +16,11 @@ type State =
     }
   | {
       status: "submitting";
+      text: string;
     }
   | {
       status: "processing";
+      text: string;
       eventId: string;
     };
 
@@ -29,7 +31,7 @@ export default function SendTextForm() {
   });
 
   const handleSubmit = () => {
-    setFormState({ status: "submitting" });
+    setFormState((s) => ({ status: "submitting", text: s.text }));
   };
 
   const handleReset = () => {
@@ -43,7 +45,11 @@ export default function SendTextForm() {
       return;
     }
     const event = await sendText(text);
-    setFormState({ status: "processing", eventId: event.id });
+    setFormState((s) => ({
+      status: "processing",
+      text: s.text,
+      eventId: event.id,
+    }));
   }
 
   const handleInventingOnPrincipleClick = (event: React.MouseEvent) => {
@@ -53,7 +59,7 @@ export default function SendTextForm() {
 
   return (
     <>
-      {formState.status === "idle" ? (
+      {formState.status === "idle" || formState.status === "submitting" ? (
         <>
           <p className="max-w-2xl text-center text-slate-400">
             Test it out by inserting the essay{" "}
@@ -77,19 +83,26 @@ export default function SendTextForm() {
               onChange={(e) =>
                 setFormState({ status: "idle", text: e.target.value })
               }
+              disabled={formState.status === "submitting"}
               placeholder="Paste some long text here or an article and click Summarize."
               className="text-white w-full bg-slate-800 rounded py-4 px-6 border border-slate-700"
             />
-            <Button disabled={formState.text === ""}>✨ Summarize ✨</Button>
+            <Button
+              disabled={
+                formState.text === "" || formState.status === "submitting"
+              }
+            >
+              {formState.status === "idle" ? "✨ Summarize ✨" : "Loading..."}
+            </Button>
           </form>
         </>
       ) : (
         <div className="bg-slate-800 p-10 max-w-lg items-center rounded-md border border-slate-700 flex flex-col gap-10">
           <CheckIcon />
           <p className="text-center text-slate-400">
-            Your text has been submitted and a message in Slack should appear in
-            ~10 seconds.
+            Summarizing {formState.text.slice(0, 20)}...
           </p>
+          {formState.eventId}
           <Button onClick={handleReset}>Try again</Button>
         </div>
       )}
