@@ -33,7 +33,7 @@ new Job(client, {
     const result = await io.openai.backgroundCreateChatCompletion(
       "Generating summary",
       {
-        model: "gpt-3.5-turbo",
+        model: "gpt-3.5-turbo-16k",
         messages: [
           {
             role: "user",
