@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "./Button";
-import { sendText } from "./_actions";
+import { sendText } from "../_actions";
 import { howYCombinatorStarted } from "./howYCombinatorStarted";
 
 const textLinkStyle =

@@ -1,12 +1,12 @@
 "use client";
 
-import { useEventRunDetails, useTriggerProvider } from "@trigger.dev/react";
-import { ButtonLink } from "./Button";
+import { CheckCircleIcon, XCircleIcon } from "@heroicons/react/24/solid";
 import { CompanyIcon } from "@trigger.dev/companyicons";
+import { useEventRunDetails } from "@trigger.dev/react";
+import { ButtonLink } from "./Button";
 import { Spinner } from "./Spinner";
-import { CheckCircleIcon } from "@heroicons/react/24/solid";
 
-export function SummarizeProgress({ eventId }: { eventId: string }) {
+export function Summary({ eventId }: { eventId: string }) {
   const { isLoading, isError, data, error } = useEventRunDetails(eventId);
 
   if (isError) {
@@ -18,43 +18,58 @@ export function SummarizeProgress({ eventId }: { eventId: string }) {
       <div className="flex flex-col gap-2">
         <>
           <ProgressItem
-            completed={data?.tasks !== undefined && data.tasks.length > 0}
+            state={
+              data?.tasks === undefined || data.tasks.length === 0
+                ? "progress"
+                : "completed"
+            }
             name="Starting up"
           />
           {data?.tasks?.map((task) => (
             <ProgressItem
               key={task.id}
-              completed={task.status === "COMPLETED"}
+              state={
+                task.status === "COMPLETED"
+                  ? "completed"
+                  : task.status === "ERRORED"
+                  ? "failed"
+                  : "progress"
+              }
               name={task.displayKey ?? task.name ?? ""}
               icon={task.icon}
             />
           ))}
         </>
       </div>
-      {data?.output && (
+      {data?.output && data.status === "SUCCESS" && (
         <div className="flex flex-col gap-0.5">
           <h4 className="text-base font-semibold">Posted to Slack</h4>
           <p className="text-slate-400 text-sm mb-4">{data.output.summary}</p>
-          <ButtonLink href={"/"}>Summarize another</ButtonLink>
         </div>
       )}
+      {data?.status === "SUCCESS" ||
+        (data?.status === "FAILURE" && (
+          <ButtonLink href={"/"}>Summarize another</ButtonLink>
+        ))}
     </div>
   );
 }
 
 type ProgressItemProps = {
   icon?: string;
-  completed: boolean;
+  state: "progress" | "completed" | "failed";
   name: string;
 };
 
-function ProgressItem({ icon, completed, name }: ProgressItemProps) {
+function ProgressItem({ icon, state, name }: ProgressItemProps) {
   return (
     <div className="flex gap-2 items-center">
-      {completed ? (
+      {state === "progress" ? (
+        <Spinner className="w-6 h-6" />
+      ) : state === "completed" ? (
         <CheckCircleIcon className="w-6 h-6 text-emerald-600" />
       ) : (
-        <Spinner className="w-6 h-6" />
+        <XCircleIcon className="w-6 h-6 text-red-600" />
       )}
       <div className="flex gap-1.5 items-center">
         {icon && (
