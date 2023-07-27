@@ -2,9 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "./Button";
-import { SummarizeProgress } from "./SummarizeProgress";
 import { sendText } from "./_actions";
-import { CheckIcon } from "./checkIcon";
 import { howYCombinatorStarted } from "./howYCombinatorStarted";
 
 const textLinkStyle =

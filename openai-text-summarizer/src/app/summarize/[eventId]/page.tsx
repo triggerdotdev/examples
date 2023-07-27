@@ -1,11 +1,8 @@
-import { Button } from "@/app/Button";
-import Form from "@/app/Form";
 import { SummarizeProgress } from "@/app/SummarizeProgress";
-import { CheckIcon } from "@/app/checkIcon";
 import {
-  TriggerDotDevLightIcon,
   OpenAILightIcon,
   SlackIcon,
+  TriggerDotDevLightIcon,
 } from "@trigger.dev/companyicons";
 
 const logoStyles =
@@ -32,8 +29,7 @@ export default function Page({
           channel
         </h1>
 
-        <div className="bg-slate-800 p-10 max-w-lg items-center rounded-md border border-slate-700 flex flex-col gap-10">
-          <CheckIcon />
+        <div className="bg-slate-800 p-10 max-w-2xl items-center rounded-md border border-slate-700 flex flex-col gap-10 w-full">
           <SummarizeProgress eventId={eventId} />
         </div>
       </div>

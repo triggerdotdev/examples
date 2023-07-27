@@ -31,7 +31,7 @@ new Job(client, {
   run: async (payload, io) => {
     // If you want to summarize really long text, you should use a different model that has a higher token limit.
     const result = await io.openai.backgroundCreateChatCompletion(
-      "background-chat-completion",
+      "Generating summary",
       {
         model: "gpt-3.5-turbo",
         messages: [
@@ -50,10 +50,16 @@ new Job(client, {
       return;
     }
 
-    await io.slack.postMessage("post message", {
+    const summary = result.choices[0].message.content;
+
+    await io.slack.postMessage("Posting to Slack", {
       // replace this with your own channel ID
       channel: "C05HNRBV22H",
-      text: result.choices[0].message.content,
+      text: summary,
     });
+
+    return {
+      summary,
+    };
   },
 });
