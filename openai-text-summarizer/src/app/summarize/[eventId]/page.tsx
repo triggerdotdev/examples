@@ -1,16 +1,22 @@
+import { Button } from "@/app/Button";
+import Form from "@/app/Form";
+import { SummarizeProgress } from "@/app/SummarizeProgress";
+import { CheckIcon } from "@/app/checkIcon";
 import {
+  TriggerDotDevLightIcon,
   OpenAILightIcon,
   SlackIcon,
-  TriggerDotDevLightIcon,
 } from "@trigger.dev/companyicons";
-import Form from "./Form";
-import { TriggerProvider } from "@trigger.dev/react";
 
 const logoStyles =
   "w-12 h-12 border border-slate-700 rounded-md bg-slate-800 p-2";
 const plusStyles = "text-2xl text-slate-500";
 
-export default function Home() {
+export default function Page({
+  params: { eventId },
+}: {
+  params: { eventId: string };
+}) {
   return (
     <main className="h-screen w-full bg-slate-900">
       <div className="flex flex-col gap-y-6 mx-auto items-center pt-40">
@@ -25,7 +31,11 @@ export default function Home() {
           Summarize an article using Open AI and post the result to a Slack
           channel
         </h1>
-        <Form />
+
+        <div className="bg-slate-800 p-10 max-w-lg items-center rounded-md border border-slate-700 flex flex-col gap-10">
+          <CheckIcon />
+          <SummarizeProgress eventId={eventId} />
+        </div>
       </div>
     </main>
   );
