@@ -47,10 +47,9 @@ export function Summary({ eventId }: { eventId: string }) {
           <p className="text-slate-400 text-sm mb-4">{data.output.summary}</p>
         </div>
       )}
-      {data?.status === "SUCCESS" ||
-        (data?.status === "FAILURE" && (
-          <ButtonLink href={"/"}>Summarize another</ButtonLink>
-        ))}
+      {(data?.status === "SUCCESS" || data?.status === "FAILURE") && (
+        <ButtonLink href={"/"}>Summarize another</ButtonLink>
+      )}
     </div>
   );
 }
