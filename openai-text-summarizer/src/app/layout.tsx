@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
-import { Providers } from "./components/Providers";
 import "./globals.css";
+import { TriggerProvider } from "@trigger.dev/react";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -18,7 +18,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <Providers>{children}</Providers>
+        <TriggerProvider
+          publicApiKey={process.env.NEXT_PUBLIC_CLIENT_TRIGGER_API_KEY ?? ""}
+          apiUrl={process.env.NEXT_PUBLIC_TRIGGER_API_URL}
+        >
+          {children}
+        </TriggerProvider>
       </body>
     </html>
   );
