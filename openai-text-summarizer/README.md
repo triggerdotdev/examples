@@ -12,23 +12,15 @@ Create accounts for [Trigger.dev](https://trigger.dev) and [OpenAI](https://open
 
 Create or select an Organization and Project on Trigger.dev. Then copy your API key from the "Environments & API Keys" page in your Project.
 
-## **Step 3.** Run the CLI `init` command
-
-In a new terminal window, run the Trigger.dev CLI and add your API key to your environment variables:
+## **Step 3.** Create an `.env.local` file
 
 ```bash
-npx @trigger.dev/cli@latest init
+cp .env.local.example .env.local
 ```
 
-## **Step 4.** Get your Open AI API key
+## **Step 4.** Fill in your environment variables
 
-[Sign up](https://openai.com) to OpenAI and get your API key.
-
-Add your OpenAI API key to your .env.local file:
-
-```bash
-OPENAI_API_KEY=your-api-key
-```
+In the `.env.local` file you should enter all the required keys.
 
 ## **Step 5.** Get your Slack channel ID
 
@@ -49,6 +41,8 @@ npm run dev
 ```
 
 ## **Step 8.** Run the CLI `dev` command
+
+In a separate terminal window, leaving the site running. Run this command:
 
 ```bash
 npx @trigger.dev/cli@latest dev

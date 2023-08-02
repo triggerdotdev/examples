@@ -1,6 +1,6 @@
-import { Job, eventTrigger } from "@trigger.dev/sdk";
 import { client } from "@/trigger";
 import { OpenAI } from "@trigger.dev/openai";
+import { eventTrigger } from "@trigger.dev/sdk";
 import { Slack } from "@trigger.dev/slack";
 import { z } from "zod";
 
@@ -14,7 +14,7 @@ const slack = new Slack({
 });
 
 // use Open AI to summarize text from the form
-new Job(client, {
+client.defineJob({
   id: "openai-summarizer",
   name: "OpenAI – Text Summarizer",
   version: "0.0.1",
