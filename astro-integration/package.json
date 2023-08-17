@@ -1,0 +1,22 @@
+{
+  "name": "trigger-dev-astro-example",
+  "type": "module",
+  "version": "0.0.1",
+  "scripts": {
+    "dev": "astro dev",
+    "start": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro",
+    "trigger:dev": "npx @trigger.dev/cli@latest dev"
+  },
+  "dependencies": {
+    "@trigger.dev/sdk": "^2.0.8",
+    "astro": "^2.10.9",
+    "triggerdev-astro-integration": "github:lirantal/triggerdev-astro-integration"
+  },
+  "trigger.dev": {
+    "endpointId": "trigger-astro-example"
+  },
+  "license": "MIT"
+}
