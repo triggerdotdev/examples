@@ -1,3 +1,13 @@
+# Using Trigger.dev with Next.js
+
+This is a full working example of a Next.js app with a Trigger.dev task triggered using a Server Action.
+
+Follow along with our [Trigger.dev and Next.js guide](https://trigger.dev/docs/guides/frameworks/nextjs).
+
+---
+
+## create-next-app instructions:
+
 This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
 
 ## Getting Started
