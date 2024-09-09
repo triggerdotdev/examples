@@ -2,6 +2,12 @@
 
 This is a simple example of a Cloudflare Worker that triggers a 'Hello world' task.
 
+## Prerequisites
+
+```
+cp .dev.vars-example .dev.vars
+```
+
 ## Install
 
 ```
