@@ -1,3 +1,4 @@
+import { ffmpeg } from "@trigger.dev/build/extensions/core";
 import type { TriggerConfig } from "@trigger.dev/sdk/v3";
 
 export const config: TriggerConfig = {
@@ -13,5 +14,10 @@ export const config: TriggerConfig = {
       factor: 2,
       randomize: true,
     },
+  },
+  build: {
+    extensions: [
+      ffmpeg(),
+    ],
   },
 };

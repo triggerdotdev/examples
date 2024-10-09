@@ -4,7 +4,7 @@
 
 // Setup type definitions for built-in Supabase Runtime APIs
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { tasks } from "npm:@trigger.dev/sdk@3.0.0-beta.55/v3";
+import { tasks } from "npm:@trigger.dev/sdk@latest/v3";
 import type { helloWorldTask } from "../../../src/trigger/example.ts";
 
 Deno.serve(async (req) => {
