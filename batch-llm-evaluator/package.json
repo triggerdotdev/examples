@@ -1,0 +1,44 @@
+{
+  "name": "llm-evaluator",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "dev:trigger": "trigger dev"
+  },
+  "dependencies": {
+    "@ai-sdk/anthropic": "^1.0.2",
+    "@ai-sdk/openai": "^1.0.6",
+    "@ai-sdk/xai": "^1.0.4",
+    "@prisma/client": "^6.0.1",
+    "@radix-ui/react-label": "^2.1.0",
+    "@radix-ui/react-radio-group": "^1.2.1",
+    "@radix-ui/react-scroll-area": "^1.2.1",
+    "@radix-ui/react-slot": "^1.1.0",
+    "@trigger.dev/react-hooks": "^3.3.5",
+    "@trigger.dev/sdk": "^3.3.5",
+    "ai": "^4.0.11",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.465.0",
+    "next": "15.0.3",
+    "prisma": "^6.0.1",
+    "react": "19.0.0-rc-66855b96-20241106",
+    "react-dom": "19.0.0-rc-66855b96-20241106",
+    "tailwind-merge": "^2.5.5",
+    "tailwindcss-animate": "^1.0.7",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "postcss": "^8",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5",
+    "trigger.dev": "^3.3.5"
+  }
+}
