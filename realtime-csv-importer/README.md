@@ -2,7 +2,7 @@
 
 https://github.com/user-attachments/assets/25160343-6663-452c-8a27-819c3fd7b8df
 
-This demo is a full stack example that demonstrates how to use Trigger.dev Realtime to a CSV Uploader with live progress updates. The frontend is a Next.js app that allows users to upload a CSV file, which is then processed in the background using Trigger.dev tasks. The progress of the task is streamed back to the frontend in real-time using Trigger.dev Realtime.
+This demo is a full stack example that demonstrates how to use Trigger.dev Realtime to build a CSV Uploader with live progress updates. The frontend is a Next.js app that allows users to upload a CSV file, which is then processed in the background using Trigger.dev tasks. The progress of the task is streamed back to the frontend in real-time using Trigger.dev Realtime.
 
 - A [Next.js](https://nextjs.org/) app with [Trigger.dev](https://trigger.dev/) for the background tasks.
 - [UploadThing](https://uploadthing.com/) to handle CSV file uploads
