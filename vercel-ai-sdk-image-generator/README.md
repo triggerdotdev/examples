@@ -16,7 +16,7 @@ This demo is a full stack example that uses the following:
 4. Run the Next.js server with `npm run dev`.
 5. In a separate terminal, run the Trigger.dev dev CLI command with with `npx trigger dev` (it may ask you to authorize the CLI if you haven't already).
 
-Now you should be able to visit `http://localhost:3000` and see the app running. Choose an image model, enter a prompt and click "Generate" to see the image generation in progress.
+Now you should be able to visit `http://localhost:3000` and see the app running. Choose an image model, enter a prompt and click "Submit" to see the image generation in progress.
 
 ## Relevant code
 
