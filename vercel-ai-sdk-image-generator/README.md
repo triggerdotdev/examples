@@ -6,7 +6,7 @@ This demo is a full stack example that uses the following:
 
 - A [Next.js](https://nextjs.org/) app using [shadcn](https://ui.shadcn.com/) for the UI
 - Our 'useRealtimeRun' [React hook](https://trigger.dev/docs/frontend/react-hooks/realtime) to subscribe to the run and show updates on the frontend.
-- The [Vercel AI SDK](https://sdk.vercel.ai/docs/introduction) to generate images using OpenAI's DALL-E models.
+- The [Vercel AI SDK](https://sdk.vercel.ai/docs/introduction) to [generate images](https://sdk.vercel.ai/docs/ai-sdk-core/image-generation) using OpenAI's DALL-E models.
 
 ## Getting started
 
