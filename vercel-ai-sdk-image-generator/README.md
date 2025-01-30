@@ -1,5 +1,7 @@
 ## Generate an image using Trigger.dev and the Vercel AI SDK
 
+https://github.com/user-attachments/assets/960edcb6-e225-4983-a48c-6fa697295dec
+
 This demo is a full stack example that uses the following:
 
 - A [Next.js](https://nextjs.org/) app using [shadcn](https://ui.shadcn.com/) for the UI
