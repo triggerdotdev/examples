@@ -12,7 +12,7 @@ All of these examples focus on performing specific tasks, rather than do-it-all 
 
 ## About the project
 
-- This is a basic Node.js project, so it doesn't include any UI.
+- This is a basic Node.js project, so doesn't include any UI.
 - Each of the different AI agent patterns is implemented as a [Trigger.dev](https://cloud.trigger.dev) task.
 - The [AI SDK](https://sdk.vercel.ai/docs/introduction) is used to work with OpenAI models.
 
@@ -22,7 +22,7 @@ All of these examples focus on performing specific tasks, rather than do-it-all 
 
 Breaking down a task into a series of steps, guided through a pre-determined sequence.
 
-#### Example: Prompt chaining
+#### Prompt chaining task
 
 1. Generate marketing copy on a subject you provide. (LLM call 1)
 2. Check the word count fits a target range. (Gate)
@@ -34,7 +34,7 @@ View the Trigger.dev prompt chaining task code: [src/trigger/trigger/translate-c
 
 You can think of routing as an AI traffic controller. Instead of forcing one LLM to handle everything, you first figure out what type of task you're dealing with, then send it to the right specialist.
 
-#### Example: Routing
+#### Routing task
 
 1. User asks a question.
 2. Determine if the question is simple or complex.
@@ -47,7 +47,7 @@ View the Trigger.dev routing task code: [src/trigger/trigger/routing-questions.t
 
 Sometimes you need to do multiple things at once – that's where parallelization comes in. Rather than working through tasks one by one, you split them up and run them simultaneously. This is where batch.triggerByTaskAndWait shines, allowing you to execute multiple tasks in parallel and efficiently coordinate their responses.
 
-#### Example: Parallelization
+#### Parallelization task
 
 This example responds to customer questions by simultaneously generating a response and checking for inappropriate content.
 
@@ -57,13 +57,13 @@ This example responds to customer questions by simultaneously generating a respo
 2. The second task checks for innapropriate content.
 3. The third, main task coordinates the responses by using batch.`triggerByTaskAndWait` to run the two tasks in parallel. If the content is inappropriate, this task returns a message saying it can't process the request, otherwise it returns the generated response.
 
-View the Trigger.dev parallelization task code: [src/trigger/trigger/parallelize-tasks.ts](./src/trigger/trigger/parallelize-tasks.ts).
+View the Trigger.dev parallelization task code: [src/trigger/trigger/parallel-llm-calls.ts](./src/trigger/trigger/parallel-llm-calls.ts).
 
 ### Orchestrator-workers
 
 This pattern is like having a project manager (the orchestrator) who breaks down a big job into smaller tasks and assigns them to specialists (the workers). The orchestrator keeps track of everything and puts all the pieces back together at the end. Using batch.triggerByTaskAndWait, it efficiently coordinates multiple tasks while maintaining clear control over the entire workflow.
 
-#### Example: Orchestrator-workers
+#### Orchestrator-workers task
 
 1. Extracts distinct factual claims from a news article.
 2. Verifies each claim by considering recent news sources and official statements.
@@ -76,7 +76,7 @@ View the Trigger.dev orchestrator-workers task code: [src/trigger/trigger/orches
 
 Here's where you add quality control to your AI system. The evaluator checks the output, and if it's not quite right, the optimizer suggests improvements. Think of it as having a friendly editor who reviews your work and helps make it better.
 
-#### Example: Evaluator-optimizer
+#### Evaluator-optimizer task
 
 1. Generates a translation of the text.
 2. Evaluates the translation.
@@ -88,3 +88,12 @@ View the Trigger.dev evaluator-optimizer task code: [src/trigger/trigger/evaluat
 ## Blog post
 
 Read the blog post: [Building Effective Agents with Trigger.dev](https://trigger.dev/blog/ai-agents-with-trigger).
+
+## Learn more about Trigger.dev
+
+To learn more about Trigger.dev, take a look at the following resources:
+
+- [Trigger.dev Documentation](https://trigger.dev/docs) - learn about Trigger.dev and its features.
+- [Batch Trigger docs](https://trigger.dev/docs/triggering) - learn about the Batch Trigger feature of Trigger.dev.
+- [Realtime docs](https://trigger.dev/docs/realtime) - learn about the Realtime feature of Trigger.dev.
+- [React hooks](https://trigger.dev/docs/frontend/react-hooks) - learn about the React hooks provided by Trigger.dev.
