@@ -20,6 +20,8 @@ All of these examples focus on performing specific tasks, rather than do-it-all 
 
 ### Prompt chaining
 
+![prompt-chaining](https://github.com/user-attachments/assets/498e8482-5cbb-4f60-a03f-5728c38a9cc3)
+
 Breaking down a task into a series of steps, guided through a pre-determined sequence.
 
 #### Prompt chaining task
@@ -31,6 +33,9 @@ Breaking down a task into a series of steps, guided through a pre-determined seq
 View the Trigger.dev prompt chaining task code: [src/trigger/trigger/translate-copy.ts](./src/trigger/trigger/translate-copy.ts).
 
 ### Routing
+
+![routing](https://github.com/user-attachments/assets/6d94c5b8-b9ae-4b56-ad64-007ff7ea30a0)
+
 
 You can think of routing as an AI traffic controller. Instead of forcing one LLM to handle everything, you first figure out what type of task you're dealing with, then send it to the right specialist.
 
@@ -44,6 +49,8 @@ You can think of routing as an AI traffic controller. Instead of forcing one LLM
 View the Trigger.dev routing task code: [src/trigger/trigger/routing-questions.ts](./src/trigger/trigger/routing-questions.ts).
 
 ### Parallelization
+
+![parallelization](https://github.com/user-attachments/assets/d4c51caa-ebfe-4893-85b0-10825649681d)
 
 Sometimes you need to do multiple things at once – that's where parallelization comes in. Rather than working through tasks one by one, you split them up and run them simultaneously. This is where batch.triggerByTaskAndWait shines, allowing you to execute multiple tasks in parallel and efficiently coordinate their responses.
 
@@ -61,6 +68,8 @@ View the Trigger.dev parallelization task code: [src/trigger/trigger/parallel-ll
 
 ### Orchestrator-workers
 
+![orchestrator-workers](https://github.com/user-attachments/assets/46ef2a06-fb8e-4843-a95a-7f251cc9fd20)
+
 This pattern is like having a project manager (the orchestrator) who breaks down a big job into smaller tasks and assigns them to specialists (the workers). The orchestrator keeps track of everything and puts all the pieces back together at the end. Using batch.triggerByTaskAndWait, it efficiently coordinates multiple tasks while maintaining clear control over the entire workflow.
 
 #### Orchestrator-workers task
@@ -73,6 +82,8 @@ This pattern is like having a project manager (the orchestrator) who breaks down
 View the Trigger.dev orchestrator-workers task code: [src/trigger/trigger/orchestrator-workers.ts](./src/trigger/trigger/orchestrator-workers.ts).
 
 ### Evaluator-optimizer
+
+![evaluator-optimizer](https://github.com/user-attachments/assets/ddddd1ff-1aef-4e4f-901b-47c69f992826)
 
 Here's where you add quality control to your AI system. The evaluator checks the output, and if it's not quite right, the optimizer suggests improvements. Think of it as having a friendly editor who reviews your work and helps make it better.
 
