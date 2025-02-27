@@ -5,11 +5,9 @@ import { auth, runs, tasks } from "@trigger.dev/sdk/v3";
 
 export async function streamWithClaude(
   prompt: string,
-  // system: string,
 ) {
   const run = await tasks.trigger<typeof claudeStream>("claude-stream", {
     prompt: prompt,
-    // system: system,
   });
 
   const publicAccessToken = await auth.createPublicToken({
