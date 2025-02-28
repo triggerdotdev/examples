@@ -12,12 +12,13 @@ export const claudeStream = task({
   run: async ({ prompt }: { prompt: string }) => {
     const result = streamText({
       model: anthropic("claude-3-7-sonnet-20250219"),
-      // This is the prompt, which is the user's question
+      // The user's prompt
       prompt: prompt,
+      // The system prompt, which is the instruction for the AI
       system: "You are a helpful assistant who responds in a concise manner.",
-
       providerOptions: {
         anthropic: {
+          // Enable thinking to show the AI's reasoning
           thinking: {
             type: "enabled",
             // 1024 is the minimum budget for thinking
@@ -27,9 +28,8 @@ export const claudeStream = task({
       },
     });
 
-    await metadata.stream(
-      "claude",
-      result.fullStream,
-    );
+    // This is a stream with all events, including text deltas, tool calls, tool results, and errors.
+    // You can use it as either an AsyncIterable or a ReadableStream.
+    await metadata.stream("claude", result.fullStream);
   },
 });
