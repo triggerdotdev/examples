@@ -1,6 +1,6 @@
 ## Claude Chatbot with Trigger.dev Realtime Streaming
 
-https://github.com/user-attachments/assets/f833a656-f168-45dd-924d-f8e8d90a7b3e
+https://github.com/user-attachments/assets/053739a5-9736-4cb5-ab1c-81c35b69f4c4
 
 This project is a full-stack chat application that uses the following:
 
