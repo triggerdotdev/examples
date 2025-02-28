@@ -12,19 +12,17 @@ import {
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import type { claudeStream, STREAMS } from "@/src/trigger/claude-stream";
-import {
-  useRealtimeRun,
-  useRealtimeRunWithStreams,
-} from "@trigger.dev/react-hooks";
+import { useRealtimeRunWithStreams } from "@trigger.dev/react-hooks";
 import { Loader2, Send } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { streamWithClaude } from "../actions";
 
-// Define a message type
 type Message = {
   id: string;
   role: "user" | "assistant";
   prompt: string;
+  runId?: string;
+  accessToken?: string;
 };
 
 export function ClaudeChat() {
@@ -33,8 +31,6 @@ export function ClaudeChat() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [runId, setRunId] = useState<string>("");
-  const [accessToken, setAccessToken] = useState<string | null>(null);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInput(e.target.value);
@@ -54,20 +50,18 @@ export function ClaudeChat() {
         role: "user",
         prompt: input,
       };
-
-      const { run, publicAccessToken } = await streamWithClaude(
-        userMessage.prompt
-      );
+      setInput("");
+      const { run } = await streamWithClaude(userMessage.prompt);
       const assistantMessage: Message = {
         id: run.id,
         role: "assistant",
         prompt: "Thinking...",
+        runId: run.id,
+        accessToken: run.publicAccessToken,
       };
 
       setMessages((prev) => [...prev, userMessage, assistantMessage]);
-
-      setAccessToken(publicAccessToken);
-      setRunId(run.id);
+      setIsLoading(false);
     } catch (error) {
       console.error("Error:", error);
       toast({
@@ -85,35 +79,27 @@ export function ClaudeChat() {
     }
   }, [isLoading]);
 
-  useRealtimeRun<typeof claudeStream>(runId, {
-    accessToken: accessToken ?? "",
-    enabled: !!accessToken && !!runId,
-    onComplete: (run, error) => {
-      console.log("Run completed", run);
-      setIsLoading(false);
-      setInput("");
-    },
-  });
-
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 p-4">
       <Card className="w-full max-w-4xl max-h-9xl flex flex-col">
         <CardHeader className="border-b">
           <CardTitle className="flex items-center gap-2">
-            <div className="size-8 rounded-full bg-black flex items-center justify-center">
-              <span className="text-white text-sm font-semibold">AI</span>
-            </div>
+            <Avatar>
+              <AvatarFallback>AI</AvatarFallback>
+              <AvatarImage src="ai.png" />
+            </Avatar>
             Talk to Claude
           </CardTitle>
         </CardHeader>
 
         <CardContent className="flex-1 overflow-y-auto p-4 space-y-4">
           {messages.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-center p-8 text-muted-foreground">
-              <div className="size-12 rounded-full bg-black/10 flex items-center justify-center mb-4">
-                <Send className="size-6 text-black" />
-              </div>
-              <p className="text-lg font-medium">How can I help you today?</p>
+            <div className="h-full flex flex-col items-center justify-center text-center p-8 text-muted-foreground gap-3">
+              <img src="ai.png" className="size-8 text-black mb-2" />
+
+              <p className="text-2xl font-bold text-black">
+                How can I help you today?
+              </p>
               <p className="text-sm">
                 Ask me anything and I'll do my best to assist you.
               </p>
@@ -130,7 +116,7 @@ export function ClaudeChat() {
                   {message.role === "assistant" && (
                     <Avatar className="mt-0.5 border">
                       <AvatarFallback>AI</AvatarFallback>
-                      <AvatarImage src="/ai.png" />
+                      <AvatarImage src="ai.png" />
                     </Avatar>
                   )}
 
@@ -141,8 +127,11 @@ export function ClaudeChat() {
                         : "bg-muted"
                     }`}
                   >
-                    {message.role === "assistant" && accessToken ? (
-                      <StreamResponse runId={runId} accessToken={accessToken} />
+                    {message.role === "assistant" && message.accessToken ? (
+                      <StreamResponse
+                        runId={message.runId}
+                        accessToken={message.accessToken}
+                      />
                     ) : (
                       message.prompt
                     )}
@@ -158,9 +147,6 @@ export function ClaudeChat() {
               </div>
             ))
           )}
-
-          {/* {isLoading && ( */}
-          <></>
         </CardContent>
 
         <CardFooter className="border-t p-4">
@@ -201,61 +187,38 @@ export function ClaudeChat() {
   );
 }
 
-// type ButtonSpinnerProps = {
-//   runId: string;
-//   accessToken: string;
-//   isLoading: boolean;
-//   input: string;
-// };
-
-// export function SendButton({ runId, accessToken }: ButtonSpinnerProps) {
-//   const [taskCompleted, setTaskCompleted] = useState(false);
-
-//   useRealtimeRun<typeof claudeStream>(runId, {
-//     accessToken: accessToken,
-//     onComplete: (run, error) => {
-//       console.log("Run completed", run);
-//       setTaskCompleted(true);
-//     },
-//   });
-//   return (
-//     <>
-//       {accessToken && taskCompleted === false ? (
-//         <Loader2 className="size-4 animate-spin" />
-//       ) : (
-//         <Send className="size-4" />
-//       )}
-//       <span className="sr-only">Send message</span>
-//     </>
-//   );
-// }
-
 interface StreamResponseProps {
-  runId: string;
+  runId: string | undefined;
   accessToken: string | null;
 }
 
-export function StreamResponse({ runId, accessToken }: StreamResponseProps) {
+function StreamResponse({ runId, accessToken }: StreamResponseProps) {
   const { streams, run } = useRealtimeRunWithStreams<
     typeof claudeStream,
     STREAMS
   >(runId, { accessToken: accessToken ?? "" });
 
-  const displayText = streams?.text ?? "";
-  const reasoning = streams?.reasoning ?? "";
+  const displayText =
+    streams.claude
+      ?.filter((part) => part.type === "text-delta")
+      .map((part) => part.textDelta)
+      .join("") ?? "";
+  const reasoning =
+    streams.claude
+      ?.filter((part) => part.type === "reasoning")
+      .map((part) => part.textDelta)
+      .join("") ?? "";
 
   return (
     <div className="flex justify-start" key={runId}>
       <div className="flex items-start gap-3 max-w-[80%]">
         <div className="bg-muted rounded-lg px-4 py-2 whitespace-pre-wrap break-words">
-          {reasoning && displayText ? (
-            <div className="flex flex-col gap-2">
-              <span className="italic text-muted-foreground">{reasoning}</span>
-              <span>{displayText}</span>
-            </div>
-          ) : (
-            "Thinking..."
-          )}
+          <div className="flex flex-col gap-2">
+            <span className="italic text-muted-foreground">
+              {reasoning ? reasoning : "Thinking..."}
+            </span>
+            {displayText && <span>{displayText}</span>}
+          </div>
         </div>
       </div>
     </div>

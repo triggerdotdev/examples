@@ -1,10 +1,9 @@
 import { anthropic } from "@ai-sdk/anthropic";
 import { metadata, task } from "@trigger.dev/sdk/v3";
-import { streamText } from "ai";
+import { streamText, TextStreamPart } from "ai";
 
 export type STREAMS = {
-  text: string;
-  reasoning: string;
+  claude: TextStreamPart<{}>;
 };
 
 export const claudeStream = task({
@@ -28,32 +27,9 @@ export const claudeStream = task({
       },
     });
 
-    // Create transformed streams that only emit the text content
-    const textStream = await metadata.stream(
-      "text",
-      async function* () {
-        for await (const chunk of result.fullStream) {
-          if (chunk.type === "text-delta") {
-            yield chunk.textDelta;
-          }
-        }
-      }(),
+    await metadata.stream(
+      "claude",
+      result.fullStream,
     );
-
-    const reasoningStream = await metadata.stream(
-      "reasoning",
-      async function* () {
-        for await (const chunk of result.fullStream) {
-          if (chunk.type === "reasoning") {
-            yield chunk.textDelta;
-          }
-        }
-      }(),
-    );
-
-    return {
-      claude: textStream,
-      reasoning: reasoningStream,
-    };
   },
 });

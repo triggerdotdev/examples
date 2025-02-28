@@ -10,13 +10,5 @@ export async function streamWithClaude(
     prompt: prompt,
   });
 
-  const publicAccessToken = await auth.createPublicToken({
-    scopes: {
-      read: {
-        tasks: ["claude-stream"], // 👈 this token can read all runs of these tasks
-      },
-    },
-  });
-
-  return { run, publicAccessToken };
+  return { run };
 }
