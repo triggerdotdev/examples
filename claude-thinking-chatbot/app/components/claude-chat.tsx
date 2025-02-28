@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import type { claudeStream, STREAMS } from "@/src/trigger/claude-stream";
 import { useRealtimeRunWithStreams } from "@trigger.dev/react-hooks";
-import { Loader2, Send } from "lucide-react";
+import { Brain, ChevronDown, Loader2, Send } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { streamWithClaude } from "../actions";
 
@@ -31,6 +31,7 @@ export function ClaudeChat() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInput(e.target.value);
@@ -79,21 +80,33 @@ export function ClaudeChat() {
     }
   }, [isLoading]);
 
+  // Function to scroll to bottom
+  const scrollToBottom = () => {
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop =
+        messagesContainerRef.current.scrollHeight;
+    }
+  };
+
+  // Scroll when messages update
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 p-4">
-      <Card className="w-full max-w-4xl max-h-9xl flex flex-col">
+      <Card className="w-full max-w-4xl min-h-[50vh] max-h-[50vh] flex flex-col">
         <CardHeader className="border-b">
           <CardTitle className="flex items-center gap-2">
-            <Avatar>
+            <Avatar className="size-8">
               <AvatarFallback>AI</AvatarFallback>
               <AvatarImage src="ai.png" />
             </Avatar>
-            Talk to Claude
+            <span className="pt-1">Talk to Claude</span>
           </CardTitle>
         </CardHeader>
-
-        <CardContent className="flex-1 overflow-y-auto p-4 space-y-4">
-          {messages.length === 0 ? (
+        {messages.length === 0 ? (
+          <CardContent className="h-full flex w-full items-center justify-center flex-1">
             <div className="h-full flex flex-col items-center justify-center text-center p-8 text-muted-foreground gap-3">
               <img src="ai.png" className="size-8 text-black mb-2" />
 
@@ -104,8 +117,13 @@ export function ClaudeChat() {
                 Ask me anything and I'll do my best to assist you.
               </p>
             </div>
-          ) : (
-            messages.map((message) => (
+          </CardContent>
+        ) : (
+          <CardContent
+            ref={messagesContainerRef}
+            className="flex-1 overflow-y-auto p-4 space-y-4"
+          >
+            {messages.map((message) => (
               <div
                 key={message.id}
                 className={`flex ${
@@ -128,6 +146,7 @@ export function ClaudeChat() {
                     }`}
                   >
                     {message.role === "assistant" && message.accessToken ? (
+                      // Stream the response from the claude-stream task
                       <StreamResponse
                         runId={message.runId}
                         accessToken={message.accessToken}
@@ -145,9 +164,9 @@ export function ClaudeChat() {
                   )}
                 </div>
               </div>
-            ))
-          )}
-        </CardContent>
+            ))}
+          </CardContent>
+        )}
 
         <CardFooter className="border-t p-4">
           <form onSubmit={handleSubmit} className="flex w-full gap-2">
@@ -164,7 +183,7 @@ export function ClaudeChat() {
                 }
               }}
               placeholder="Ask AI anything..."
-              className="flex-1 focus-visible:ring-black focus-visible:ring-offset-2"
+              className="flex-1 focus-visible:ring-black/10 focus-visible:ring-1 focus-visible:ring-offset-0"
               disabled={isLoading}
             />
 
@@ -193,34 +212,93 @@ interface StreamResponseProps {
 }
 
 function StreamResponse({ runId, accessToken }: StreamResponseProps) {
+  const [isThoughtExpanded, setIsThoughtExpanded] = useState(true);
+
+  // Get a reference to the scroll container from parent component
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Function to scroll to bottom - needed in this component
+  const scrollToBottom = () => {
+    // Find the closest scrollable parent element
+    if (messagesEndRef.current) {
+      const scrollContainer =
+        messagesEndRef.current.closest(".overflow-y-auto");
+      if (scrollContainer) {
+        scrollContainer.scrollTop = scrollContainer.scrollHeight;
+      }
+    }
+  };
+
+  // Stream the response from the claude-stream task
   const { streams, run } = useRealtimeRunWithStreams<
     typeof claudeStream,
     STREAMS
   >(runId, { accessToken: accessToken ?? "" });
 
+  // Filter the stream to get the display text and reasoning text
   const displayText =
     streams.claude
       ?.filter((part) => part.type === "text-delta")
       .map((part) => part.textDelta)
       .join("") ?? "";
 
-  const reasoning =
+  const reasoningText =
     streams.claude
       ?.filter((part) => part.type === "reasoning")
       .map((part) => part.textDelta)
       .join("") ?? "";
 
+  const toggleThought = () => {
+    setIsThoughtExpanded(!isThoughtExpanded);
+  };
+
+  // Scroll when displayText or reasoning text updates
+  useEffect(() => {
+    scrollToBottom();
+  }, [displayText, reasoningText]);
+
+  // Scroll when thought is expanded/collapsed
+  useEffect(() => {
+    scrollToBottom();
+  }, [isThoughtExpanded]);
+
   return (
     <div className="flex justify-start" key={runId}>
-      <div className="flex items-start gap-3 max-w-[80%]">
-        <div className="bg-muted rounded-lg px-4 py-2 whitespace-pre-wrap break-words">
-          <div className="flex flex-col gap-2">
-            <span className="italic text-muted-foreground">
-              {reasoning ? reasoning : "Thinking..."}
-            </span>
-            {displayText && <span>{displayText}</span>}
-          </div>
+      <div className="bg-muted rounded-lg px-4 py-2 whitespace-pre-wrap break-words w-full">
+        <div className="flex flex-col gap-2">
+          <button
+            onClick={toggleThought}
+            className="flex items-center gap-1 text-left w-full italic text-muted-foreground"
+          >
+            <Brain
+              className={`size-4 ${!displayText ? "animate-pulse" : ""}`}
+            />
+
+            {!displayText || !reasoningText ? (
+              <>
+                <span className="animate-pulse">Thinking...</span>
+              </>
+            ) : (
+              <div className="flex items-center gap-2">
+                <span>Thought process</span>
+                <ChevronDown
+                  className={`size-4 transition-transform duration-300 ease-in-out ${
+                    isThoughtExpanded ? "rotate-180" : "rotate-0"
+                  }`}
+                />
+              </div>
+            )}
+          </button>
+
+          {isThoughtExpanded && reasoningText && (
+            <div className="italic text-muted-foreground ">{reasoningText}</div>
+          )}
+
+          {displayText && <div className="mt-1">{displayText}</div>}
         </div>
+
+        {/* This invisible div serves as a marker for the end of messages */}
+        <div ref={messagesEndRef} />
       </div>
     </div>
   );
