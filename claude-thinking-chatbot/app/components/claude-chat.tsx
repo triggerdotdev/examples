@@ -11,14 +11,13 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
-import { Loader2, Send } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
 import type { claudeStream, STREAMS } from "@/src/trigger/claude-stream";
 import {
   useRealtimeRun,
   useRealtimeRunWithStreams,
-  useRun,
 } from "@trigger.dev/react-hooks";
+import { Loader2, Send } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { streamWithClaude } from "../actions";
 
 // Define a message type
@@ -28,21 +27,14 @@ type Message = {
   prompt: string;
 };
 
-export function ClaudeChat({
-  runId,
-  accessToken,
-}: {
-  runId: string;
-  accessToken: string;
-}) {
+export function ClaudeChat() {
   const { toast } = useToast();
   const inputRef = useRef<HTMLInputElement>(null);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [currentRunId, setCurrentRunId] = useState<string>(runId);
-  const [currentAccessToken, setCurrentAccessToken] =
-    useState<string>(accessToken);
+  const [runId, setRunId] = useState<string>("");
+  const [accessToken, setAccessToken] = useState<string | null>(null);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInput(e.target.value);
@@ -53,25 +45,29 @@ export function ClaudeChat({
 
     if (!input.trim()) return;
 
-    // Add user message
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: "user",
-      prompt: input,
-    };
-
-    setMessages((prev) => [...prev, userMessage]);
     setIsLoading(true);
 
-    // Clear input
-    setInput("");
-
     try {
+      // Add user message
+      const userMessage: Message = {
+        id: input,
+        role: "user",
+        prompt: input,
+      };
+
       const { run, publicAccessToken } = await streamWithClaude(
         userMessage.prompt
       );
-      setCurrentRunId(run.id);
-      setCurrentAccessToken(publicAccessToken);
+      const assistantMessage: Message = {
+        id: run.id,
+        role: "assistant",
+        prompt: "Thinking...",
+      };
+
+      setMessages((prev) => [...prev, userMessage, assistantMessage]);
+
+      setAccessToken(publicAccessToken);
+      setRunId(run.id);
     } catch (error) {
       console.error("Error:", error);
       toast({
@@ -83,30 +79,21 @@ export function ClaudeChat({
     }
   };
 
-  // Use the current run ID and access token for real-time updates
-  const { run, error } = useRealtimeRun(currentRunId, {
-    accessToken: currentAccessToken,
-    onComplete: (run, error) => {
-      setIsLoading(false);
-    },
-  });
-
-  // Add the initial message when the component mounts
-  useEffect(() => {
-    // We'll add the initial user message when the component first mounts
-    const initialUserMessage: Message = {
-      id: Date.now().toString(),
-      role: "user",
-      prompt: "Hello, Claude!", // This is a placeholder, we don't know the actual first message
-    };
-    setMessages([initialUserMessage]);
-  }, []);
-
   useEffect(() => {
     if (inputRef.current && !isLoading) {
       inputRef.current.focus();
     }
   }, [isLoading]);
+
+  useRealtimeRun<typeof claudeStream>(runId, {
+    accessToken: accessToken ?? "",
+    enabled: !!accessToken && !!runId,
+    onComplete: (run, error) => {
+      console.log("Run completed", run);
+      setIsLoading(false);
+      setInput("");
+    },
+  });
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 p-4">
@@ -121,54 +108,59 @@ export function ClaudeChat({
         </CardHeader>
 
         <CardContent className="flex-1 overflow-y-auto p-4 space-y-4">
-          {messages.map((message) => (
-            <div
-              key={message.id}
-              className={`flex ${
-                message.role === "user" ? "justify-end" : "justify-start"
-              }`}
-            >
-              <div className="flex items-start gap-3 max-w-[80%]">
-                {message.role !== "user" && (
-                  <Avatar className="mt-0.5 border">
-                    <AvatarFallback>AI</AvatarFallback>
-                    <AvatarImage src="/user.png" />
-                  </Avatar>
-                )}
-
-                <div
-                  className={`rounded-lg px-4 py-2 ${
-                    message.role === "user" ? "bg-black text-white" : "bg-muted"
-                  }`}
-                >
-                  {message.prompt}
-                </div>
-
-                {message.role === "user" && (
-                  <Avatar className="mt-0.5 border bg-black">
-                    <AvatarFallback className="text-white" />
-                    <AvatarImage src="/user.png" />{" "}
-                  </Avatar>
-                )}
+          {messages.length === 0 ? (
+            <div className="h-full flex flex-col items-center justify-center text-center p-8 text-muted-foreground">
+              <div className="size-12 rounded-full bg-black/10 flex items-center justify-center mb-4">
+                <Send className="size-6 text-black" />
               </div>
+              <p className="text-lg font-medium">How can I help you today?</p>
+              <p className="text-sm">
+                Ask me anything and I'll do my best to assist you.
+              </p>
             </div>
-          ))}
+          ) : (
+            messages.map((message) => (
+              <div
+                key={message.id}
+                className={`flex ${
+                  message.role === "user" ? "justify-end" : "justify-start"
+                }`}
+              >
+                <div className="flex items-start gap-3 max-w-[80%]">
+                  {message.role === "assistant" && (
+                    <Avatar className="mt-0.5 border">
+                      <AvatarFallback>AI</AvatarFallback>
+                      <AvatarImage src="/ai.png" />
+                    </Avatar>
+                  )}
 
-          {isLoading && (
-            <StreamResponse
-              runId={currentRunId}
-              accessToken={currentAccessToken}
-              onComplete={(text) => {
-                // Add assistant message when stream completes
-                const assistantMessage: Message = {
-                  id: Date.now().toString(),
-                  role: "assistant",
-                  prompt: text,
-                };
-                setMessages((prev) => [...prev, assistantMessage]);
-              }}
-            />
+                  <div
+                    className={`rounded-lg px-4 py-2 ${
+                      message.role === "user"
+                        ? "bg-black text-white"
+                        : "bg-muted"
+                    }`}
+                  >
+                    {message.role === "assistant" && accessToken ? (
+                      <StreamResponse runId={runId} accessToken={accessToken} />
+                    ) : (
+                      message.prompt
+                    )}
+                  </div>
+
+                  {message.role === "user" && (
+                    <Avatar className="mt-0.5 border bg-black">
+                      <AvatarFallback className="text-white" />
+                      <AvatarImage src="/user.png" />
+                    </Avatar>
+                  )}
+                </div>
+              </div>
+            ))
           )}
+
+          {/* {isLoading && ( */}
+          <></>
         </CardContent>
 
         <CardFooter className="border-t p-4">
@@ -189,6 +181,7 @@ export function ClaudeChat({
               className="flex-1 focus-visible:ring-black focus-visible:ring-offset-2"
               disabled={isLoading}
             />
+
             <Button
               type="submit"
               disabled={isLoading || !input.trim()}
@@ -208,60 +201,57 @@ export function ClaudeChat({
   );
 }
 
+// type ButtonSpinnerProps = {
+//   runId: string;
+//   accessToken: string;
+//   isLoading: boolean;
+//   input: string;
+// };
+
+// export function SendButton({ runId, accessToken }: ButtonSpinnerProps) {
+//   const [taskCompleted, setTaskCompleted] = useState(false);
+
+//   useRealtimeRun<typeof claudeStream>(runId, {
+//     accessToken: accessToken,
+//     onComplete: (run, error) => {
+//       console.log("Run completed", run);
+//       setTaskCompleted(true);
+//     },
+//   });
+//   return (
+//     <>
+//       {accessToken && taskCompleted === false ? (
+//         <Loader2 className="size-4 animate-spin" />
+//       ) : (
+//         <Send className="size-4" />
+//       )}
+//       <span className="sr-only">Send message</span>
+//     </>
+//   );
+// }
+
 interface StreamResponseProps {
   runId: string;
-  accessToken: string;
-  onComplete: (text: string) => void;
+  accessToken: string | null;
 }
 
-export function StreamResponse({
-  runId,
-  accessToken,
-  onComplete,
-}: StreamResponseProps) {
-  const hasCalledCompleteRef = useRef(false);
-
+export function StreamResponse({ runId, accessToken }: StreamResponseProps) {
   const { streams, run } = useRealtimeRunWithStreams<
     typeof claudeStream,
     STREAMS
-  >(runId, { accessToken });
-
-  // Debug what's coming in
-  useEffect(() => {
-    console.log("Streams:", streams);
-  }, [streams]);
-
-  // Check if the run has completed and notify parent
-  useEffect(() => {
-    if (
-      run?.status === "COMPLETED" &&
-      !hasCalledCompleteRef.current &&
-      streams?.text
-    ) {
-      hasCalledCompleteRef.current = true;
-      const responseText = Array.isArray(streams.text)
-        ? streams.text.join("")
-        : streams.text;
-      onComplete(responseText);
-    }
-  }, [run?.status, streams?.text, onComplete]);
+  >(runId, { accessToken: accessToken ?? "" });
 
   const displayText = streams?.text ?? "";
   const reasoning = streams?.reasoning ?? "";
 
   return (
-    <div className="flex justify-start">
+    <div className="flex justify-start" key={runId}>
       <div className="flex items-start gap-3 max-w-[80%]">
-        <Avatar className="mt-0.5 border">
-          <AvatarFallback className="bg-black text-white">AI</AvatarFallback>
-          <AvatarImage src="" />
-        </Avatar>
-
         <div className="bg-muted rounded-lg px-4 py-2 whitespace-pre-wrap break-words">
           {reasoning && displayText ? (
             <div className="flex flex-col gap-2">
               <span className="italic text-muted-foreground">{reasoning}</span>
-              <span> {displayText}</span>
+              <span>{displayText}</span>
             </div>
           ) : (
             "Thinking..."
