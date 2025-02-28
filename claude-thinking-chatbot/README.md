@@ -11,7 +11,7 @@ This project is a full-stack chat application that uses the following:
 
 1. After cloning the repo, run `npm install` to install the dependencies.
 2. Copy the `.env.example` file to `.env` and fill in the required environment variables:
-   - You'll need an Anthropic API key for Claude
+   - You'll need an Anthropic API key for Claude. Create a free account at [Anthropic](https://console.anthropic.com/signup) to get your API key.
    - If you haven't already, sign up for a free Trigger.dev account [here](https://cloud.trigger.dev/login) and create a new project
 3. Copy the project ref from the Trigger.dev dashboard and add it to the `trigger.config.ts` file.
 4. Run the Next.js server with `npm run dev`.
