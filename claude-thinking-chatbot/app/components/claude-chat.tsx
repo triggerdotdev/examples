@@ -163,7 +163,7 @@ export function ClaudeChat() {
                   }
                 }
               }}
-              placeholder="Type your message..."
+              placeholder="Ask AI anything..."
               className="flex-1 focus-visible:ring-black focus-visible:ring-offset-2"
               disabled={isLoading}
             />
@@ -203,6 +203,7 @@ function StreamResponse({ runId, accessToken }: StreamResponseProps) {
       ?.filter((part) => part.type === "text-delta")
       .map((part) => part.textDelta)
       .join("") ?? "";
+
   const reasoning =
     streams.claude
       ?.filter((part) => part.type === "reasoning")
