@@ -26,14 +26,6 @@ class PlaywrightExtension implements BuildExtension {
   }
 
   onBuildComplete(context: BuildContext) {
-    if (context.target === "dev") return;
-
-    context.logger.debug(
-      `Adding ${this.name} to the build with browsers: ${
-        this.options.browsers.join(", ")
-      }`,
-    );
-
     const instructions: string[] = [
       // Base dependencies
       `RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -131,28 +123,29 @@ class PlaywrightExtension implements BuildExtension {
     // Setup Playwright browsers
     instructions.push(`RUN mkdir -p /ms-playwright`);
     instructions.push(
-      `RUN npx playwright install --dry-run > /tmp/browser-info.txt`,
+      // `RUN npx playwright install --dry-run > /tmp/browser-info.txt`,
+      `RUN PLAYWRIGHT_BROWSERS_PATH=/ms-playwright python -m playwright install --with-deps chromium`,
     );
 
-    this.options.browsers.forEach((browser) => {
-      const browserType = browser === "chromium"
-        ? "chromium-headless-shell"
-        : browser;
+    // this.options.browsers.forEach((browser) => {
+    //   const browserType = browser === "chromium"
+    //     ? "chromium-headless-shell"
+    //     : browser;
 
-      instructions.push(
-        `RUN grep -A5 "browser: ${browserType}" /tmp/browser-info.txt > /tmp/${browser}-info.txt`,
-        `RUN INSTALL_DIR=$(grep "Install location:" /tmp/${browser}-info.txt | cut -d':' -f2- | xargs) && \
-          DIR_NAME=$(basename "$INSTALL_DIR") && \
-          MS_DIR="/ms-playwright/$DIR_NAME" && \
-          mkdir -p "$MS_DIR"`,
-        `RUN DOWNLOAD_URL=$(grep "Download url:" /tmp/${browser}-info.txt | cut -d':' -f2- | xargs | sed "s/mac-arm64/linux/g" | sed "s/mac-15-arm64/ubuntu-20.04/g") && \
-          echo "Downloading ${browser} from $DOWNLOAD_URL" && \
-          curl -L -o /tmp/${browser}.zip "$DOWNLOAD_URL" && \
-          unzip -q /tmp/${browser}.zip -d "/ms-playwright/$(basename $(grep "Install location:" /tmp/${browser}-info.txt | cut -d':' -f2- | xargs))" && \
-          chmod -R +x "/ms-playwright/$(basename $(grep "Install location:" /tmp/${browser}-info.txt | cut -d':' -f2- | xargs))" && \
-          rm /tmp/${browser}.zip`,
-      );
-    });
+    //   instructions.push(
+    //     `RUN grep -A5 "browser: ${browserType}" /tmp/browser-info.txt > /tmp/${browser}-info.txt`,
+    //     `RUN INSTALL_DIR=$(grep "Install location:" /tmp/${browser}-info.txt | cut -d':' -f2- | xargs) && \
+    //       DIR_NAME=$(basename "$INSTALL_DIR") && \
+    //       MS_DIR="/ms-playwright/$DIR_NAME" && \
+    //       mkdir -p "$MS_DIR"`,
+    //     `RUN DOWNLOAD_URL=$(grep "Download url:" /tmp/${browser}-info.txt | cut -d':' -f2- | xargs | sed "s/mac-arm64/linux/g" | sed "s/mac-15-arm64/ubuntu-20.04/g") && \
+    //       echo "Downloading ${browser} from $DOWNLOAD_URL" && \
+    //       curl -L -o /tmp/${browser}.zip "$DOWNLOAD_URL" && \
+    //       unzip -q /tmp/${browser}.zip -d "/ms-playwright/$(basename $(grep "Install location:" /tmp/${browser}-info.txt | cut -d':' -f2- | xargs))" && \
+    //       chmod -R +x "/ms-playwright/$(basename $(grep "Install location:" /tmp/${browser}-info.txt | cut -d':' -f2- | xargs))" && \
+    //       rm /tmp/${browser}.zip`,
+    //   );
+    // });
 
     // Environment variables
     const envVars: Record<string, string> = {
