@@ -1,0 +1,64 @@
+import { defineConfig } from "@trigger.dev/sdk/v3";
+import { pythonExtension } from "@trigger.dev/python/extension";
+import type { BuildContext, BuildExtension } from "@trigger.dev/core/v3/build";
+
+export default defineConfig({
+  runtime: "node",
+  project: "<your-project-ref>",
+  machine: "small-1x",
+  maxDuration: 3600,
+  build: {
+    extensions: [
+      pythonExtension({
+        requirementsFile: "./requirements.txt",
+        devPythonBinaryPath: `.venv/bin/python`,
+        scripts: ["src/python/**/*.py"],
+      }),
+      installPlaywrightChromium(),
+    ],
+  },
+  retries: {
+    enabledInDev: true,
+    default: {
+      maxAttempts: 1,
+      minTimeoutInMs: 1_000,
+      maxTimeoutInMs: 5_000,
+      factor: 1.6,
+      randomize: true,
+    },
+  },
+});
+
+export function installPlaywrightChromium(): BuildExtension {
+  return {
+    name: "InstallPlaywrightChromium",
+    onBuildComplete(context: BuildContext) {
+      const instructions = [
+        // Base and Chromium dependencies
+        `RUN apt-get update && apt-get install -y --no-install-recommends \
+          curl unzip npm libnspr4 libatk1.0-0 libatk-bridge2.0-0 libatspi2.0-0 \
+          libasound2 libnss3 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 \
+          libgbm1 libxkbcommon0 \
+          && apt-get clean && rm -rf /var/lib/apt/lists/*`,
+
+        // Install Playwright and Chromium
+        `RUN npm install -g playwright`,
+        `RUN mkdir -p /ms-playwright`,
+        `RUN PLAYWRIGHT_BROWSERS_PATH=/ms-playwright python -m playwright install --with-deps chromium`,
+      ];
+
+      context.addLayer({
+        id: "playwright",
+        image: { instructions },
+        deploy: {
+          env: {
+            PLAYWRIGHT_BROWSERS_PATH: "/ms-playwright",
+            PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1",
+            PLAYWRIGHT_SKIP_BROWSER_VALIDATION: "1",
+          },
+          override: true,
+        },
+      });
+    },
+  };
+}
