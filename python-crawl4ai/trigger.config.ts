@@ -1,47 +1,6 @@
 import { defineConfig } from "@trigger.dev/sdk/v3";
 import { pythonExtension } from "@trigger.dev/python/extension";
-import { playwrightExtension } from "./src/extensions/playwrightExtension.js";
-
-// function playwrightExtension(): BuildExtension {
-//   return {
-//     name: "playwright-extension",
-//     onBuildComplete: async (context) => {
-//       context.addLayer({
-//         id: "playwright-setup",
-//         image: {
-//           pkgs: [
-//             "libnss3",
-//             "libnspr4",
-//             "libatk1.0-0",
-//             "libatk-bridge2.0-0",
-//             "libcups2",
-//             "libdrm2",
-//             "libdbus-1-3",
-//             "libxkbcommon0",
-//             "libxcomposite1",
-//             "libxdamage1",
-//             "libxfixes3",
-//             "libxrandr2",
-//             "libgbm1",
-//             "libasound2",
-//             "libpango-1.0-0",
-//             "libcairo2",
-//           ],
-//         },
-//         commands: [
-//           "source /opt/venv/bin/activate && python -m playwright install chromium",
-//           "source /opt/venv/bin/activate && python -m playwright install-deps",
-//         ],
-//         build: {
-//           env: {
-//             VIRTUAL_ENV: "/opt/venv",
-//             PATH: "/opt/venv/bin:${PATH}",
-//           },
-//         },
-//       });
-//     },
-//   };
-// }
+import type { BuildContext, BuildExtension } from "@trigger.dev/core/v3/build";
 
 export default defineConfig({
   runtime: "node",
@@ -55,7 +14,7 @@ export default defineConfig({
         devPythonBinaryPath: `.venv/bin/python`,
         scripts: ["src/python/**/*.py"],
       }),
-      playwrightExtension(),
+      installPlaywrightChromium(),
     ],
   },
   retries: {
@@ -69,3 +28,37 @@ export default defineConfig({
     },
   },
 });
+
+export function installPlaywrightChromium(): BuildExtension {
+  return {
+    name: "InstallPlaywrightChromium",
+    onBuildComplete(context: BuildContext) {
+      const instructions = [
+        // Base and Chromium dependencies
+        `RUN apt-get update && apt-get install -y --no-install-recommends \
+          curl unzip npm libnspr4 libatk1.0-0 libatk-bridge2.0-0 libatspi2.0-0 \
+          libasound2 libnss3 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 \
+          libgbm1 libxkbcommon0 \
+          && apt-get clean && rm -rf /var/lib/apt/lists/*`,
+
+        // Install Playwright and Chromium
+        `RUN npm install -g playwright`,
+        `RUN mkdir -p /ms-playwright`,
+        `RUN PLAYWRIGHT_BROWSERS_PATH=/ms-playwright python -m playwright install --with-deps chromium`,
+      ];
+
+      context.addLayer({
+        id: "playwright",
+        image: { instructions },
+        deploy: {
+          env: {
+            PLAYWRIGHT_BROWSERS_PATH: "/ms-playwright",
+            PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1",
+            PLAYWRIGHT_SKIP_BROWSER_VALIDATION: "1",
+          },
+          override: true,
+        },
+      });
+    },
+  };
+}
