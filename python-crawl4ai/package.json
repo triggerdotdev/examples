@@ -8,8 +8,7 @@
   },
   "dependencies": {
     "@trigger.dev/python": "^3.3.17",
-    "@trigger.dev/sdk": "^3.3.17",
-    "zod": "3.23.8"
+    "@trigger.dev/sdk": "^3.3.17"
   },
   "devDependencies": {
     "@trigger.dev/build": "^3.3.17",

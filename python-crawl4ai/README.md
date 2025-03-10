@@ -4,20 +4,18 @@ This demo showcases how to use Trigger.dev with Python to build a web crawler th
 
 ## Features
 
-- Trigger.dev for background task orchestration
+- [Trigger.dev](https://trigger.dev) for background task orchestration
 - [Crawl4AI](https://github.com/unclecode/crawl4ai), an open source LLM friendly web crawler
 - [Playwright](https://playwright.dev/) to create a headless chromium browser
 
 ## Getting Started
 
 1. After cloning the repo, run `npm install` to install the dependencies.
-2. Create a virtual environment`python -m venv venv`
-
+2. Create a virtual environment `python -m venv venv`
 3. Activate the virtual environment, depending on your OS: On Mac/Linux: `source venv/bin/activate`, on Windows: `venv\Scripts\activate`
-
-4. Install the dependencies `pip install -r requirements.txt`
+4. Install the Python dependencies `pip install -r requirements.txt`
 5. Copy the project ref from your [Trigger.dev dashboard](https://cloud.trigger.dev) and and add it to the `trigger.config.ts` file.
-6. Run the Trigger.dev dev CLI command with with `npm exec trigger dev` (it may ask you to authorize the CLI if you haven't already).
+6. Run the Trigger.dev dev CLI command with with `npx trigger dev@latest dev` (it may ask you to authorize the CLI if you haven't already).
 7. Test the task in the dashboard
 8. Deploy the task to production using the CLI command `npx trigger.dev@latest deploy`
 
