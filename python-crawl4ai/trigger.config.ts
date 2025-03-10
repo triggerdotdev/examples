@@ -4,7 +4,7 @@ import type { BuildContext, BuildExtension } from "@trigger.dev/core/v3/build";
 
 export default defineConfig({
   runtime: "node",
-  project: "proj_evoftjmqvmvjeublxlqx",
+  project: "<your-project-ref>",
   machine: "small-1x",
   maxDuration: 3600,
   build: {
