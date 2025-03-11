@@ -11,7 +11,7 @@ export default defineConfig({
     extensions: [
       pythonExtension({
         requirementsFile: "./requirements.txt",
-        devPythonBinaryPath: `.venv/bin/python`,
+        devPythonBinaryPath: `venv/bin/python`,
         scripts: ["src/python/**/*.py"],
       }),
       installPlaywrightChromium(),
