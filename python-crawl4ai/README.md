@@ -24,12 +24,6 @@ Some popular proxy services are:
 
 Once you have a proxy service, set the following environment variables in your Trigger.dev .env file, and add them to the Trigger.dev dashboard:
 
-Simple proxy:
-
-- `PROXY_URL`: The URL of your proxy server (e.g., `http://proxy.example.com:8080`)
-
-Authenticated proxy:
-
 - `PROXY_URL`: The URL of your proxy server (e.g., `http://proxy.example.com:8080`)
 - `PROXY_USERNAME`: Username for authenticated proxies (optional)
 - `PROXY_PASSWORD`: Password for authenticated proxies (optional)
