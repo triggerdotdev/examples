@@ -8,6 +8,31 @@ This demo showcases how to use Trigger.dev with Python to build a web crawler th
 - [Trigger.dev Python build extension](https://trigger.dev/docs/config/extensions/pythonExtension) to install the dependencies and run the Python script
 - [Crawl4AI](https://github.com/unclecode/crawl4ai), an open source LLM friendly web crawler
 - [Playwright](https://playwright.dev/) to create a headless chromium browser
+- Proxy support
+
+## Using Proxies
+
+_When web scraping, you MUST use a proxy to comply with the Trigger.dev terms of service. Direct scraping of third-party websites without the site owner’s permission using Trigger.dev Cloud is prohibited and will result in account suspension._
+
+Some popular proxy services are:
+
+- [Smartproxy](https://smartproxy.com/)
+- [Bright Data](https://brightdata.com/)
+- [Browserbase](https://browserbase.com/)
+- [Oxylabs](https://oxylabs.io/)
+- [ScrapingBee](https://scrapingbee.com/)
+
+Once you have a proxy service, set the following environment variables in your Trigger.dev .env file, and add them to the Trigger.dev dashboard:
+
+Simple proxy:
+
+- `PROXY_URL`: The URL of your proxy server (e.g., `http://proxy.example.com:8080`)
+
+Authenticated proxy:
+
+- `PROXY_URL`: The URL of your proxy server (e.g., `http://proxy.example.com:8080`)
+- `PROXY_USERNAME`: Username for authenticated proxies (optional)
+- `PROXY_PASSWORD`: Password for authenticated proxies (optional)
 
 ## Getting Started
 
