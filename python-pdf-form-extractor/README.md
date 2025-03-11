@@ -4,7 +4,7 @@ This demo showcases how to use Trigger.dev with Python to extract form data from
 
 ## Features
 
-- [Trigger.dev](https://trigger.dev) for background task orchestration
+- [Trigger.dev](https://trigger.dev) to orchestrate background tasks
 - [Trigger.dev Python build extension](https://trigger.dev/docs/config/extensions/pythonExtension) to install the dependencies and run the Python script
 - [PyMuPDF](https://pymupdf.readthedocs.io/en/latest/) to extract form data from PDF files
 - [Requests](https://docs.python-requests.org/en/master/) to download PDF files from URLs
@@ -17,11 +17,11 @@ This demo showcases how to use Trigger.dev with Python to extract form data from
 4. Install the Python dependencies `pip install -r requirements.txt`
 5. Copy the project ref from your [Trigger.dev dashboard](https://cloud.trigger.dev) and add it to the `trigger.config.ts` file.
 6. Run the Trigger.dev dev CLI command with `npx trigger dev@latest dev` (it may ask you to authorize the CLI if you haven't already).
-7. Test the task in the dashboard
+7. Test the task in the dashboard by providing a valid PDF URL.
 8. Deploy the task to production using the CLI command `npx trigger.dev@latest deploy`
 
 ## Relevant code
 
-- [pythonTasks.ts](./src/trigger/pythonTasks.ts) triggers the Python script and returns the result
-- [trigger.config.ts](./src/trigger/trigger.config.ts) uses the Trigger.dev Python extension to install the dependencies and run the script
-- [extract-pdf-form.py](./src/python/extract-pdf-form.py) is the main Python script that takes a URL and returns the form data from the PDF
+- [pythonPdfTask.ts](./src/trigger/pythonPdfTask.ts) triggers the Python script and returns the structured form data as JSON
+- [trigger.config.ts](./trigger.config.ts) uses the Trigger.dev Python extension to install the dependencies and run the script
+- [extract-pdf-form.py](./src/python/extract-pdf-form.py) is the main Python script that takes a URL and returns the form data from the PDF in JSON format

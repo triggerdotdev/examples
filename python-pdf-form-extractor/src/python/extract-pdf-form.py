@@ -1,6 +1,8 @@
 import fitz  # PyMuPDF
 import requests
 import os
+import json
+import sys
 from urllib.parse import urlparse
 
 def download_pdf(url):
@@ -41,10 +43,20 @@ def extract_form_data(pdf_path):
     return form_data
 
 def main():
-    url = "https://content.trigger.dev/test-pdf-form.pdf"
-    pdf_path = download_pdf(url)
-    form_data = extract_form_data(pdf_path)
-    print(form_data)
+    # Check if URL is provided as argument, otherwise use default
+    url = sys.argv[1] if len(sys.argv) > 1 else "https://content.trigger.dev/test-pdf-form.pdf"
+    
+    try:
+        pdf_path = download_pdf(url)
+        form_data = extract_form_data(pdf_path)
+        
+        # Convert to JSON for structured output
+        structured_output = json.dumps(form_data, indent=2)
+        print(structured_output)
+        return 0
+    except Exception as e:
+        print(json.dumps({"error": str(e)}), file=sys.stderr)
+        return 1
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

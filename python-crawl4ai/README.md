@@ -23,5 +23,5 @@ This demo showcases how to use Trigger.dev with Python to build a web crawler th
 ## Relevant code
 
 - [pythonTasks.ts](./src/trigger/pythonTasks.ts) triggers the Python script and returns the result
-- [trigger.config.ts](./src/trigger/trigger.config.ts) uses the Trigger.dev Python extension to install the dependencies and run the script, as well as `installPlaywrightChromium()` to create a headless chromium browser
+- [trigger.config.ts](./trigger.config.ts) uses the Trigger.dev Python extension to install the dependencies and run the script, as well as `installPlaywrightChromium()` to create a headless chromium browser
 - [crawl-url.py](./src/python/crawl-url.py) is the main Python script that takes a URL and returns the markdown content of the page
