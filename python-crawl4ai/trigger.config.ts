@@ -17,16 +17,6 @@ export default defineConfig({
       installPlaywrightChromium(),
     ],
   },
-  retries: {
-    enabledInDev: true,
-    default: {
-      maxAttempts: 1,
-      minTimeoutInMs: 1_000,
-      maxTimeoutInMs: 5_000,
-      factor: 1.6,
-      randomize: true,
-    },
-  },
 });
 
 export function installPlaywrightChromium(): BuildExtension {

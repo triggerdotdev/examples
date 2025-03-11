@@ -1,10 +1,11 @@
-# Trigger.dev + Python web crawler headless example
+# Trigger.dev + Python headless web crawler example
 
 This demo showcases how to use Trigger.dev with Python to build a web crawler that uses a headless browser to navigate websites and extract content.
 
 ## Features
 
 - [Trigger.dev](https://trigger.dev) for background task orchestration
+- [Trigger.dev Python build extension](https://trigger.dev/docs/config/extensions/pythonExtension) to install the dependencies and run the Python script
 - [Crawl4AI](https://github.com/unclecode/crawl4ai), an open source LLM friendly web crawler
 - [Playwright](https://playwright.dev/) to create a headless chromium browser
 
