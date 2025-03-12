@@ -1,0 +1,19 @@
+{
+  "name": "python-crawl4ai",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "trigger dev",
+    "install-python-deps": "uv pip sync requirements.txt"
+  },
+  "dependencies": {
+    "@ai-sdk/openai": "^1.2.1",
+    "@trigger.dev/python": "^3.3.17",
+    "@trigger.dev/sdk": "^3.3.17",
+    "ai": "^4.1.54"
+  },
+  "devDependencies": {
+    "@trigger.dev/build": "^3.3.17",
+    "typescript": "^5.5.4"
+  }
+}
