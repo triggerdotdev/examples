@@ -1,4 +1,5 @@
-import { task } from "@trigger.dev/sdk/v3";
+import { schemaTask } from "@trigger.dev/sdk/v3";
+import { z } from "zod";
 import { python } from "@trigger.dev/python";
 import { promises as fs } from "fs";
 import { S3Client } from "@aws-sdk/client-s3";
@@ -14,31 +15,53 @@ const s3Client = new S3Client({
   },
 });
 
-export const processImage = task({
+// Define the input schema with Zod
+const imageProcessingSchema = z.object({
+  imageUrl: z.string().url(),
+  height: z.number().positive().optional().default(800),
+  width: z.number().positive().optional().default(600),
+  quality: z.number().min(1).max(100).optional().default(85),
+  maintainAspectRatio: z.boolean().optional().default(true),
+  outputFormat: z.enum(["jpeg", "png", "webp", "gif", "avif"]).optional()
+    .default("jpeg"),
+  brightness: z.number().optional(),
+  contrast: z.number().optional(),
+  sharpness: z.number().optional(),
+  grayscale: z.boolean().optional().default(false),
+});
+
+// Define the output schema
+const outputSchema = z.object({
+  url: z.string().url(),
+  key: z.string(),
+  format: z.string(),
+  originalSize: z.object({
+    width: z.number(),
+    height: z.number(),
+  }),
+  newSize: z.object({
+    width: z.number(),
+    height: z.number(),
+  }),
+  fileSizeBytes: z.number(),
+  exitCode: z.number(),
+});
+
+export const processImage = schemaTask({
   id: "process-image",
-  run: async (payload: {
-    imageUrl: string;
-    height?: number;
-    width?: number;
-    quality?: number;
-    maintainAspectRatio?: boolean;
-    outputFormat?: "jpeg" | "png" | "webp" | "gif" | "avif";
-    brightness?: number;
-    contrast?: number;
-    sharpness?: number;
-    grayscale?: boolean;
-  }, io: any) => {
+  schema: imageProcessingSchema,
+  run: async (payload, io) => {
     const {
       imageUrl,
-      height = 800,
-      width = 600,
-      quality = 85,
-      maintainAspectRatio = true,
-      outputFormat = "jpeg",
+      height,
+      width,
+      quality,
+      maintainAspectRatio,
+      outputFormat,
       brightness,
       contrast,
       sharpness,
-      grayscale = false,
+      grayscale,
     } = payload;
 
     try {
