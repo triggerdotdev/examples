@@ -43,8 +43,11 @@ def extract_form_data(pdf_path):
     return form_data
 
 def main():
-    # Check if URL is provided as argument, otherwise use default
-    url = sys.argv[1] if len(sys.argv) > 1 else "https://content.trigger.dev/test-pdf-form.pdf"
+    if len(sys.argv) < 2:
+        print(json.dumps({"error": "PDF URL is required as an argument"}), file=sys.stderr)
+        return 1
+        
+    url = sys.argv[1]
     
     try:
         pdf_path = download_pdf(url)
