@@ -1,0 +1,8 @@
+# Core dependencies
+Pillow==10.2.0            # Image processing library
+python-dotenv==1.0.0      # Environment variable management
+requests==2.31.0          # HTTP requests
+numpy==1.26.3             # Numerical operations (for advanced processing)
+
+# Optional enhancements
+opencv-python==4.8.1.78   # For more advanced image processing
