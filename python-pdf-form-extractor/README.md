@@ -1,10 +1,10 @@
-# Trigger.dev + Python PDF Form Extractor Example
+# Trigger.dev + Python PDF form extractor demo
 
 This demo showcases how to use Trigger.dev with Python to extract structured form data from a PDF file available at a URL.
 
 ## Features
 
-- [Trigger.dev](https://trigger.dev) to orchestrate background tasks
+- A [Trigger.dev](https://trigger.dev) task to trigger the Python script
 - [Trigger.dev Python build extension](https://trigger.dev/docs/config/extensions/pythonExtension) to install the dependencies and run the Python script
 - [PyMuPDF](https://pymupdf.readthedocs.io/en/latest/) to extract form data from PDF files
 - [Requests](https://docs.python-requests.org/en/master/) to download PDF files from URLs
