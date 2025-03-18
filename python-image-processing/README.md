@@ -35,9 +35,9 @@ This demo showcases how to use Trigger.dev with Python to process images from UR
    S3_PUBLIC_URL=https://your-public-url.com
    ```
 6. Copy the project ref from your [Trigger.dev dashboard](https://cloud.trigger.dev) and add it to the `trigger.config.ts` file.
-7. Run the Trigger.dev dev CLI command with `npx trigger dev@latest dev` (it may ask you to authorize the CLI if you haven't already).
+7. Run the Trigger.dev [CLI dev command](https://trigger.dev/docs/cli-dev-commands#cli-dev-command) (it may ask you to authorize the CLI if you haven't already).
 8. Test the task in the dashboard by providing a valid image URL and processing options.
-9. Deploy the task to production using the CLI command `npx trigger.dev@latest deploy`
+9. Deploy the task to production using the Trigger.dev [CLI deploy command](https://trigger.dev/docs/cli-deploy-commands#cli-deploy-command).
 
 ## Example Payload
 

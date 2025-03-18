@@ -16,9 +16,9 @@ This demo showcases how to use Trigger.dev with Python to extract structured for
 3. Activate the virtual environment, depending on your OS: On Mac/Linux: `source venv/bin/activate`, on Windows: `venv\Scripts\activate`
 4. Install the Python dependencies `pip install -r requirements.txt`
 5. Copy the project ref from your [Trigger.dev dashboard](https://cloud.trigger.dev) and add it to the `trigger.config.ts` file.
-6. Run the Trigger.dev dev CLI command with `npx trigger dev@latest dev` (it may ask you to authorize the CLI if you haven't already).
+6. Run the Trigger.dev [CLI dev command](https://trigger.dev/docs/cli-dev-commands#cli-dev-command) (it may ask you to authorize the CLI if you haven't already).
 7. Test the task in the dashboard by providing a valid PDF URL.
-8. Deploy the task to production using the CLI command `npx trigger.dev@latest deploy`
+8. Deploy the task to production using the Trigger.dev [CLI deploy command](https://trigger.dev/docs/cli-deploy-commands#cli-deploy-command).
 
 ## Relevant code
 
