@@ -1,7 +1,6 @@
 "use server";
-
-import { tasks } from "@repo/tasks/trigger";
-import type { addNewUser } from "@repo/tasks";
+import { tasks } from "@trigger.dev/sdk/v3";
+import { addNewUser } from "../../src/trigger/addNewUser";
 //     👆 type only import
 
 export async function myTask() {
