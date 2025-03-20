@@ -44,10 +44,6 @@ yarn-error.log*
 .DS_Store
 *.pem
 
-# Prisma migrations
-# Uncomment next line if you want to version migrations
-# !packages/database/prisma/migrations/
-
 # Trigger.dev
 .trigger/
 .trigger-dev/
