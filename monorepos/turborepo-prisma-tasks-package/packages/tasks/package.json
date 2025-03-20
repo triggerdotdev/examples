@@ -1,0 +1,14 @@
+{
+  "name": "@repo/tasks",
+  "version": "0.0.0",
+  "dependencies": {
+    "@trigger.dev/sdk": "^3.3.17",
+    "@repo/db": "workspace:*"
+  },
+  "devDependencies": {
+    "@trigger.dev/build": "^3.3.17"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}
