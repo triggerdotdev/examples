@@ -2,7 +2,7 @@ import { defineConfig } from "@trigger.dev/sdk/v3";
 import { prismaExtension } from "@trigger.dev/build/extensions/prisma";
 
 export default defineConfig({
-  project: "proj_evoftjmqvmvjeublxlqx",
+  project: "<your-project-id>", // Replace with your project id
   runtime: "node",
   logLevel: "log",
   // The max compute seconds a task is allowed to run. If the task run exceeds this duration, it will be stopped.
@@ -22,6 +22,7 @@ export default defineConfig({
   build: {
     extensions: [
       prismaExtension({
+        // Use the same version as the database package, this is required for the prisma extension to work
         version: "6.5.0",
         schema: "../../packages/database/prisma/schema.prisma",
       }),
