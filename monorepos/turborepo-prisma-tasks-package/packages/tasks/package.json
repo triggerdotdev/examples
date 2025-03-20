@@ -9,6 +9,7 @@
     "@trigger.dev/build": "^3.3.17"
   },
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./trigger": "./src/trigger.ts"
   }
 }
