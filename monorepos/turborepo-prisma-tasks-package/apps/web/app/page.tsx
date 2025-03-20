@@ -31,7 +31,7 @@ export default async function Home() {
       </h2>
       <p
         style={{
-          marginBottom: "30px",
+          marginBottom: "16px",
           fontSize: "20px",
           color: "white",
           opacity: "0.9",
@@ -40,6 +40,19 @@ export default async function Home() {
       >
         {user?.name ?? "No user added yet"}
       </p>
+      {user?.name && (
+        <p
+          style={{
+            marginBottom: "24px",
+            fontSize: "16px",
+            color: "gray",
+            opacity: "0.9",
+            fontWeight: "400",
+          }}
+        >
+          {user?.createdAt.toLocaleString()}
+        </p>
+      )}
       <button
         onClick={myTask}
         style={{
