@@ -8,7 +8,7 @@ This example demonstrates how to use Trigger.dev and Prisma in a monorepo create
 - [pnpm](https://pnpm.io/) has been used as the package manager.
 - A database package (`@repo/db`) using [Prisma ORM](https://www.prisma.io/docs/orm/) is used to interact with the database. You can use any popular Postgres database supported by Prisma, e.g. [Supabase](https://supabase.com/), [Neon](https://neon.tech/), etc.
 - A [Next.js](https://nextjs.org/) example app (`apps/web`) to show how to trigger the task via a server action.
-- Trigger.dev initialized and a `addNewUser` task created in the `web` app.
+- Trigger.dev initialized and an `addNewUser` task created in the `web` app.
 
 ## Relevant files and code
 
