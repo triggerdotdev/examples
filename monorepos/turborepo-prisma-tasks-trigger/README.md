@@ -57,3 +57,9 @@ This example demonstrates how to use Trigger.dev and Prisma in a monorepo create
 
 6. Access the application at http://localhost:3000, and test the functionality by clicking the "Add new user" button on the web app to trigger the task
 7. Go to the Trigger.dev dashboard to see the task being executed
+
+## Learn more
+
+- [Trigger.dev docs](https://trigger.dev/docs) - learn about Trigger.dev and its features.
+- [Turborepo docs](https://turbo.build/repo) - learn about Turborepo and its features.
+- [Prisma docs](https://www.prisma.io/docs) - learn about Prisma and its features.
