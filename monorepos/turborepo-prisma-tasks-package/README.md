@@ -1,4 +1,4 @@
-# Turborepo monorepo setup with Trigger.dev and Prisma packages
+# Turborepo monorepo demo with Trigger.dev and Prisma packages
 
 This simple example demonstrates how to use Trigger.dev and Prisma as packages inside a monorepo created with Turborepo. The Trigger.dev task is triggered by a button click in a Next.js app which triggers the task via a server action.
 
@@ -23,8 +23,8 @@ This simple example demonstrates how to use Trigger.dev and Prisma as packages i
 
 - Trigger.dev is added as a package in [`/packages/tasks`](/packages/tasks/) and exported as `@repo/tasks` in the [`package.json`](/packages/tasks/package.json) file.
 - The [`addNewUser.ts`](/packages/tasks/src/trigger/addNewUser.ts) task adds a new user to the database.
-- The [`trigger.ts`](/packages/tasks/src/trigger.ts) file exports values and types from the Trigger.dev SDK, and is exported from the package via the [`package.json`](/packages/tasks/package.json) file.
-- The [`index.ts`](/packages/tasks/src/index.ts) file exports the task from the package. Every task must be exported from the package like this.
+- The [`packages/tasks/src/index.ts`](/packages/tasks/src/index.ts) file exports values and types from the Trigger.dev SDK, and is exported from the package via the [`package.json`](/packages/tasks/package.json) file.
+- The [`packages/tasks/src/trigger/index.ts`](/packages/tasks/src/trigger/index.ts) file exports the task from the package. Every task must be exported from the package like this.
 - The [`trigger.config.ts`](/packages/tasks/trigger.config.ts) file configures the Trigger.dev project settings. This is where the Trigger.dev [Prisma build extension](https://trigger.dev/docs/config/extensions/prismaExtension) is added, which is required to use Prisma in the Trigger.dev task.
 
 ### A Next.js app `apps/web`
@@ -41,13 +41,14 @@ This simple example demonstrates how to use Trigger.dev and Prisma as packages i
    ```
 
 2. Create `.env` files in [`apps/web`](./apps/web), [`packages/database`](./packages/database) and [`packages/tasks`](./packages/tasks) with the correct environment variables. Copy the structure from the `.env.example` files and use the correct values for your database and Trigger.dev project. If you don't have a Trigger.dev project yet, you can create one at [here](https://cloud.trigger.dev/).
-3. Update the Trigger.dev project ref in the [`trigger.config.ts`](./packages/tasks/trigger.config.ts) file.
-4. Set up the database and run migrations:
+3. Set up the database and run migrations:
 
    ```bash
    pnpm turbo db:generate   # Generate Prisma client
    pnpm turbo db:migrate    # Run migrations
    ```
+
+4. Update the Trigger.dev project ref in the [`trigger.config.ts`](./packages/tasks/trigger.config.ts) file.
 
 5. Start the development server for the Next.js app:
 
@@ -55,7 +56,7 @@ This simple example demonstrates how to use Trigger.dev and Prisma as packages i
    pnpm turbo run dev --filter=web
    ```
 
-   and in a new terminal, run the Trigger.dev `dev` command, in the tasks package folder:
+   and in a separate terminal window, run the Trigger.dev `dev` command, in the `packages/tasks` folder:
 
    ```bash
    cd packages/tasks
