@@ -55,6 +55,8 @@ This example demonstrates how to use Trigger.dev and Prisma in a monorepo create
    pnpm dlx trigger.dev@latest dev
    ```
 
+   > Note: when running the dev command, you will get some warnings in the console: "▲ WARNING The condition "default" here will never be used as it comes after both "import" and "require" package.json". These warnings can be safely ignored, and won't affect the functionality of the app. They will be fixed in an upcoming release.
+
 6. Access the application at http://localhost:3000, and test the functionality by clicking the "Add new user" button on the web app to trigger the task
 7. Go to the Trigger.dev dashboard to see the task being executed
 

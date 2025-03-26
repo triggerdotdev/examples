@@ -1,5 +1,5 @@
 {
-  "name": "turborepo-prisma-example-1",
+  "name": "turborepo-prisma-tasks-package",
   "private": true,
   "scripts": {
     "build": "turbo run build",
