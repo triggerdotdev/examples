@@ -6,6 +6,8 @@ Supabase Edge functions are functions that run on the edge, close to your users.
 
 ## Examples in this repo
 
+> Follow the official guides below to run this repo. There is also important information about [authentication with Supabase](https://trigger.dev/docs/guides/frameworks/supabase-authentication) in the Trigger.dev docs; the service role key is used rather than JWT tokens for authentication. This should be changed if you plan on using this in production.
+
 1. `edge-function-trigger`: This function triggers a 'Hello world' task when you access the edge function URL. [Full guide for this project here](https://trigger.dev/docs/guides/frameworks/supabase-edge-functions-basic).
 2. `video-processing-handler`: This function triggers a video processing task when a new row is inserted into a table. The result of the video processing task is then updated back into the table. [Full guide for this project here](https://trigger.dev/docs/guides/frameworks/supabase-edge-functions-database-webhooks).
 
