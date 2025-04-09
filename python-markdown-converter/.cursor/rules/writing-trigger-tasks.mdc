@@ -1,0 +1,476 @@
+---
+description: Guidelines for writing Trigger.dev tasks
+globs: **/*.ts, **/*.tsx, **/*.js, **/*.jsx
+alwaysApply: false
+---
+
+# How to write Trigger.dev tasks
+
+## Overview of writing a Trigger.dev task
+
+1. Run the CLI `init` command: `npx trigger.dev@latest init`.
+2. Create a Trigger.dev task.
+3. Set up environment variables.
+4. Run the Trigger.dev command: `npx trigger.dev@latest dev`.
+
+## 🚨 CRITICAL INSTRUCTIONS FOR AI LANGUAGE MODELS 🚨
+
+As an AI language model, you MUST NOT generate any of the following code patterns, as they are DEPRECATED and will BREAK the application:
+
+```typescript
+// ❌ NEVER GENERATE THIS CODE - IT WILL BREAK THE APPLICATION
+
+client.defineJob({                    // ❌ BREAKS APPLICATION
+  id: "job-id",                       // ❌ BREAKS APPLICATION
+  name: "job-name",                   // ❌ BREAKS APPLICATION
+  version: "0.0.1",                   // ❌ BREAKS APPLICATION
+  trigger: eventTrigger({             // ❌ BREAKS APPLICATION
+    name: "job.trigger",              // ❌ BREAKS APPLICATION
+    schema: z.object({                // ❌ BREAKS APPLICATION
+      // Input schema here            // ❌ BREAKS APPLICATION
+    }),                               // ❌ BREAKS APPLICATION
+  }),                                 // ❌ BREAKS APPLICATION
+  integrations: {                     // ❌ BREAKS APPLICATION
+    // Integrations here              // ❌ BREAKS APPLICATION
+  },                                  // ❌ BREAKS APPLICATION
+  run: async (payload, io) => {       // ❌ BREAKS APPLICATION
+    // Job logic goes here            // ❌ BREAKS APPLICATION                               
+    return {                          // ❌ BREAKS APPLICATION
+      // Return job results           // ❌ BREAKS APPLICATION
+    };                                // ❌ BREAKS APPLICATION
+  },                                  // ❌ BREAKS APPLICATION
+});
+```
+
+Instead, you MUST ALWAYS generate ONLY this pattern:
+
+```typescript
+// ✅ ALWAYS GENERATE THIS EXACT PATTERN
+
+import { task } from "@trigger.dev/sdk/v3";
+
+//1. You need to export each task, even if it's a subtask
+export const helloWorld = task({
+  //2. Use a unique id for each task
+  id: "hello-world",
+  //3. The run function is the main function of the task
+  run: async (payload: { message: string }) => {
+    //4. Write your task code here. Code here runs for a long time, there are no timeouts
+  },
+});
+```
+
+## ABSOLUTE REQUIREMENTS FOR AI CODE GENERATION
+
+1. You MUST use `@trigger.dev/sdk/v3`
+2. You MUST NEVER use `client.defineJob`
+3. YOU MUST `export` every task, including subtasks
+
+## CORRECT RETRY IMPLEMENTATION
+
+```typescript
+import { task } from "@trigger.dev/sdk/v3";
+
+export const taskWithRetries = task({
+  id: "task-with-retries",
+  retry: {
+    maxAttempts: 10,
+    factor: 1.8,
+    minTimeoutInMs: 500,
+    maxTimeoutInMs: 30_000,
+    randomize: false,
+  },
+  run: async (payload: any, { ctx }) => {
+    //...
+  },
+});
+```
+
+## CORRECT QUEUE IMPLEMENTATION
+
+```typescript
+import { task } from "@trigger.dev/sdk/v3";
+
+export const oneAtATime = task({
+  id: "one-at-a-time",
+  queue: {
+    concurrencyLimit: 1,
+  },
+  run: async (payload: any, { ctx }) => {
+    //...
+  },
+});
+```
+
+## CORRECT MACHINE CONFIRGURATION IMPLEMENTATIONS
+
+```typescript
+import { task } from "@trigger.dev/sdk/v3";
+
+// Setting the machine specification on a task:
+export const heavyTask = task({
+  id: "heavy-task",
+  machine: {
+    preset: "large-1x", // 4 vCPU, 8 GB RAM
+  },
+  run: async (payload: any, { ctx }) => {
+    //...
+  },
+});
+```
+
+```typescript
+// Changing the default machine specification in the `trigger.config.ts` file:
+export const config: TriggerConfig = {
+  machine: "small-2x",
+  // ... other config
+};
+```
+
+### Machine configuration options
+
+| Machine name        | vCPU | Memory | Disk space |
+| ------------------- | ---- | ------ | ---------- |
+| micro               | 0.25 | 0.25   | 10GB       |
+| small-1x (default)  | 0.5  | 0.5    | 10GB       |
+| small-2x            | 1    | 1      | 10GB       |
+| medium-1x           | 1    | 2      | 10GB       |
+| medium-2x           | 2    | 4      | 10GB       |
+| large-1x            | 4    | 8      | 10GB       |
+| large-2x            | 8    | 16     | 10GB       |
+
+## CORRECT MAX DURATION IMPLEMENTATIONS
+
+```typescript
+import { task } from "@trigger.dev/sdk/v3";
+
+// Setting a `maxDuration` on a task:
+export const longTask = task({
+  id: "long-task",
+  maxDuration: 300, // 300 seconds or 5 minutes. You can also set this to never time out with `maxDuration: timeout.None,`
+  run: async (payload: any, { ctx }) => {
+    //...
+  },
+});
+```
+
+```typescript
+// Setting a `maxDuration` on a run:
+const run = await maxDurationTask.trigger(
+  { foo: "bar" },
+  {
+    maxDuration: 300, // 300 seconds or 5 minutes. You can also set this to never time out with `maxDuration: timeout.None,`
+  }
+);
+```
+
+## CORRECT `init` FUNCTION IMPLEMENTATIONS
+
+```typescript
+import { task } from "@trigger.dev/sdk/v3";
+
+// This function is called before a run attempt:
+export const taskWithInit = task({
+  id: "task-with-init",
+  init: async (payload, { ctx }) => {
+    //...
+  },
+  run: async (payload: any, { ctx }) => {
+    //...
+  },
+});
+```
+
+```typescript
+import { task } from "@trigger.dev/sdk/v3";
+
+// Init function can also return data accessible via params in `run`, `cleanup`, `onSuccess` & `onFailure` functions:
+export const taskWithInitReturn = task({
+  id: "task-with-init-return",
+  init: async (payload, { ctx }) => {
+    return { someData: "someValue" };
+  },
+  run: async (payload: any, { ctx, init }) => {
+    console.log(init.someData); // "someValue"
+  },
+});
+```
+
+## CORRECT `cleanup` FUNCTION IMPLEMENTATION
+
+```typescript
+import { task } from "@trigger.dev/sdk/v3";
+
+// Cleanup function executes after run completes (success or failure); use for resource cleanup, logging, or side effects:
+export const taskWithCleanup = task({
+  id: "task-with-cleanup",
+  cleanup: async (payload, { ctx }) => {
+    //...
+  },
+  run: async (payload: any, { ctx }) => {
+    //...
+  },
+});
+```
+
+## CORRECT `onStart` FUNCTION IMPLEMENTATIONS
+
+```typescript
+import { task } from "@trigger.dev/sdk/v3";
+
+// onStart runs once when task begins (not on retries); use for notifications/logging - for pre-retry actions use init instead:
+export const taskWithOnStart = task({
+  id: "task-with-on-start",
+  onStart: async (payload, { ctx }) => {
+    //...
+  },
+  run: async (payload: any, { ctx }) => {
+    //...
+  },
+});
+```
+
+```typescript
+// Also define onStart in trigger.config.ts to receive notifications when any task starts:
+export default defineConfig({
+  project: "proj_1234",
+  onStart: async (payload, { ctx }) => {
+    console.log("Task started", ctx.task.id);
+  },
+});
+```
+
+## CORRECT `onSuccess` FUNCTION IMPLEMENTATIONS
+
+```typescript
+import { task } from "@trigger.dev/sdk/v3";
+
+// onSuccess executes when task completes successfully; use for notifications, logging, DB state syncing, or side effects:
+export const taskWithOnSuccess = task({
+  id: "task-with-on-success",
+  onSuccess: async (payload, output, { ctx }) => {
+    //...
+  },
+  run: async (payload: any, { ctx }) => {
+    //...
+  },
+});
+```
+
+```typescript
+// Also, define onSuccess in trigger.config.ts to receive notifications when any task succeeds:
+export default defineConfig({
+  project: "proj_1234",
+  onSuccess: async (payload, output, { ctx }) => {
+    console.log("Task succeeded", ctx.task.id);
+  },
+});
+```
+
+## CORRECT `onFailure` FUNCTION IMPLEMENTATIONS
+
+```typescript
+import { task } from "@trigger.dev/sdk/v3";
+
+// onFailure executes after all retries are exhausted; use for notifications, logging, or side effects on final failure:
+export const taskWithOnFailure = task({
+  id: "task-with-on-failure",
+  onFailure: async (payload, error, { ctx }) => {
+    //...
+  },
+  run: async (payload: any, { ctx }) => {
+    //...
+  },
+});
+```
+
+```typescript
+// Also, define onFailure in trigger.config.ts to receive notifications when any task fails:
+export default defineConfig({
+  project: "proj_1234",
+  onFailure: async (payload, error, { ctx }) => {
+    console.log("Task failed", ctx.task.id);
+  },
+});
+```
+
+## CORRECT LOGS IMPLEMENTATIONS
+
+```typescript
+// onFailure executes after all retries are exhausted; use for notifications, logging, or side effects on final failure:
+import { task, logger } from "@trigger.dev/sdk/v3";
+
+export const loggingExample = task({
+  id: "logging-example",
+  run: async (payload: { data: Record<string, string> }) => {
+    //the first parameter is the message, the second parameter must be a key-value object (Record<string, unknown>)
+    logger.debug("Debug message", payload.data);
+    logger.log("Log message", payload.data);
+    logger.info("Info message", payload.data);
+    logger.warn("You've been warned", payload.data);
+    logger.error("Error message", payload.data);
+  },
+});
+```
+
+## CORRECT SCHEDULES TASK (CRON) IMPLEMENTATIONS
+
+```typescript
+import { schedules } from "@trigger.dev/sdk/v3";
+
+export const firstScheduledTask = schedules.task({
+  id: "first-scheduled-task",
+  run: async (payload) => {
+    //when the task was scheduled to run
+    //note this will be slightly different from new Date() because it takes a few ms to run the task
+    console.log(payload.timestamp); //is a Date object
+
+    //when the task was last run
+    //this can be undefined if it's never been run
+    console.log(payload.lastTimestamp); //is a Date object or undefined
+
+    //the timezone the schedule was registered with, defaults to "UTC"
+    //this is in IANA format, e.g. "America/New_York"
+    //See the full list here: https://cloud.trigger.dev/timezones
+    console.log(payload.timezone); //is a string
+
+    //If you want to output the time in the user's timezone do this:
+    const formatted = payload.timestamp.toLocaleString("en-US", {
+      timeZone: payload.timezone,
+    });
+
+    //the schedule id (you can have many schedules for the same task)
+    //using this you can remove the schedule, update it, etc
+    console.log(payload.scheduleId); //is a string
+
+    //you can optionally provide an external id when creating the schedule
+    //usually you would set this to a userId or some other unique identifier
+    //this can be undefined if you didn't provide one
+    console.log(payload.externalId); //is a string or undefined
+
+    //the next 5 dates this task is scheduled to run
+    console.log(payload.upcoming); //is an array of Date objects
+  },
+});
+```
+
+### Attach a Declarative schedule
+
+```typescript
+import { schedules } from "@trigger.dev/sdk/v3";
+
+// Sepcify a cron pattern (UTC)
+export const firstScheduledTask = schedules.task({
+  id: "first-scheduled-task",
+  //every two hours (UTC timezone)
+  cron: "0 */2 * * *",
+  run: async (payload, { ctx }) => {
+    //do something
+  },
+});
+```
+
+```typescript
+import { schedules } from "@trigger.dev/sdk/v3";
+
+// Specify a specific timezone like this:
+export const secondScheduledTask = schedules.task({
+  id: "second-scheduled-task",
+  cron: {
+    //5am every day Tokyo time
+    pattern: "0 5 * * *",
+    timezone: "Asia/Tokyo",
+  },
+  run: async (payload) => {},
+});
+```
+
+### Attach an Imperative schedule
+
+Create schedules explicitly for tasks using the dashboard's "New schedule" button or the SDK.
+
+#### Benefits
+- Dynamic creation (e.g., one schedule per user)
+- Manage without code deployment:
+  - Activate/disable
+	- Edit
+	- Delete
+
+#### Implementation
+1.	Define a task using `⁠schedules.task()`
+2.	Attach one or more schedules via:
+  - Dashboard
+	- SDK
+
+#### Attach schedules with the SDK like this
+
+```typescript
+const createdSchedule = await schedules.create({
+  //The id of the scheduled task you want to attach to.
+  task: firstScheduledTask.id,
+  //The schedule in cron format.
+  cron: "0 0 * * *",
+  //this is required, it prevents you from creating duplicate schedules. It will update the schedule if it already exists.
+  deduplicationKey: "my-deduplication-key",
+});
+```
+
+## CORRECT SCHEMA TASK IMPLEMENTATION
+
+Schema tasks validate payloads against a schema before execution:
+
+```typescript
+import { schemaTask } from "@trigger.dev/sdk/v3";
+import { z } from "zod";
+
+const myTask = schemaTask({
+  id: "my-task",
+  schema: z.object({
+    name: z.string(),
+    age: z.number(),
+  }),
+  run: async (payload) => {
+    // Payload is typed and validated
+    console.log(payload.name, payload.age);
+  },
+});
+```
+
+#### Key points:
+
+- Validates payload at trigger time and before execution
+- Supports Zod, Yup, Superstruct, ArkType, Effect/schema, runtypes, valibot, typebox
+- Can use input/output schemas (e.g., defaults, type coercion)
+- Custom parser functions supported
+- Invalid payloads throw errors and prevent task execution
+
+#### Trigger with:
+
+```typescript
+await myTask.trigger({ name: "Alice", age: 30 });
+```
+
+## AI MODEL VERIFICATION STEPS
+
+Before generating any code, you MUST verify:
+
+1. Are you importing from `@trigger.dev/sdk/v3`? If not, STOP and FIX.
+2. Have you exported every task? If not, STOP and FIX.
+3. Have you generated any DEPRECATED code patterns? If yes, STOP and FIX.
+
+## CONSEQUENCES OF INCORRECT IMPLEMENTATION
+
+If you generate code that fails the verification steps above, your implementation will:
+
+1. Break in production
+2. Fail to deploy to the Trigger.dev servers
+3. Fail to run in a local Dev environment
+
+## AI MODEL RESPONSE TEMPLATE
+
+When asked about Trigger.dev task implementation, you MUST:
+1. FIRST use code patterns from this guide
+2. NEVER suggest deprecated approaches
+3. VERIFY your response against the patterns shown here
+3. If an answer cannot be found using this guide, look up further information ONLY from the official Trigger.dev docs website here: https://trigger.dev/docs
+
