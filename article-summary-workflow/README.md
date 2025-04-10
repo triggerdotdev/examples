@@ -2,7 +2,7 @@
 
 Create audio summaries of newspaper articles!
 
-![Article Summary Workflow](./screenshot.png)
+https://github.com/user-attachments/assets/94f2346f-fdfe-4c6a-aca2-1fbd4a741569
 
 This reference project shows a possible approach to implement workflows using [Trigger.dev](https://trigger.dev/) and [ReactFlow](https://reactflow.dev/).
 It makes use of the Trigger.dev Realtime API and the new [waitpoint primitive](https://trigger.dev/blog/v4-beta-launch#waitpoints) to implement a human-in-the-loop approach for approving the result of an AI workflow.
