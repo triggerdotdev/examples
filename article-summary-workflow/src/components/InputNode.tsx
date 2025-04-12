@@ -4,19 +4,30 @@ import React, { useActionState, useEffect } from "react";
 import { Handle, Position, NodeProps, Node, useReactFlow } from "@xyflow/react";
 import { triggerArticleWorkflow } from "@/app/actions";
 
-export type InputNodeData = Node<{ trigger: { currentRunTag?: string } }, "input_url">;
+export type InputNodeData = Node<
+  { workflowRun?: { tag: string; accessToken: string } },
+  "input_url"
+>;
 
 export const isInputNode = (node: Node): node is InputNodeData => {
   return node.type === "input_url";
 };
 
 function InputNode({ id }: NodeProps<InputNodeData>) {
-  const [state, formAction, pending] = useActionState(triggerArticleWorkflow, undefined);
+  const [state, formAction, pending] = useActionState(
+    triggerArticleWorkflow,
+    undefined
+  );
   const { updateNodeData } = useReactFlow<InputNodeData>();
 
   useEffect(() => {
     if (state) {
-      updateNodeData(id, { trigger: { currentRunTag: state.runTag } });
+      updateNodeData(id, {
+        workflowRun: {
+          tag: state.workflowTag,
+          accessToken: state.workflowPublicAccessToken,
+        },
+      });
     }
   }, [state, id, updateNodeData]);
 
@@ -47,7 +58,11 @@ function InputNode({ id }: NodeProps<InputNodeData>) {
         </div>
       </form>
 
-      <Handle type="source" position={Position.Right} className="!bg-indigo-500" />
+      <Handle
+        type="source"
+        position={Position.Right}
+        className="!bg-indigo-500"
+      />
     </div>
   );
 }
