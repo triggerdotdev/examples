@@ -1,5 +1,7 @@
 # Article summary workflow with Trigger.dev and ReactFlow
 
+> **ℹ️ Note:** This is a v4 project. If you are using v3 and want to upgrade, please refer to our [v4 upgrade guide](https://trigger.dev/docs/v4-upgrade-guide).
+
 Create audio summaries of newspaper articles!
 
 https://github.com/user-attachments/assets/94f2346f-fdfe-4c6a-aca2-1fbd4a741569
