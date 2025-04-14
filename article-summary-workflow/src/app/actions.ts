@@ -2,7 +2,7 @@
 
 import type { articleWorkflow } from "@/trigger/articleWorkflow";
 import type { ReviewPayload } from "@/trigger/reviewSummary";
-import { auth, tasks, wait } from "@trigger.dev/sdk/v3";
+import { auth, tasks, wait } from "@trigger.dev/sdk";
 
 const randomStr = (length: number) =>
   [...Array(length)]
