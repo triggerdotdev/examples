@@ -43,6 +43,7 @@ export const generateMeme = schemaTask({
       ): url is string => url !== undefined),
       tokenId: token.id,
       prompt: payload.prompt,
+      userId: payload.userId,
     });
 
     const result = await wait.forToken<ApprovalToken>(token.id);
@@ -84,13 +85,13 @@ export async function sendSlackApprovalMessage({
   }
 
   const message = {
-    text: `Meme approval required`,
+    text: `Choose the funniest meme`,
     blocks: [
       {
         type: "header",
         text: {
           type: "plain_text",
-          text: "🎭 Meme Approval Required",
+          text: "🎭 Choose the funniest meme",
           emoji: true,
         },
       },
@@ -110,38 +111,55 @@ export async function sendSlackApprovalMessage({
           text: `*Prompt:*\n${prompt}`,
         },
       },
-      ...images.map((imageUrl, index) => ({
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text: `*Variant ${index + 1}*`,
-        },
-        accessory: {
-          type: "image",
-          image_url: imageUrl,
-          alt_text: `Meme variant ${index + 1}`,
-        },
-      })),
+      // Divider before images
       {
-        type: "actions",
-        elements: images.map((_, index) => ({
-          type: "button",
-          text: {
+        type: "divider",
+      },
+      // For each image, use a dedicated image block followed by a centered button
+      ...images.flatMap((imageUrl, index) => [
+        // Large image block - takes full width
+        {
+          type: "image",
+          title: {
             type: "plain_text",
-            text: `${index + 1}️⃣`,
+            text: `Variant ${index + 1}`,
             emoji: true,
           },
-          style: "primary",
-          value: JSON.stringify({
-            tokenId,
-            memeVariant: index + 1,
-          }),
-          action_id: `meme_approve_${index + 1}`,
-          url: `${process.env.NEXT_PUBLIC_APP_URL}/api/${tokenId}?variant=${
-            index + 1
-          }`,
-        })),
-      },
+          image_url: imageUrl,
+          alt_text: `Meme variant ${index + 1}`,
+          block_id: `image_${index + 1}`,
+        },
+        // Centered button for selection
+        {
+          type: "actions",
+          block_id: `select_${index + 1}`,
+          elements: [
+            {
+              type: "button",
+              text: {
+                type: "plain_text",
+                text: `Select This Meme`,
+                emoji: true,
+              },
+              style: "primary",
+              value: JSON.stringify({
+                tokenId,
+                memeVariant: index + 1,
+              }),
+              action_id: `meme_approve_${index + 1}`,
+              url: `${process.env.NEXT_PUBLIC_APP_URL}/api/${tokenId}?variant=${
+                index + 1
+              }`,
+            },
+          ],
+        },
+        // Add divider between variants
+        ...(index < images.length - 1
+          ? [{
+            type: "divider",
+          }]
+          : []),
+      ]),
     ],
   };
 

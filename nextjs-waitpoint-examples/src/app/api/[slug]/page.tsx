@@ -10,8 +10,12 @@ export default async function ApprovalPage({
   params: { slug: string };
   searchParams: { variant?: string };
 }) {
-  const tokenId = params.slug;
-  const variant = Number(searchParams?.variant || 1);
+  // Await the params and searchParams objects
+  const paramsData = await Promise.resolve(params);
+  const searchParamsData = await Promise.resolve(searchParams);
+
+  const tokenId = paramsData.slug;
+  const variant = Number(searchParamsData?.variant || 1);
 
   console.log("Token ID is:", tokenId, "Variant:", variant);
 
