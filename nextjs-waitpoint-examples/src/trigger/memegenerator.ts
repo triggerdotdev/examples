@@ -17,7 +17,6 @@ export const generateMeme = schemaTask({
   schema: z.object({
     prompt: z.string().min(1),
     userId: z.string().optional(),
-    numberOfVariants: z.number().optional().default(3),
   }),
   maxDuration: 600, // 10 minutes max duration
   run: async (payload, { ctx }) => {
@@ -27,10 +26,10 @@ export const generateMeme = schemaTask({
     });
 
     const imageResponse = await openai.images.generate({
-      model: "dall-e-3",
+      model: "dall-e-2",
       prompt: payload.prompt,
       size: "1024x1024",
-      n: payload.numberOfVariants,
+      n: 2,
     });
 
     logger.log("Image generated", {
@@ -138,7 +137,9 @@ export async function sendSlackApprovalMessage({
             memeVariant: index + 1,
           }),
           action_id: `meme_approve_${index + 1}`,
-          url: `${process.env.NEXT_PUBLIC_APP_URL}/meme-generator/${index + 1}`,
+          url: `${process.env.NEXT_PUBLIC_APP_URL}/api/${tokenId}?variant=${
+            index + 1
+          }`,
         })),
       },
     ],
