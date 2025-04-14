@@ -1,11 +1,14 @@
-import { logger, task, wait, Context } from "@trigger.dev/sdk/v3";
+import { logger, task } from "@trigger.dev/sdk";
 
 export const publishSummary = task({
   id: "publish-summary",
   retry: {
     maxAttempts: 4,
   },
-  run: async (payload: { audioSummaryUrl: string; articleUrl: string }, { ctx }) => {
+  run: async (
+    payload: { audioSummaryUrl: string; articleUrl: string },
+    { ctx }
+  ) => {
     // This task does not actually do anything, it's just a placeholder step in the workflow.
     // The actual logic would depend on your use case.
 

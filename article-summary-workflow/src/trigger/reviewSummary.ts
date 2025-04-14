@@ -1,4 +1,10 @@
-import { logger, metadata, task, wait, WaitpointTimeoutError } from "@trigger.dev/sdk/v3";
+import {
+  logger,
+  metadata,
+  task,
+  wait,
+  WaitpointTimeoutError,
+} from "@trigger.dev/sdk";
 
 export type ReviewPayload =
   | {
@@ -16,12 +22,17 @@ export type ReviewStatus = "pending" | "approved" | "rejected" | "timeout";
 
 export const reviewSummary = task({
   id: "review-summary",
-  run: async (payload: { audioSummaryUrl: string; waitpointTokenId: string }) => {
+  run: async (payload: {
+    audioSummaryUrl: string;
+    waitpointTokenId: string;
+  }) => {
     metadata.set("waitpointTokenId", payload.waitpointTokenId);
     metadata.set("audioSummaryUrl", payload.audioSummaryUrl);
     metadata.set("reviewStatus", "pending" satisfies ReviewStatus);
 
-    const result = await wait.forToken<ReviewPayload>({ id: payload.waitpointTokenId });
+    const result = await wait.forToken<ReviewPayload>({
+      id: payload.waitpointTokenId,
+    });
 
     if (!result.ok) {
       if (result.error instanceof WaitpointTimeoutError) {

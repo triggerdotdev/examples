@@ -1,4 +1,4 @@
-import { batch, Context, task } from "@trigger.dev/sdk/v3";
+import { batch, Context, task } from "@trigger.dev/sdk";
 import { scrape } from "./scrapeSite";
 import { summarizeArticle } from "./summarizeArticle";
 import { convertTextToSpeech } from "./convertTextToSpeech";
