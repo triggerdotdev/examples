@@ -54,7 +54,7 @@ Example payload:
 To learn more about the technologies used in this project, check out the following resources:
 
 - [Trigger.dev Documentation](https://trigger.dev/docs) - learn about Trigger.dev and its features
-- [Trigger.dev human-in-the-loop wait tokens](https://trigger.dev/docs/upgrade-to-v4) - learn about using wait points in workflows
+- [Trigger.dev wait tokens](https://trigger.dev/docs/upgrade-to-v4) - learn about using wait points in workflows
 - [OpenAI DALL-E API](https://platform.openai.com/docs/guides/images) - learn about the DALL-E image generation API
 - [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API
 - [Slack Incoming Webhooks](https://api.slack.com/messaging/webhooks) - learn about integrating with Slack
