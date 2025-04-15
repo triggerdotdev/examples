@@ -4,14 +4,14 @@
 
 This example reference project demonstrates using a human-in-the-loop workflow to approve memes generated using OpenAI's DALL-E 3.
 
-![Meme Generator with Human-in-the-Loop Approval](/public/meme-image.png)
-
 ## Features
 
 - A [Next.js](https://nextjs.org/) app, with an [endpoint](src/app/endpoints/[slug]/page.tsx) for approving the generated memes
 - [Trigger.dev](https://trigger.dev) tasks to generate the images and orchestrate the waitpoint workflow
 - [OpenAI DALL-E 3](https://platform.openai.com/docs/guides/images) for generating the images
 - A [Slack app](https://api.slack.com/quickstart) for the human-in-the-loop step, with the approval buttons linked to the endpoint
+
+![slack-meme-approval](https://github.com/user-attachments/assets/a953211a-d23a-44a0-a466-dde94be10d70)
 
 ## Getting started
 
