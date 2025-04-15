@@ -1,9 +1,9 @@
-import { logger, schemaTask, task, wait } from "@trigger.dev/sdk";
-import { z } from "zod";
+import { logger, task, wait } from "@trigger.dev/sdk";
 import OpenAI from "openai";
 
+// Define the ApprovalToken type
 type ApprovalToken = {
-  memeVariant: 1 | 2 | 3;
+  memeVariant: 1 | 2;
 };
 
 // Create OpenAI client
@@ -11,41 +11,45 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// Main meme generator task with schema validation
-export const generateMeme = schemaTask({
+// Main meme generator task
+export const generateMeme = task({
   id: "meme-generator",
-  schema: z.object({
-    prompt: z.string().min(1),
-    userId: z.string().optional(),
-  }),
   maxDuration: 600, // 10 minutes max duration
-  run: async (payload, { ctx }) => {
+  run: async (payload: { prompt: string }) => {
     // Create a wait token for approval
     const token = await wait.createToken({
       timeout: "10m", // 10 minute timeout for approval
     });
 
-    const imageResponse = await openai.images.generate({
-      model: "dall-e-2",
-      prompt: payload.prompt,
-      size: "1024x1024",
-      n: 2,
-    });
+    // Generate 2 meme variants in parallel using the subtask
+    // You can only generate 1 image at a time using DALL-E 3, so we use batchTriggerAndWait to generate 2 memes in parallel
+    const generatedMemes = await generateSingleMeme.batchTriggerAndWait([
+      { payload: { prompt: payload.prompt } },
+      { payload: { prompt: payload.prompt } },
+    ]);
 
-    logger.log("Image generated", {
-      url: imageResponse.data.map((image) => image.url),
-    });
+    // Get the first and second meme results
+    const firstMeme = generatedMemes.runs.at(0);
+    const secondMeme = generatedMemes.runs.at(1);
+
+    // Check if both memes were generated successfully
+    if (firstMeme?.ok !== true || secondMeme?.ok !== true) {
+      throw new Error("Failed to generate memes");
+    }
+
+    // Get the generated image URLs
+    const generatedImageUrl1 = firstMeme.output.imageUrl;
+    const generatedImageUrl2 = secondMeme.output.imageUrl;
 
     // Send approval message to Slack with the generated images
     await sendSlackApprovalMessage({
-      images: imageResponse.data.map((image) => image.url).filter((
-        url,
-      ): url is string => url !== undefined),
+      generatedImageUrl1,
+      generatedImageUrl2,
       tokenId: token.id,
       prompt: payload.prompt,
-      userId: payload.userId,
     });
 
+    // Wait for the approval token
     const result = await wait.forToken<ApprovalToken>(token.id);
 
     if (!result.ok) {
@@ -58,23 +62,46 @@ export const generateMeme = schemaTask({
     }
 
     return {
-      imageUrls: imageResponse.data.map((image) => image.url).filter(Boolean),
+      generatedImageUrl1,
+      generatedImageUrl2,
       selectedVariant: result.output.memeVariant,
       approved: true,
     };
   },
 });
 
+// Subtask for generating a single meme image
+export const generateSingleMeme = task({
+  id: "generate-single-meme",
+  run: async (payload: { prompt: string }) => {
+    const generatedMeme = await openai.images.generate({
+      model: "dall-e-3",
+      prompt: payload.prompt,
+      size: "1024x1024",
+      n: 1,
+    });
+
+    if (generatedMeme.data.at(0)?.url === undefined) {
+      throw new Error("Failed to generate meme");
+    }
+
+    return {
+      imageUrl: generatedMeme.data[0].url as string,
+    };
+  },
+});
+
 type SendApprovalMessageParams = {
-  images: string[];
-  userId?: string;
+  generatedImageUrl1: string;
+  generatedImageUrl2: string;
   tokenId: string;
   prompt: string;
 };
 
+// Send the approval message to Slack
 export async function sendSlackApprovalMessage({
-  images,
-  userId = "unknown",
+  generatedImageUrl1,
+  generatedImageUrl2,
   tokenId,
   prompt,
 }: SendApprovalMessageParams) {
@@ -96,15 +123,6 @@ export async function sendSlackApprovalMessage({
         },
       },
       {
-        type: "context",
-        elements: [
-          {
-            type: "mrkdwn",
-            text: `*Requested by:* <@${userId}>`,
-          },
-        ],
-      },
-      {
         type: "section",
         text: {
           type: "mrkdwn",
@@ -116,7 +134,7 @@ export async function sendSlackApprovalMessage({
         type: "divider",
       },
       // For each image, use a dedicated image block followed by a centered button
-      ...images.flatMap((imageUrl, index) => [
+      ...[generatedImageUrl1, generatedImageUrl2].flatMap((imageUrl, index) => [
         // Large image block - takes full width
         {
           type: "image",
@@ -147,14 +165,15 @@ export async function sendSlackApprovalMessage({
                 memeVariant: index + 1,
               }),
               action_id: `meme_approve_${index + 1}`,
-              url: `${process.env.NEXT_PUBLIC_APP_URL}/api/${tokenId}?variant=${
-                index + 1
-              }`,
+              url:
+                `${process.env.NEXT_PUBLIC_APP_URL}/endpoints/${tokenId}?variant=${
+                  index + 1
+                }`,
             },
           ],
         },
         // Add divider between variants
-        ...(index < images.length - 1
+        ...(index < [generatedImageUrl1, generatedImageUrl2].length - 1
           ? [{
             type: "divider",
           }]
