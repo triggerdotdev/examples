@@ -1,20 +1,37 @@
 import json
 import sys
+import os
 from markitdown import MarkItDown
 
-def convert_file_to_markdown(file_path):
-    """Convert a file from a local path to markdown"""
+def convert_to_markdown(file_path):
+    """Convert a file to markdown format using MarkItDown"""
+    # Check if file exists
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"File not found: {file_path}")
+    
+    # Initialize MarkItDown
     md = MarkItDown()
-    result = md.convert_file(file_path)
-    return result.text_content
+    
+    # Convert the file
+    try:
+        result = md.convert(file_path)
+        return result.text_content
+    except Exception as e:
+        raise Exception(f"Error converting file: {str(e)}")
 
 def process_trigger_task(file_path):
-    """Process a file using MarkItDown"""
-    markdown_result = convert_file_to_markdown(file_path)
-    return {
-        "status": "success",
-        "markdown": markdown_result
-    }
+    """Process a file and convert to markdown"""
+    try:
+        markdown_result = convert_to_markdown(file_path)
+        return {
+            "status": "success",
+            "markdown": markdown_result
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "error": str(e)
+        }
 
 if __name__ == "__main__":
     # Get the file path from command line arguments

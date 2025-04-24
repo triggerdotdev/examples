@@ -1,2 +1,2 @@
 # MarkItDown and its dependencies
-markitdown==0.0.1         # Document-to-markdown conversion library
+markitdown[all]

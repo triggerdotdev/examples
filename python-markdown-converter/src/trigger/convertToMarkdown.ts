@@ -1,107 +1,108 @@
 import { task } from "@trigger.dev/sdk/v3";
-import { z } from "zod";
 import { python } from "@trigger.dev/python";
+import { z } from "zod";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 import * as https from "https";
 import * as http from "http";
 
-// Define the payload schema for type safety
-const urlPayloadSchema = z.object({
-  url: z.string().url(),
-});
-
 export const convertToMarkdown = task({
   id: "convert-to-markdown",
-  run: async (payload: z.infer<typeof urlPayloadSchema>, { ctx }) => {
+  run: async (payload: { url: string }) => {
     try {
-      // Validate payload
-      const validatedPayload = urlPayloadSchema.parse(payload);
-      const url = validatedPayload.url;
+      const { url } = payload;
 
-      // Create a temporary file path
+      // STEP 1: Create temporary file with unique name
       const tempDir = os.tmpdir();
-      const fileName = `download-${Date.now()}-${
-        Math.random().toString(36).slice(2, 7)
+      const fileName = `doc-${Date.now()}-${
+        Math.random().toString(36).substring(2, 7)
       }`;
       const urlPath = new URL(url).pathname;
+      // Detect file extension from URL or default to .docx
       const extension = path.extname(urlPath) || ".docx";
       const tempFilePath = path.join(tempDir, `${fileName}${extension}`);
 
-      // Download the file
-      await downloadFile(url, tempFilePath);
+      // STEP 2: Download file from URL
+      await new Promise<void>((resolve, reject) => {
+        const protocol = url.startsWith("https") ? https : http;
+        const file = fs.createWriteStream(tempFilePath);
 
-      // Create config for Python script
-      const config = {
-        file_path: tempFilePath,
-      };
+        protocol.get(url, (response) => {
+          if (response.statusCode !== 200) {
+            reject(
+              new Error(`Download failed with status ${response.statusCode}`),
+            );
+            return;
+          }
 
-      // Execute the Python script
-      const result = await python.runScript(
+          response.pipe(file);
+          file.on("finish", () => {
+            file.close();
+            resolve();
+          });
+        }).on("error", (err) => {
+          // Clean up on error
+          fs.unlink(tempFilePath, () => {});
+          reject(err);
+        });
+      });
+
+      // STEP 3: Run Python script to convert document to markdown
+      const pythonResult = await python.runScript(
         "./src/python/markdown-converter.py",
-        [JSON.stringify(config)],
+        [JSON.stringify({ file_path: tempFilePath })],
       );
 
-      // Clean up temporary file
-      if (fs.existsSync(tempFilePath)) {
-        fs.unlinkSync(tempFilePath);
+      // STEP 4: Clean up temporary file
+      fs.unlink(tempFilePath, () => {});
+
+      // STEP 5: Process result - handle possible warnings
+      // Only treat stderr as error if we don't have stdout data
+      // This handles cases where non-critical warnings appear in stderr
+      if (
+        pythonResult.stderr &&
+        !pythonResult.stderr.includes("Couldn't find ffmpeg") &&
+        !pythonResult.stdout
+      ) {
+        throw new Error(`Python error: ${pythonResult.stderr}`);
       }
 
-      if (result.stderr) {
-        throw new Error(`Error running Python script: ${result.stderr}`);
-      }
+      // If we got valid stdout data, parse and use it regardless of stderr warnings
+      // This ensures harmless warnings don't break the conversion
+      if (pythonResult.stdout) {
+        const result = JSON.parse(pythonResult.stdout);
 
-      // Parse the JSON output
-      const parsedResult = JSON.parse(result.stdout);
-
-      if (parsedResult.status === "success") {
         return {
-          success: true,
-          markdown: parsedResult.markdown,
           url,
-        };
-      } else {
-        return {
-          success: false,
-          error: parsedResult.error ||
-            "Unknown error occurred during conversion",
-          url,
+          markdown: result.status === "success" ? result.markdown : null,
+          error: result.status === "error" ? result.error : null,
+          success: result.status === "success",
         };
       }
-    } catch (error) {
+
       return {
+        url,
+        markdown: null,
+        error: "No output from Python script",
         success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
+      };
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return {
+          url: payload.url,
+          markdown: null,
+          error: "Invalid URL format: " + error.errors[0].message,
+          success: false,
+        };
+      }
+
+      return {
         url: payload.url,
+        markdown: null,
+        error: error instanceof Error ? error.message : String(error),
+        success: false,
       };
     }
   },
 });
-
-// Helper function to download a file
-async function downloadFile(url: string, filePath: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const protocol = url.startsWith("https") ? https : http;
-
-    const fileStream = fs.createWriteStream(filePath);
-    const request = protocol.get(url, (response) => {
-      if (response.statusCode !== 200) {
-        fs.unlinkSync(filePath);
-        reject(new Error(`Failed to download file: ${response.statusCode}`));
-        return;
-      }
-
-      response.pipe(fileStream);
-      fileStream.on("finish", () => {
-        fileStream.close();
-        resolve();
-      });
-    });
-
-    request.on("error", (err) => {
-      fs.unlinkSync(filePath);
-      reject(err);
-    });
-  });
-}

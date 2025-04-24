@@ -1,5 +1,5 @@
 {
-  "name": "python-markdown-converter",
+  "name": "python-document-to-markdown-converter",
   "private": true,
   "type": "module",
   "scripts": {
