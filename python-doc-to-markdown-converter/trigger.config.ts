@@ -3,7 +3,7 @@ import { defineConfig } from "@trigger.dev/sdk/v3";
 
 export default defineConfig({
   runtime: "node",
-  project: "proj_xjminyoyogxbrfipkrkt",
+  project: "<your-project-ref>", // Replace with your project ref
   machine: "small-1x",
   maxDuration: 3600,
   build: {
