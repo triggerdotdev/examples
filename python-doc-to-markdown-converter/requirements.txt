@@ -1,0 +1,2 @@
+# MarkItDown and its dependencies
+markitdown[all]
