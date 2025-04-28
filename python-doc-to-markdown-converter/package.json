@@ -7,13 +7,13 @@
     "install-python-deps": "uv pip sync requirements.txt"
   },
   "dependencies": {
-    "@trigger.dev/python": "4.0.0-v4-beta.8",
-    "@trigger.dev/sdk": "4.0.0-v4-beta.8",
+    "@trigger.dev/python": "4.0.0-v4-beta.10",
+    "@trigger.dev/sdk": "4.0.0-v4-beta.10",
     "axios": "^1.6.2",
     "latest": "^0.2.0"
   },
   "devDependencies": {
-    "@trigger.dev/build": "4.0.0-v4-beta.8",
+    "@trigger.dev/build": "4.0.0-v4-beta.10",
     "typescript": "^5.5.4"
   }
 }

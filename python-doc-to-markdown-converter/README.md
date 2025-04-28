@@ -15,6 +15,8 @@ This demo showcases how to use [Trigger.dev](https://trigger.dev) with [Python](
 
 ## Getting Started
 
+| This demo is using Trigger.dev v4 which is currently in beta (as of 28/04/2025), you will need to install the v4 CLI to run this project. [Upgrade v4 docs here](https://trigger.dev/docs/upgrade-to-v4#installation)
+
 1. After cloning the repo, run `npm install` to install the dependencies.
 2. Run the Trigger.dev [CLI init command](https://trigger.dev/docs/cli-init-commands#cli-init-command) to initialize the project.
 3. Create a virtual environment `python -m venv venv`

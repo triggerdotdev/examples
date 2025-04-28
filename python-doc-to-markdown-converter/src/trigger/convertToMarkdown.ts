@@ -1,10 +1,8 @@
-import { task } from "@trigger.dev/sdk";
+import { task } from "@trigger.dev/sdk/v3";
 import { python } from "@trigger.dev/python";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
-import * as https from "https";
-import * as http from "http";
 
 export const convertToMarkdown = task({
   id: "convert-to-markdown",
@@ -21,18 +19,9 @@ export const convertToMarkdown = task({
     const tempFilePath = path.join(tempDir, `${fileName}${extension}`);
 
     // STEP 2: Download file from URL
-    await new Promise<void>((resolve, reject) => {
-      const protocol = url.startsWith("https") ? https : http;
-      const file = fs.createWriteStream(tempFilePath);
-
-      protocol.get(url, (response) => {
-        response.pipe(file);
-        file.on("finish", () => {
-          file.close();
-          resolve();
-        });
-      });
-    });
+    const response = await fetch(url);
+    const buffer = await response.arrayBuffer();
+    await fs.promises.writeFile(tempFilePath, Buffer.from(buffer));
 
     // STEP 3: Run Python script to convert document to markdown
     const pythonResult = await python.runScript(
