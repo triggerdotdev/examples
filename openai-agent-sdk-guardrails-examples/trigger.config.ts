@@ -1,5 +1,5 @@
 import { pythonExtension } from "@trigger.dev/python/extension";
-import { defineConfig } from "@trigger.dev/sdk/v3";
+import { defineConfig } from "@trigger.dev/sdk";
 
 export default defineConfig({
   runtime: "node",
