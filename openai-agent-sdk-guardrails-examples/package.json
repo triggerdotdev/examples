@@ -1,0 +1,17 @@
+{
+  "name": "openai-agent-sdk-guardrails",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "trigger dev",
+    "install-python-deps": "uv pip sync requirements.txt"
+  },
+  "dependencies": {
+    "@trigger.dev/python": "4.0.0-v4-beta.18",
+    "@trigger.dev/sdk": "4.0.0-v4-beta.18"
+  },
+  "devDependencies": {
+    "@trigger.dev/build": "4.0.0-v4-beta.18",
+    "typescript": "^5.5.4"
+  }
+}
