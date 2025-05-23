@@ -2,7 +2,7 @@
 
 This project demonstrates how to implement different types of guardrails using the [OpenAI Agent SDK](https://openai.github.io/openai-agents-python/) with [Trigger.dev](https://trigger.dev) for execution.
 
-https://github.com/user-attachments/assets/0486b6ce-8f67-44c4-b1fd-476352618d95
+https://github.com/user-attachments/assets/9b1e55c7-467d-4aca-8b4a-a018014c0827
 
 It serves as both:
 
