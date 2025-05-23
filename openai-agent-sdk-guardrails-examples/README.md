@@ -2,6 +2,8 @@
 
 This project demonstrates how to implement different types of guardrails using the [OpenAI Agent SDK](https://openai.github.io/openai-agents-python/) with [Trigger.dev](https://trigger.dev) for execution.
 
+https://github.com/user-attachments/assets/0486b6ce-8f67-44c4-b1fd-476352618d95
+
 It serves as both:
 
 - **A practical guide** for integrating the OpenAI Agent SDK with Trigger.dev for production AI workflows
