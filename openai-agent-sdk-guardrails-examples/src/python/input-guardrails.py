@@ -30,7 +30,7 @@ that is NOT related to math. If the guardrail trips, we'll respond with a refusa
 """
 
 
-### 1. An agent-based guardrail that is triggered if the user is asking about non-math topics
+### An agent-based guardrail that is triggered if the user is asking about non-math topics
 class MathTopicOutput(BaseModel):
     reasoning: str
     is_math_related: bool
