@@ -14,8 +14,8 @@
     "@radix-ui/react-label": "^2.1.1",
     "@radix-ui/react-select": "^2.1.5",
     "@radix-ui/react-slot": "^1.1.1",
-    "@trigger.dev/react-hooks": "3.3.12",
-    "@trigger.dev/sdk": "3.3.12",
+    "@trigger.dev/react-hooks": "3.3.17",
+    "@trigger.dev/sdk": "3.3.17",
     "ai": "^4.1.11",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -31,7 +31,7 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
-    "@trigger.dev/build": "3.3.12",
+    "@trigger.dev/build": "3.3.17",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
