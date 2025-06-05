@@ -9,6 +9,7 @@ import {
 import { z } from "zod";
 
 const mainLLM = openai("gpt-4o");
+const fastLLM = openai("gpt-4o-mini");
 
 type Learning = {
   learning: string;
@@ -37,11 +38,14 @@ const accumulatedResearch: Research = {
   completedQueries: [],
 };
 
-export const deepResearch = task({
+export const deepResearch = schemaTask({
   id: "deep-research",
-  run: async (
-    payload: { prompt: string; maxDepth?: number; maxBreadth?: number },
-  ) => {
+  schema: z.object({
+    prompt: z.string().min(1),
+    maxDepth: z.number().min(1).max(5).optional(),
+    maxBreadth: z.number().min(1).max(10).optional(),
+  }),
+  run: async (payload) => {
     const maxDepth = payload.maxDepth || 2;
     const maxBreadth = payload.maxBreadth || 3;
 
@@ -131,7 +135,7 @@ export const generateSearchQueries = schemaTask({
   }),
   run: async (payload) => {
     const { object: { queries } } = await generateObject({
-      model: mainLLM,
+      model: fastLLM,
       prompt:
         `Generate ${payload.breadth} search queries for the following query: ${payload.prompt}`,
       schema: z.object({
@@ -145,9 +149,12 @@ export const generateSearchQueries = schemaTask({
   },
 });
 
-export const searchWeb = task({
+export const searchWeb = schemaTask({
   id: "search-web",
-  run: async (payload: { query: string }) => {
+  schema: z.object({
+    query: z.string().min(1),
+  }),
+  run: async (payload) => {
     // Use Exa for web search
     const Exa = (await import("exa-js")).default;
     const exa = new Exa(process.env.EXA_API_KEY);
@@ -161,7 +168,7 @@ export const searchWeb = task({
       results: results.map((r) => ({
         title: r.title,
         url: r.url,
-        content: r.text,
+        content: r.text?.slice(0, 2000) || "", // Limit to 2000 chars (~500 tokens)
       })) as SearchResult[],
     };
   },
@@ -203,7 +210,7 @@ export const searchAndProcess = task({
           async execute() {
             const pendingResult = pendingSearchResults.pop()!;
             const { object: evaluation } = await generateObject({
-              model: mainLLM,
+              model: fastLLM,
               prompt:
                 `Evaluate whether the search results are relevant and will help answer the following query: ${payload.query}. If the page already exists in the existing results, mark it as irrelevant.
  
@@ -239,9 +246,17 @@ export const searchAndProcess = task({
   },
 });
 
-export const generateLearnings = task({
+export const generateLearnings = schemaTask({
   id: "generate-learnings",
-  run: async (payload: { query: string; searchResult: SearchResult }) => {
+  schema: z.object({
+    query: z.string().min(1),
+    searchResult: z.object({
+      title: z.string(),
+      url: z.string().url(),
+      content: z.string(),
+    }),
+  }),
+  run: async (payload) => {
     const { object } = await generateObject({
       model: mainLLM,
       prompt:
@@ -280,14 +295,35 @@ const SYSTEM_PROMPT = `You are an expert researcher. Today is ${
 export const generateReport = task({
   id: "generate-report",
   run: async (payload: { research: Research }) => {
+    // Create a more efficient summary instead of full JSON dump
+    const summary = {
+      query: payload.research.query,
+      totalSources: payload.research.searchResults.length,
+      keyFindings: payload.research.learnings.map((l) => l.learning).slice(
+        0,
+        10,
+      ), // Limit to top 10
+      topSources: payload.research.searchResults.slice(0, 5).map((r) => ({
+        title: r.title,
+        url: r.url,
+      })), // Just title/URL, not full content
+    };
+
     const { text } = await generateText({
       model: mainLLM,
-      prompt: "Generate a report based on the following research data:\n\n" +
-        JSON.stringify(payload.research, null, 2),
+      prompt: `Research Query: "${summary.query}"
+      
+Key Findings:
+${summary.keyFindings.map((finding, i) => `${i + 1}. ${finding}`).join("\n")}
+
+Top Sources:
+${summary.topSources.map((s) => `- ${s.title} (${s.url})`).join("\n")}
+
+Generate a comprehensive research report based on these findings.`,
       system: SYSTEM_PROMPT,
+      maxTokens: 2000, // Limit output tokens
     });
-    return {
-      report: text,
-    };
+
+    return { report: text };
   },
 });
