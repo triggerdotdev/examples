@@ -2,6 +2,7 @@ import { schemaTask, task } from "@trigger.dev/sdk/v3";
 import { z } from "zod";
 import { openai } from "@ai-sdk/openai";
 import { generateObject, generateText, tool } from "ai";
+import { generatePdfAndUpload } from "./generatePdfAndUpload";
 
 const mainLLM = openai("gpt-4o");
 const fastLLM = openai("gpt-4o-mini");
@@ -59,6 +60,11 @@ export const deepResearch = schemaTask({
 
     // Iterative approach instead of recursion
     for (let depth = 0; depth < maxDepth; depth++) {
+      // Stop if no more queries to explore
+      if (currentQueries.length === 0) {
+        break;
+      }
+
       const nextLevelQueries: string[] = [];
 
       // Parallelize search processing for all queries at this depth level
@@ -86,42 +92,40 @@ export const deepResearch = schemaTask({
 
         research.searchResults.push(...searchResult.output);
 
-        // Parallelize learning generation for all search results from this query
-        const learningBatch = await generateLearnings.batchTriggerAndWait(
-          searchResult.output.map((result) => ({
-            payload: {
-              query: originalQuery,
-              searchResult: result,
-            },
-          })),
-        );
-
-        // Collect learnings and follow-up questions
-        for (const learning of learningBatch.runs) {
-          if (!learning.ok) {
-            console.error(`Failed to generate learnings: ${learning.error}`);
-            continue;
-          }
-
-          research.learnings.push(learning.output);
-
-          // Add follow-up questions for next depth level
-          nextLevelQueries.push(
-            ...learning.output.followUpQuestions.slice(
-              0,
-              Math.ceil(maxBreadth / (depth + 1)),
-            ),
+        // Only batch trigger if we have results
+        if (searchResult.output.length > 0) {
+          // Parallelize learning generation for all search results from this query
+          const learningBatch = await generateLearnings.batchTriggerAndWait(
+            searchResult.output.map((result) => ({
+              payload: {
+                query: originalQuery,
+                searchResult: result,
+              },
+            })),
           );
+
+          // Collect learnings and follow-up questions
+          for (const learning of learningBatch.runs) {
+            if (!learning.ok) {
+              console.error(`Failed to generate learnings: ${learning.error}`);
+              continue;
+            }
+
+            research.learnings.push(learning.output);
+
+            // Add follow-up questions for next depth level
+            nextLevelQueries.push(
+              ...learning.output.followUpQuestions.slice(
+                0,
+                Math.ceil(maxBreadth / (depth + 1)),
+              ),
+            );
+          }
         }
       }
 
       // Prepare queries for next depth level
       currentQueries = nextLevelQueries.slice(0, maxBreadth);
-
-      // Stop if no more queries to explore
-      if (currentQueries.length === 0) {
-        break;
-      }
     }
 
     const report = await generateReport.triggerAndWait({ research });
@@ -130,7 +134,21 @@ export const deepResearch = schemaTask({
       throw new Error(`Failed to generate report: ${report.error}`);
     }
 
-    return report.output.report;
+    // Generate and upload PDF
+    const pdfResult = await generatePdfAndUpload.triggerAndWait({
+      report: report.output.report,
+      title: payload.prompt,
+    });
+
+    if (!pdfResult.ok) {
+      console.error(`PDF generation failed: ${pdfResult.error}`);
+      return report.output.report; // Return just the HTML if PDF fails
+    }
+
+    return {
+      report: report.output.report,
+      pdfLocation: pdfResult.output.pdfLocation,
+    };
   },
 });
 

@@ -2,8 +2,6 @@ import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { task } from "@trigger.dev/sdk/v3";
 import libreoffice from "libreoffice-convert";
 import { promisify } from "node:util";
-import path from "path";
-import fs from "fs";
 
 const convert = promisify(libreoffice.convert);
 
@@ -87,33 +85,23 @@ export const generatePdfAndUpload = task({
 </body>
 </html>`;
 
-      // Create temporary file paths
-      const timestamp = Date.now();
-      const htmlPath = path.join(process.cwd(), `report_${timestamp}.html`);
-      const pdfPath = path.join(process.cwd(), `report_${timestamp}.pdf`);
-
-      // Write HTML file
-      fs.writeFileSync(htmlPath, htmlContent);
-
       // Convert HTML to PDF using LibreOffice
-      const htmlBuffer = fs.readFileSync(htmlPath);
-      const pdfBuffer = await convert(htmlBuffer, ".pdf", undefined);
-      fs.writeFileSync(pdfPath, pdfBuffer);
+      const pdfBuffer = await convert(
+        Buffer.from(htmlContent),
+        ".pdf",
+        undefined,
+      );
 
       // Upload to R2
-      const key = `research-reports/report_${timestamp}.pdf`;
+      const key = `research-reports/report_${Date.now()}.pdf`;
       await s3Client.send(
         new PutObjectCommand({
           Bucket: process.env.R2_BUCKET,
           Key: key,
-          Body: fs.readFileSync(pdfPath),
+          Body: pdfBuffer,
           ContentType: "application/pdf",
         }),
       );
-
-      // Cleanup temporary files
-      fs.unlinkSync(htmlPath);
-      fs.unlinkSync(pdfPath);
 
       return {
         pdfLocation: key,
@@ -123,45 +111,5 @@ export const generatePdfAndUpload = task({
       console.error("Error converting PDF:", error);
       throw error;
     }
-  },
-});
-
-export const generatePdfAndEmail = task({
-  id: "generate-pdf-and-email",
-  run: async (payload: {
-    report: string;
-    title?: string;
-    recipientEmail: string;
-    senderName?: string;
-  }, { ctx }) => {
-    // First generate the PDF (reuse the logic)
-    const pdfResult = await generatePdfAndUpload.triggerAndWait({
-      report: payload.report,
-      title: payload.title,
-    });
-
-    if (!pdfResult.ok) {
-      throw new Error(`PDF generation failed: ${pdfResult.error}`);
-    }
-
-    // Then email it (you'd implement your email service here)
-    // Example with a hypothetical email service:
-    /*
-    await emailService.send({
-      to: payload.recipientEmail,
-      subject: `Research Report: ${payload.title || 'Deep Research Results'}`,
-      text: `Please find your research report attached.`,
-      attachments: [{
-        filename: `${payload.title || 'research-report'}.pdf`,
-        // You'd need to download from R2 or use signed URLs
-      }]
-    });
-    */
-
-    return {
-      pdfLocation: pdfResult.output.pdfLocation,
-      emailSent: true, // Would be actual result
-      recipientEmail: payload.recipientEmail,
-    };
   },
 });
