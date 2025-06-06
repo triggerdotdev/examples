@@ -1,4 +1,4 @@
-import { schemaTask, task } from "@trigger.dev/sdk/v3";
+import { metadata, schemaTask, task } from "@trigger.dev/sdk/v3";
 import { z } from "zod";
 import { openai } from "@ai-sdk/openai";
 import { generateObject, generateText, tool } from "ai";
@@ -43,11 +43,12 @@ export const deepResearch = schemaTask({
       learnings: [],
     };
 
-    // Generate initial search queries instead of using raw prompt
     const searchQueriesResult = await generateSearchQueries.triggerAndWait({
       prompt: payload.prompt,
       breadth: maxBreadth,
     });
+
+    metadata.set("status", "Generating search queries");
 
     if (!searchQueriesResult.ok) {
       throw new Error(

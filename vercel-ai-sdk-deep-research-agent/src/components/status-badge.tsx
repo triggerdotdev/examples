@@ -1,17 +1,24 @@
 import { Badge } from "@/components/ui/badge";
-import { ProcessingStatus } from "@/lib/types";
+import { DeepResearchStatus } from "@/lib/types";
 
-export const StatusBadge = ({ status }: { status: ProcessingStatus }) => {
-  const labels = {
-    idle: "Ready",
-    uploading: "Uploading",
-    processing: "Processing",
-    complete: "Completed",
-  };
+const statusLabels: Record<DeepResearchStatus, string> = {
+  idle: "Idle",
+  loading: "Loading",
+  queued: "Queued",
+  "generating-search-queries": "Generating Queries",
+  "generating-search-results": "Searching",
+  "generating-learnings": "Synthesizing",
+  "generating-report": "Generating Report",
+  "generating-pdf": "Creating PDF",
+  "uploading-pdf-to-r2": "Uploading",
+  completed: "Completed",
+  failed: "Failed",
+};
 
+export const StatusBadge = ({ status }: { status: DeepResearchStatus }) => {
   return (
     <Badge variant="outline" className="bg-primary/10">
-      {labels[status]}
+      {statusLabels[status] || "Unknown"}
     </Badge>
   );
 };
