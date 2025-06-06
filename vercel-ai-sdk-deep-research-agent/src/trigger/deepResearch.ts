@@ -1,12 +1,7 @@
-import { openai } from "@ai-sdk/openai";
 import { schemaTask, task } from "@trigger.dev/sdk/v3";
-import {
-  experimental_generateImage as generateImage,
-  generateObject,
-  generateText,
-  tool,
-} from "ai";
 import { z } from "zod";
+import { openai } from "@ai-sdk/openai";
+import { generateObject, generateText, tool } from "ai";
 
 const mainLLM = openai("gpt-4o");
 const fastLLM = openai("gpt-4o-mini");
@@ -23,19 +18,10 @@ type SearchResult = {
 };
 
 type Research = {
-  query: string | undefined;
+  query: string;
   queries: string[];
   searchResults: SearchResult[];
   learnings: Learning[];
-  completedQueries: string[];
-};
-
-const accumulatedResearch: Research = {
-  query: undefined,
-  queries: [],
-  searchResults: [],
-  learnings: [],
-  completedQueries: [],
 };
 
 export const deepResearch = schemaTask({
@@ -54,53 +40,74 @@ export const deepResearch = schemaTask({
       queries: [],
       searchResults: [],
       learnings: [],
-      completedQueries: [],
     };
 
-    let currentQueries = [payload.prompt];
+    // Generate initial search queries instead of using raw prompt
+    const searchQueriesResult = await generateSearchQueries.triggerAndWait({
+      prompt: payload.prompt,
+      breadth: maxBreadth,
+    });
+
+    if (!searchQueriesResult.ok) {
+      throw new Error(
+        `Failed to generate search queries: ${searchQueriesResult.error}`,
+      );
+    }
+
+    let currentQueries = searchQueriesResult.output.queries;
+    research.queries = currentQueries;
 
     // Iterative approach instead of recursion
     for (let depth = 0; depth < maxDepth; depth++) {
       const nextLevelQueries: string[] = [];
 
-      for (const query of currentQueries) {
-        console.log(`Depth ${depth}: Searching for: ${query}`);
+      // Parallelize search processing for all queries at this depth level
+      console.log(
+        `Depth ${depth}: Processing ${currentQueries.length} queries in parallel`,
+      );
 
-        // Search and process
-        const searchResults = await searchAndProcess.triggerAndWait({
-          query,
-          accumulatedSources: research.searchResults,
-        });
+      const searchBatch = await searchAndProcess.batchTriggerAndWait(
+        currentQueries.map((query) => ({
+          payload: { query, accumulatedSources: research.searchResults },
+        })),
+      );
 
-        if (!searchResults.ok) {
+      // Process all search results
+      for (let i = 0; i < searchBatch.runs.length; i++) {
+        const searchResult = searchBatch.runs[i];
+        const originalQuery = currentQueries[i];
+
+        if (!searchResult.ok) {
           console.error(
-            `Failed to search for "${query}": ${searchResults.error}`,
+            `Failed to search for "${originalQuery}": ${searchResult.error}`,
           );
           continue;
         }
 
-        research.searchResults.push(...searchResults.output);
+        research.searchResults.push(...searchResult.output);
 
-        // Generate learnings and follow-up questions
-        for (const searchResult of searchResults.output) {
-          console.log(`Processing search result: ${searchResult.url}`);
+        // Parallelize learning generation for all search results from this query
+        const learningBatch = await generateLearnings.batchTriggerAndWait(
+          searchResult.output.map((result) => ({
+            payload: {
+              query: originalQuery,
+              searchResult: result,
+            },
+          })),
+        );
 
-          const learnings = await generateLearnings.triggerAndWait({
-            query,
-            searchResult,
-          });
-
-          if (!learnings.ok) {
-            console.error(`Failed to generate learnings: ${learnings.error}`);
+        // Collect learnings and follow-up questions
+        for (const learning of learningBatch.runs) {
+          if (!learning.ok) {
+            console.error(`Failed to generate learnings: ${learning.error}`);
             continue;
           }
 
-          research.learnings.push(learnings.output);
-          research.completedQueries.push(query);
+          research.learnings.push(learning.output);
 
           // Add follow-up questions for next depth level
           nextLevelQueries.push(
-            ...learnings.output.followUpQuestions.slice(
+            ...learning.output.followUpQuestions.slice(
               0,
               Math.ceil(maxBreadth / (depth + 1)),
             ),
@@ -181,7 +188,8 @@ export const searchAndProcess = task({
   ) => {
     const pendingSearchResults: SearchResult[] = [];
     const finalSearchResults: SearchResult[] = [];
-    const { text } = await generateText({
+
+    await generateText({
       model: mainLLM,
       prompt: `Search the web for information about ${payload.query}`,
       system:
@@ -285,12 +293,13 @@ const SYSTEM_PROMPT = `You are an expert researcher. Today is ${
   - Suggest solutions that I didn't think about.
   - Be proactive and anticipate my needs.
   - Treat me as an expert in all subject matter.
-  - Mistakes erode my trust, so be accurate and thorough.
+  - Mistakes erode my trust, so be accurate and thorough.  
   - Provide detailed explanations, I'm comfortable with lots of detail.
   - Value good arguments over authorities, the source is irrelevant.
   - Consider new technologies and contrarian ideas, not just the conventional wisdom.
   - You may use high levels of speculation or prediction, just flag it for me.
-  - Use Markdown formatting.`;
+  - Generate your response in clean HTML format with proper headings, paragraphs, lists, and formatting.
+  - Use semantic HTML tags like <h1>, <h2>, <p>, <ul>, <ol>, <blockquote>, <strong>, <em>.`;
 
 export const generateReport = task({
   id: "generate-report",
@@ -319,7 +328,7 @@ ${summary.keyFindings.map((finding, i) => `${i + 1}. ${finding}`).join("\n")}
 Top Sources:
 ${summary.topSources.map((s) => `- ${s.title} (${s.url})`).join("\n")}
 
-Generate a comprehensive research report based on these findings.`,
+Generate a comprehensive research report based on these findings. Output clean HTML that can be directly used in a document.`,
       system: SYSTEM_PROMPT,
       maxTokens: 2000, // Limit output tokens
     });
