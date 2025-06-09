@@ -4,7 +4,7 @@ import { openai } from "@ai-sdk/openai";
 import { generateObject, generateText, tool } from "ai";
 import { generatePdfAndUpload } from "./generatePdfAndUpload";
 
-const mainLLM = openai("gpt-4o");
+const mainLLM = openai("gpt-4o-mini");
 const fastLLM = openai("gpt-4o-mini");
 
 type Learning = {
@@ -38,171 +38,156 @@ export const deepResearch = schemaTask({
       label: "Starting research...",
     });
 
-    await wait.for({ seconds: 5 });
+    const maxDepth = payload.maxDepth || 2;
+    const maxBreadth = payload.maxBreadth || 3;
 
-    // const maxDepth = payload.maxDepth || 2;
-    // const maxBreadth = payload.maxBreadth || 3;
+    const research: Research = {
+      query: payload.prompt,
+      queries: [],
+      searchResults: [],
+      learnings: [],
+    };
 
-    // const research: Research = {
-    //   query: payload.prompt,
-    //   queries: [],
-    //   searchResults: [],
-    //   learnings: [],
-    // };
-
-    // const searchQueriesResult = await generateSearchQueries.triggerAndWait({
-    //   prompt: payload.prompt,
-    //   breadth: maxBreadth,
-    // });
-
-    await wait.for({ seconds: 5 });
+    const searchQueriesResult = await generateSearchQueries.triggerAndWait({
+      prompt: payload.prompt,
+      breadth: maxBreadth,
+    });
 
     metadata.set("status", {
       progress: 10,
       label: "Generating search queries...",
     });
 
-    // if (!searchQueriesResult.ok) {
-    //   throw new Error(
-    //     `Failed to generate search queries: ${searchQueriesResult.error}`,
-    //   );
-    // }
+    if (!searchQueriesResult.ok) {
+      throw new Error(
+        `Failed to generate search queries: ${searchQueriesResult.error}`,
+      );
+    }
 
-    // let currentQueries = searchQueriesResult.output.queries;
-    // research.queries = currentQueries;
+    let currentQueries = searchQueriesResult.output.queries;
+    research.queries = currentQueries;
 
-    // // Iterative approach instead of recursion
-    // for (let depth = 0; depth < maxDepth; depth++) {
-    //   // Stop if no more queries to explore
-    //   if (currentQueries.length === 0) {
-    //     break;
-    //   }
+    // Iterative approach instead of recursion
+    for (let depth = 0; depth < maxDepth; depth++) {
+      // Stop if no more queries to explore
+      if (currentQueries.length === 0) {
+        break;
+      }
 
-    //   const nextLevelQueries: string[] = [];
+      const nextLevelQueries: string[] = [];
 
-    await wait.for({ seconds: 5 });
+      metadata.set("status", {
+        progress: 20,
+        label: "Generating search results...",
+      });
 
-    metadata.set("status", {
-      progress: 20,
-      label: "Generating search results...",
-    });
+      // Parallelize search processing for all queries at this depth level
+      console.log(
+        `Depth ${depth}: Processing ${currentQueries.length} queries in parallel`,
+      );
 
-    // // Parallelize search processing for all queries at this depth level
-    // console.log(
-    //   `Depth ${depth}: Processing ${currentQueries.length} queries in parallel`,
-    // );
+      const searchBatch = await searchAndProcess.batchTriggerAndWait(
+        currentQueries.map((query) => ({
+          payload: { query, accumulatedSources: research.searchResults },
+        })),
+      );
 
-    // const searchBatch = await searchAndProcess.batchTriggerAndWait(
-    //   currentQueries.map((query) => ({
-    //     payload: { query, accumulatedSources: research.searchResults },
-    //   })),
-    // );
+      // Process all search results
+      metadata.set("progress", {
+        progress: 40,
+        label: "Generating search results",
+      });
 
-    // // Process all search results
-    // metadata.set("progress", {
-    //   progress: 40,
-    //   label: "Generating search results",
-    // });
+      for (let i = 0; i < searchBatch.runs.length; i++) {
+        const searchResult = searchBatch.runs[i];
+        const originalQuery = currentQueries[i];
 
-    // for (let i = 0; i < searchBatch.runs.length; i++) {
-    //   const searchResult = searchBatch.runs[i];
-    //   const originalQuery = currentQueries[i];
+        if (!searchResult.ok) {
+          console.error(
+            `Failed to search for "${originalQuery}": ${searchResult.error}`,
+          );
+          continue;
+        }
 
-    //   if (!searchResult.ok) {
-    //     console.error(
-    //       `Failed to search for "${originalQuery}": ${searchResult.error}`,
-    //     );
-    //     continue;
-    //   }
+        metadata.set("status", {
+          progress: 50,
+          label: "Generating learnings from search results...",
+        });
 
-    await wait.for({ seconds: 5 });
+        research.searchResults.push(...searchResult.output);
 
-    metadata.set("status", {
-      progress: 50,
-      label: "Generating learnings from search results...",
-    });
+        // Only batch trigger if we have results
+        if (searchResult.output.length > 0) {
+          // Parallelize learning generation for all search results from this query
+          const learningBatch = await generateLearnings.batchTriggerAndWait(
+            searchResult.output.map((result) => ({
+              payload: {
+                query: originalQuery,
+                searchResult: result,
+              },
+            })),
+          );
 
-    // research.searchResults.push(...searchResult.output);
+          // Collect learnings and follow-up questions
+          for (const learning of learningBatch.runs) {
+            if (!learning.ok) {
+              console.error(`Failed to generate learnings: ${learning.error}`);
+              continue;
+            }
 
-    // // Only batch trigger if we have results
-    // if (searchResult.output.length > 0) {
-    //   // Parallelize learning generation for all search results from this query
-    //   const learningBatch = await generateLearnings.batchTriggerAndWait(
-    //     searchResult.output.map((result) => ({
-    //       payload: {
-    //         query: originalQuery,
-    //         searchResult: result,
-    //       },
-    //     })),
-    //   );
+            research.learnings.push(learning.output);
 
-    //   // Collect learnings and follow-up questions
-    //   for (const learning of learningBatch.runs) {
-    //     if (!learning.ok) {
-    //       console.error(`Failed to generate learnings: ${learning.error}`);
-    //       continue;
-    //     }
+            // Add follow-up questions for next depth level
+            nextLevelQueries.push(
+              ...learning.output.followUpQuestions.slice(
+                0,
+                Math.ceil(maxBreadth / (depth + 1)),
+              ),
+            );
 
-    //     research.learnings.push(learning.output);
+            metadata.set("progress", {
+              progress: 60,
+              label: "Generating report",
+            });
+          }
+        }
+      }
 
-    //     // Add follow-up questions for next depth level
-    //     nextLevelQueries.push(
-    //       ...learning.output.followUpQuestions.slice(
-    //         0,
-    //         Math.ceil(maxBreadth / (depth + 1)),
-    //       ),
-    //     );
+      // Prepare queries for next depth level
+      currentQueries = nextLevelQueries.slice(0, maxBreadth);
+    }
 
-    // metadata.set("progress", {
-    //   progress: 60,
-    //   label: "Generating report",
-    // });
-    // }
-    // }
-    // }
-
-    //   // Prepare queries for next depth level
-    //   currentQueries = nextLevelQueries.slice(0, maxBreadth);
-    // }
-
-    // const report = await generateReport.triggerAndWait({ research });
-
-    await wait.for({ seconds: 5 });
+    const report = await generateReport.triggerAndWait({ research });
 
     metadata.set("status", {
       progress: 70,
       label: "Generating report...",
     });
 
-    // if (!report.ok) {
-    //   throw new Error(`Failed to generate report: ${report.error}`);
-    // }
+    if (!report.ok) {
+      throw new Error(`Failed to generate report: ${report.error}`);
+    }
 
-    // // Generate and upload PDF
-    // const pdfResult = await generatePdfAndUpload.triggerAndWait({
-    //   report: report.output.report,
-    //   title: payload.prompt,
-    // });
-
-    await wait.for({ seconds: 5 });
+    // Generate and upload PDF
+    const pdfResult = await generatePdfAndUpload.triggerAndWait({
+      report: report.output.report,
+      title: payload.prompt,
+    });
 
     metadata.set("status", {
       progress: 80,
       label: "Generating PDF...",
     });
 
-    // if (!pdfResult.ok) {
-    //   console.error(`PDF generation failed: ${pdfResult.error}`);
-    //   return report.output.report; // Return just the HTML if PDF fails
-    // }
+    if (!pdfResult.ok) {
+      console.error(`PDF generation failed: ${pdfResult.error}`);
+      return report.output.report; // Return just the HTML if PDF fails
+    }
 
-    await wait.for({ seconds: 5 });
     metadata.set("status", {
       progress: 90,
       label: "Uploading PDF to R2...",
     });
-
-    await wait.for({ seconds: 5 });
 
     metadata.set("status", {
       progress: 100,
@@ -210,9 +195,8 @@ export const deepResearch = schemaTask({
     });
 
     return {
-      // report: report.output.report,
-      //     pdfLocation: pdfResult.output.pdfLocation,
-      //   };
+      report: report.output.report,
+      pdfLocation: pdfResult.output.pdfLocation,
     };
   },
 });
@@ -326,7 +310,17 @@ export const searchAndProcess = task({
             });
             if (evaluation === "relevant") {
               finalSearchResults.push(pendingResult);
+              metadata.root.set("status", {
+                progress: 50,
+                label: "Relevant search result found:" + pendingResult.url,
+              });
+            } else {
+              metadata.root.set("status", {
+                progress: 50,
+                label: "Irrelevant search result found:" + pendingResult.url,
+              });
             }
+
             console.log("Found:", pendingResult.url);
             console.log("Evaluation completed:", evaluation);
             return evaluation === "irrelevant"
