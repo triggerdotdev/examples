@@ -23,7 +23,6 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useRealtimeDeepResearch } from "@/hooks/useRealtimeDeepResearch";
-import { DeepResearchStatus } from "@/lib/types";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Search } from "lucide-react";
 import { useCallback, useState } from "react";
@@ -42,12 +41,12 @@ const formSchema = z.object({
 });
 
 export default function DeepResearchAgent() {
-  const [status, setStatus] = useState<DeepResearchStatus>("idle");
-
   const [runHandle, setRunHandle] = useState<{
     id: string;
     publicAccessToken: string;
   } | null>(null);
+
+  const { progress, label } = useRealtimeDeepResearch(runHandle?.id);
 
   const { toast } = useToast();
 
@@ -58,24 +57,14 @@ export default function DeepResearchAgent() {
     },
   });
 
-  const research = useRealtimeDeepResearch(
-    runHandle?.id,
-    runHandle?.publicAccessToken
-  );
-
   const onSubmit = useCallback(
     async (values: z.infer<typeof formSchema>) => {
-      if (
-        runHandle &&
-        research.status !== "completed" &&
-        research.status !== "failed"
-      ) {
+      if (runHandle && progress !== 100) {
         return;
       }
 
       try {
         const handle = await deepResearchAction(values.prompt);
-        useRealtimeDeepResearch(handle.id, handle.publicAccessToken);
         setRunHandle(handle);
         form.reset();
         toast({
@@ -93,7 +82,7 @@ export default function DeepResearchAgent() {
         });
       }
     },
-    [toast, form, research.status, runHandle]
+    [toast, form, progress, runHandle]
   );
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -116,19 +105,17 @@ export default function DeepResearchAgent() {
             <div className="flex justify-between items-start">
               <div>
                 <CardTitle>
-                  {research.prompt
-                    ? `Research: "${research.prompt}"`
+                  {runHandle?.id
+                    ? `Research: "${runHandle.id}"`
                     : "New Research"}
                 </CardTitle>
-                <CardDescription>{research.message}</CardDescription>
+                <CardDescription>{label}</CardDescription>
               </div>
-              <StatusBadge status={research.status} />
+              <StatusBadge label={label} />
             </div>
           </CardHeader>
           <CardContent className="space-y-6">
-            {(!runHandle ||
-              research.status === "completed" ||
-              research.status === "failed") && (
+            {(!runHandle || progress !== 100) && (
               <Form {...form}>
                 <form
                   onSubmit={form.handleSubmit(onSubmit)}
@@ -170,21 +157,13 @@ export default function DeepResearchAgent() {
               </Form>
             )}
 
-            {(research.status === "queued" ||
-              research.status === "generating-search-queries" ||
-              research.status === "generating-search-results" ||
-              research.status === "generating-learnings" ||
-              research.status === "generating-report" ||
-              research.status === "generating-pdf" ||
-              research.status === "uploading-pdf-to-r2") && (
-              <ProgressSection
-                status={research.status}
-                progress={research.progress}
-                message={research.message}
-              />
-            )}
+            <ProgressSection
+              status={label}
+              progress={progress}
+              message={label}
+            />
 
-            {research.status === "completed" && research.finalUrl && (
+            {progress === 100 && (
               <div className="space-y-4 text-center">
                 <h3 className="text-2xl font-bold">Research Complete!</h3>
                 <p>
@@ -192,18 +171,14 @@ export default function DeepResearchAgent() {
                   download it now.
                 </p>
                 <Button asChild>
-                  <a
-                    href={research.finalUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
+                  <a href={""} target="_blank" rel="noopener noreferrer">
                     View Final Report
                   </a>
                 </Button>
               </div>
             )}
 
-            {research.status === "failed" && (
+            {progress === 100 && (
               <div className="space-y-4 text-center">
                 <h3 className="text-2xl font-bold text-destructive">
                   Research Failed

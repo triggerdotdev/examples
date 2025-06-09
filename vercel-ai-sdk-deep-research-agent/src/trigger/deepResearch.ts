@@ -48,7 +48,10 @@ export const deepResearch = schemaTask({
       breadth: maxBreadth,
     });
 
-    metadata.set("status", "Generating search queries");
+    metadata.set("progress", {
+      progress: 10,
+      label: "Generating search queries",
+    });
 
     if (!searchQueriesResult.ok) {
       throw new Error(
@@ -68,6 +71,11 @@ export const deepResearch = schemaTask({
 
       const nextLevelQueries: string[] = [];
 
+      metadata.set("progress", {
+        progress: 20,
+        label: "Generating search results",
+      });
+
       // Parallelize search processing for all queries at this depth level
       console.log(
         `Depth ${depth}: Processing ${currentQueries.length} queries in parallel`,
@@ -80,6 +88,11 @@ export const deepResearch = schemaTask({
       );
 
       // Process all search results
+      metadata.set("progress", {
+        progress: 40,
+        label: "Generating search results",
+      });
+
       for (let i = 0; i < searchBatch.runs.length; i++) {
         const searchResult = searchBatch.runs[i];
         const originalQuery = currentQueries[i];
@@ -90,6 +103,11 @@ export const deepResearch = schemaTask({
           );
           continue;
         }
+
+        metadata.set("progress", {
+          progress: 50,
+          label: "Generating learnings from search results",
+        });
 
         research.searchResults.push(...searchResult.output);
 
@@ -121,6 +139,11 @@ export const deepResearch = schemaTask({
                 Math.ceil(maxBreadth / (depth + 1)),
               ),
             );
+
+            metadata.set("progress", {
+              progress: 60,
+              label: "Generating report",
+            });
           }
         }
       }
@@ -130,6 +153,11 @@ export const deepResearch = schemaTask({
     }
 
     const report = await generateReport.triggerAndWait({ research });
+
+    metadata.set("progress", {
+      progress: 70,
+      label: "Generating report",
+    });
 
     if (!report.ok) {
       throw new Error(`Failed to generate report: ${report.error}`);
@@ -141,10 +169,25 @@ export const deepResearch = schemaTask({
       title: payload.prompt,
     });
 
+    metadata.set("progress", {
+      progress: 80,
+      label: "Generating PDF",
+    });
+
     if (!pdfResult.ok) {
       console.error(`PDF generation failed: ${pdfResult.error}`);
       return report.output.report; // Return just the HTML if PDF fails
     }
+
+    metadata.set("progress", {
+      progress: 90,
+      label: "Uploading PDF to R2",
+    });
+
+    metadata.set("progress", {
+      progress: 100,
+      label: "Completed",
+    });
 
     return {
       report: report.output.report,
@@ -235,7 +278,10 @@ export const searchAndProcess = task({
           description: "Evaluate the search results",
           parameters: z.object({}),
           async execute() {
-            const pendingResult = pendingSearchResults.pop()!;
+            const pendingResult = pendingSearchResults.pop();
+            if (!pendingResult) {
+              return "There are no search results to evaluate. Please use searchWeb first.";
+            }
             const { object: evaluation } = await generateObject({
               model: fastLLM,
               prompt:

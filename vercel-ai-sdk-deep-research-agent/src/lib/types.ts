@@ -10,3 +10,8 @@ export type DeepResearchStatus =
   | "uploading-pdf-to-r2"
   | "completed"
   | "failed";
+
+export type ResearchProgressTypes = {
+  progress: number;
+  label: string;
+};
