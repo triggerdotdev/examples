@@ -58,6 +58,9 @@ export const deepResearch = schemaTask({
       label: "Generated initial search queries.",
     });
 
+    // Small delay to ensure UI shows this update
+    await wait.for({ seconds: 1 });
+
     if (!searchQueriesResult.ok) {
       throw new Error(
         `Failed to generate search queries: ${searchQueriesResult.error}`,
@@ -118,6 +121,9 @@ export const deepResearch = schemaTask({
           }/${maxDepth}: Analyzing ${searchResult.output.length} results for "${originalQuery}".`,
         });
 
+        // Small delay to ensure UI shows this update
+        await wait.for({ seconds: 0.5 });
+
         research.searchResults.push(...searchResult.output);
 
         // Only batch trigger if we have results
@@ -129,6 +135,9 @@ export const deepResearch = schemaTask({
               depth + 1
             }/${maxDepth}: Synthesizing learnings from ${searchResult.output.length} sources for "${originalQuery}".`,
           });
+
+          // Small delay to ensure UI shows this update
+          await wait.for({ seconds: 0.5 });
 
           const learningBatch = await generateLearnings.batchTriggerAndWait(
             searchResult.output.map((result) => ({
@@ -167,6 +176,10 @@ export const deepResearch = schemaTask({
       progress: 70,
       label: "Compiling all research into a final report.",
     });
+
+    // Small delay to ensure UI shows this update
+    await wait.for({ seconds: 1 });
+
     const report = await generateReport.triggerAndWait({ research });
 
     if (!report.ok) {
@@ -319,15 +332,6 @@ export const searchAndProcess = task({
             });
             if (evaluation === "relevant") {
               finalSearchResults.push(pendingResult);
-              metadata.parent.set("status", {
-                progress: 50,
-                label: `Found relevant source: ${pendingResult.url}`,
-              });
-            } else {
-              metadata.parent.set("status", {
-                progress: 50,
-                label: `Discarded irrelevant source: ${pendingResult.url}`,
-              });
             }
 
             console.log("Found:", pendingResult.url);

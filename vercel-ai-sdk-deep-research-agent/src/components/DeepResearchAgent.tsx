@@ -129,7 +129,7 @@ export function DeepResearchAgent({ triggerToken }: { triggerToken: string }) {
                 {pdfTitle !== "" && (
                   <Button asChild>
                     <a
-                      href={`${process.env.NEXT_PUBLIC_R2_PUBLIC_URL}/${process.env.NEXT_PUBLIC_R2_BUCKET_NAME}/${pdfTitle}.pdf`}
+                      href={`${process.env.NEXT_PUBLIC_R2_PUBLIC_URL}/${pdfTitle}.pdf`}
                       target="_blank"
                       rel="noopener noreferrer"
                     >

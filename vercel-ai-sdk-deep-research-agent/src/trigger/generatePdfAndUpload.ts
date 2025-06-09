@@ -106,21 +106,12 @@ export const generatePdfAndUpload = task({
         }),
       );
 
-      // Assumes R2_PUBLIC_URL is set in your environment, e.g. https://<your-bucket>.<account-id>.r2.dev
-      const publicUrl = process.env.R2_PUBLIC_URL
-        ? `${process.env.R2_PUBLIC_URL}/${key}`
-        : null;
-
-      if (!publicUrl) {
-        console.warn(
-          "R2_PUBLIC_URL environment variable is not set. Returning object key instead of a public URL.",
-        );
-      }
+      const publicUrl = `${process.env.NEXT_PUBLIC_R2_PUBLIC_URL}/${key}`;
 
       return {
-        pdfLocation: publicUrl ?? key,
-        title: payload.title || "Research Report",
         key,
+        title: payload.title || "Research Report",
+        pdfLocation: publicUrl,
       };
     } catch (error) {
       console.error("Error converting PDF:", error);
