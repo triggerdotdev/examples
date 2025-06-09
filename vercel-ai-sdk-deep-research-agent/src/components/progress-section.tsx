@@ -25,7 +25,9 @@ export function ProgressSection({
         <p className="text-sm font-semibold truncate w-[80%]">
           {prompt || " "}
         </p>
-        <Badge variant="outline">{status || " "}</Badge>
+        <Badge variant="default" loading>
+          {status || " "}
+        </Badge>
       </div>
 
       <Progress value={progress} />

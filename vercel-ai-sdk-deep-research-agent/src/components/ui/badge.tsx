@@ -25,13 +25,20 @@ const badgeVariants = cva(
 
 export interface BadgeProps
   extends React.HTMLAttributes<HTMLDivElement>,
-    VariantProps<typeof badgeVariants> {}
+    VariantProps<typeof badgeVariants> {
+  loading?: boolean;
+}
 
-function Badge({ className, variant, ...props }: BadgeProps) {
+function Badge({ className, variant, loading = false, ...props }: BadgeProps) {
   return (
-    <>
+    <div className="flex items-center gap-2">
+      {loading && (
+        <div className="inline-flex items-center">
+          <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
+        </div>
+      )}
       <div className={cn(badgeVariants({ variant }), className)} {...props} />
-    </>
+    </div>
   );
 }
 
