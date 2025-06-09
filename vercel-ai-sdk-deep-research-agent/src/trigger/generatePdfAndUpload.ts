@@ -18,7 +18,10 @@ const s3Client = new S3Client({
 
 export const generatePdfAndUpload = task({
   id: "generate-pdf-and-upload",
-  run: async (payload: { report: string; title?: string }, { ctx }) => {
+  run: async (
+    payload: { report: string; title?: string; name?: string },
+    { ctx },
+  ) => {
     // Set LibreOffice path for production environment
     if (ctx.environment.type !== "DEVELOPMENT") {
       process.env.LIBREOFFICE_PATH = "/usr/bin/libreoffice";
@@ -93,7 +96,7 @@ export const generatePdfAndUpload = task({
       );
 
       // Upload to R2
-      const key = `research-reports/report_${Date.now()}.pdf`;
+      const key = `${payload.name}.pdf`;
       await s3Client.send(
         new PutObjectCommand({
           Bucket: process.env.R2_BUCKET,
@@ -103,9 +106,21 @@ export const generatePdfAndUpload = task({
         }),
       );
 
+      // Assumes R2_PUBLIC_URL is set in your environment, e.g. https://<your-bucket>.<account-id>.r2.dev
+      const publicUrl = process.env.R2_PUBLIC_URL
+        ? `${process.env.R2_PUBLIC_URL}/${key}`
+        : null;
+
+      if (!publicUrl) {
+        console.warn(
+          "R2_PUBLIC_URL environment variable is not set. Returning object key instead of a public URL.",
+        );
+      }
+
       return {
-        pdfLocation: key,
+        pdfLocation: publicUrl ?? key,
         title: payload.title || "Research Report",
+        key,
       };
     } catch (error) {
       console.error("Error converting PDF:", error);

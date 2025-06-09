@@ -54,8 +54,8 @@ export const deepResearch = schemaTask({
     });
 
     metadata.set("status", {
-      progress: 10,
-      label: "Generating search queries...",
+      progress: 5,
+      label: "Generated initial search queries.",
     });
 
     if (!searchQueriesResult.ok) {
@@ -66,6 +66,7 @@ export const deepResearch = schemaTask({
 
     let currentQueries = searchQueriesResult.output.queries;
     research.queries = currentQueries;
+    const progressPerDepth = (70 - 5) / maxDepth; // Progress from 5% to 70%
 
     // Iterative approach instead of recursion
     for (let depth = 0; depth < maxDepth; depth++) {
@@ -76,9 +77,12 @@ export const deepResearch = schemaTask({
 
       const nextLevelQueries: string[] = [];
 
+      const baseProgress = 5 + depth * progressPerDepth;
       metadata.set("status", {
-        progress: 20,
-        label: "Generating search results...",
+        progress: Math.round(baseProgress),
+        label: `Depth ${
+          depth + 1
+        }/${maxDepth}: Performing ${currentQueries.length} searches in parallel.`,
       });
 
       // Parallelize search processing for all queries at this depth level
@@ -93,11 +97,6 @@ export const deepResearch = schemaTask({
       );
 
       // Process all search results
-      metadata.set("progress", {
-        progress: 40,
-        label: "Generating search results",
-      });
-
       for (let i = 0; i < searchBatch.runs.length; i++) {
         const searchResult = searchBatch.runs[i];
         const originalQuery = currentQueries[i];
@@ -109,9 +108,14 @@ export const deepResearch = schemaTask({
           continue;
         }
 
+        const progressAfterSearch = Math.round(
+          baseProgress + progressPerDepth / 2,
+        );
         metadata.set("status", {
-          progress: 50,
-          label: "Generating learnings from search results...",
+          progress: progressAfterSearch,
+          label: `Depth ${
+            depth + 1
+          }/${maxDepth}: Analyzing ${searchResult.output.length} results for "${originalQuery}".`,
         });
 
         research.searchResults.push(...searchResult.output);
@@ -119,6 +123,13 @@ export const deepResearch = schemaTask({
         // Only batch trigger if we have results
         if (searchResult.output.length > 0) {
           // Parallelize learning generation for all search results from this query
+          metadata.set("status", {
+            progress: progressAfterSearch,
+            label: `Depth ${
+              depth + 1
+            }/${maxDepth}: Synthesizing learnings from ${searchResult.output.length} sources for "${originalQuery}".`,
+          });
+
           const learningBatch = await generateLearnings.batchTriggerAndWait(
             searchResult.output.map((result) => ({
               payload: {
@@ -144,11 +155,6 @@ export const deepResearch = schemaTask({
                 Math.ceil(maxBreadth / (depth + 1)),
               ),
             );
-
-            metadata.set("progress", {
-              progress: 60,
-              label: "Generating report",
-            });
           }
         }
       }
@@ -157,37 +163,39 @@ export const deepResearch = schemaTask({
       currentQueries = nextLevelQueries.slice(0, maxBreadth);
     }
 
-    const report = await generateReport.triggerAndWait({ research });
-
     metadata.set("status", {
       progress: 70,
-      label: "Generating report...",
+      label: "Compiling all research into a final report.",
     });
+    const report = await generateReport.triggerAndWait({ research });
 
     if (!report.ok) {
       throw new Error(`Failed to generate report: ${report.error}`);
     }
 
     // Generate and upload PDF
+    metadata.set("status", {
+      progress: 85,
+      label: "Generating PDF and uploading to R2...",
+    });
+
+    const pdfName = "deep-research-" + Date.now();
+    metadata.set("pdfName", pdfName);
+
     const pdfResult = await generatePdfAndUpload.triggerAndWait({
       report: report.output.report,
       title: payload.prompt,
-    });
-
-    metadata.set("status", {
-      progress: 80,
-      label: "Generating PDF...",
+      name: pdfName,
     });
 
     if (!pdfResult.ok) {
       console.error(`PDF generation failed: ${pdfResult.error}`);
+      metadata.set("status", {
+        progress: 100,
+        label: "Research complete (PDF generation failed).",
+      });
       return report.output.report; // Return just the HTML if PDF fails
     }
-
-    metadata.set("status", {
-      progress: 90,
-      label: "Uploading PDF to R2...",
-    });
 
     metadata.set("status", {
       progress: 100,
@@ -195,6 +203,7 @@ export const deepResearch = schemaTask({
     });
 
     return {
+      name: pdfName,
       report: report.output.report,
       pdfLocation: pdfResult.output.pdfLocation,
     };
@@ -310,14 +319,14 @@ export const searchAndProcess = task({
             });
             if (evaluation === "relevant") {
               finalSearchResults.push(pendingResult);
-              metadata.root.set("status", {
+              metadata.parent.set("status", {
                 progress: 50,
-                label: "Relevant search result found:" + pendingResult.url,
+                label: `Found relevant source: ${pendingResult.url}`,
               });
             } else {
-              metadata.root.set("status", {
+              metadata.parent.set("status", {
                 progress: 50,
-                label: "Irrelevant search result found:" + pendingResult.url,
+                label: `Discarded irrelevant source: ${pendingResult.url}`,
               });
             }
 

@@ -1,15 +1,8 @@
 "use client";
 
 import { ProgressSection } from "@/components/progress-section";
-import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { deepResearch } from "@/trigger/deepResearch";
 import { useRealtimeTaskTrigger } from "@trigger.dev/react-hooks";
@@ -22,6 +15,7 @@ export const ProgressMetadataSchema = z.object({
     progress: z.number(),
     label: z.string(),
   }),
+  pdfName: z.string().optional(),
 });
 
 export type ProgressMetadata = z.infer<typeof ProgressMetadataSchema>;
@@ -46,12 +40,14 @@ export function DeepResearchAgent({ triggerToken }: { triggerToken: string }) {
 
   let progress = 0;
   let label = " ";
+  let pdfTitle = "";
 
   if (run?.metadata) {
     console.log("values", run.metadata);
-    const { status } = parseStatus(run.metadata);
+    const { status, pdfName } = parseStatus(run.metadata);
     progress = status.progress;
     label = status.label;
+    pdfTitle = pdfName || "";
   }
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -130,11 +126,17 @@ export function DeepResearchAgent({ triggerToken }: { triggerToken: string }) {
                   Your detailed research report is ready. You can view and
                   download it now.
                 </p>
-                <Button asChild>
-                  <a href={""} target="_blank" rel="noopener noreferrer">
-                    View Final Report
-                  </a>
-                </Button>
+                {pdfTitle !== "" && (
+                  <Button asChild>
+                    <a
+                      href={`${process.env.NEXT_PUBLIC_R2_PUBLIC_URL}/${process.env.NEXT_PUBLIC_R2_BUCKET_NAME}/${pdfTitle}.pdf`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      View Final Report
+                    </a>
+                  </Button>
+                )}
               </div>
             )}
 
