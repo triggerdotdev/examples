@@ -20,12 +20,17 @@ export function ProgressSection({
   prompt,
 }: ProgressSectionProps) {
   return (
-    <div className="w-full space-y-3">
+    <div className="w-full space-y-3 min-h-20">
       <div className="flex justify-between items-center gap-2">
         <p className="text-sm font-semibold truncate w-[80%]">
           {prompt || " "}
         </p>
-        <Badge variant="default" loading>
+        <Badge variant="default" className="gap-2">
+          {status === "EXECUTING" && (
+            <div className="inline-flex items-center">
+              <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
+            </div>
+          )}
           {status || " "}
         </Badge>
       </div>

@@ -66,7 +66,7 @@ export function DeepResearchAgent({ triggerToken }: { triggerToken: string }) {
 
   return (
     <div className="min-h-screen bg-black text-foreground p-6 flex place-items-center justify-center">
-      <div className="max-w-4xl w-full mx-auto space-y-6">
+      <div className="max-w-2xl w-full mx-auto space-y-6">
         <div className="flex items-center justify-center gap-3 mb-6">
           <Telescope className="w-8 h-8" />
           <h1 className="text-4xl font-bold text-white">Deep Research Agent</h1>
@@ -85,7 +85,7 @@ export function DeepResearchAgent({ triggerToken }: { triggerToken: string }) {
                   </label>
                   <Textarea
                     id="prompt"
-                    placeholder="Enter your research question or topic here... (Press Enter to start)"
+                    placeholder="Enter your research question or topic here..."
                     className="min-h-[120px] resize-none"
                     value={prompt}
                     onChange={(e) => setPrompt(e.target.value)}
@@ -103,44 +103,44 @@ export function DeepResearchAgent({ triggerToken }: { triggerToken: string }) {
                 <Button
                   type="submit"
                   disabled={isSubmitDisabled}
-                  className="w-full"
+                  className="w-full max-w-56"
                 >
-                  <Search className="w-4 h-4 mr-1" />
+                  <Search className="w-4 h-4" />
                   Start Deep Research
                 </Button>
               </form>
             )}
 
-            {/* {run && ( */}
-            <ProgressSection
-              prompt={prompt}
-              status={run?.status || " "}
-              progress={progress}
-              message={label}
-            />
-            {/* )} */}
+            {run && (
+              <ProgressSection
+                prompt={prompt}
+                status={run?.status || " "}
+                progress={progress}
+                message={label}
+              />
+            )}
 
-            {/* {run?.status === "COMPLETED" && ( */}
-            <div className="space-y-4 text-center">
-              <h3 className="text-2xl font-bold">Research Complete!</h3>
-              <p className="font-semibold"> "{prompt}"</p>
-              <p>
-                Your detailed research report is ready. You can view and
-                download it now.
-              </p>
-              {/* {pdfTitle !== "" && ( */}
-              <Button asChild>
-                <a
-                  href={`${process.env.NEXT_PUBLIC_R2_PUBLIC_URL}/${pdfTitle}.pdf`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  View Final Report
-                </a>
-              </Button>
-              {/* )} */}
-            </div>
-            {/* )} */}
+            {run?.status === "COMPLETED" && (
+              <div className="space-y-4 text-center">
+                <h3 className="text-2xl font-bold">Research Complete!</h3>
+                <p className="font-semibold"> "{prompt}"</p>
+                <p>
+                  Your detailed research report is ready. You can view and
+                  download it now.
+                </p>
+                {pdfTitle !== "" && (
+                  <Button asChild>
+                    <a
+                      href={`${process.env.NEXT_PUBLIC_R2_PUBLIC_URL}/${pdfTitle}.pdf`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      View Final Report
+                    </a>
+                  </Button>
+                )}
+              </div>
+            )}
 
             {run?.status === "FAILED" && (
               <div className="space-y-4 text-center">
