@@ -1,12 +1,11 @@
-import { metadata, schemaTask, task, wait } from "@trigger.dev/sdk/v3";
-import { z } from "zod";
 import { openai } from "@ai-sdk/openai";
-import { generateObject, generateText, tool } from "ai";
-import { generatePdfAndUpload } from "./generatePdfAndUpload";
-import { searchAndProcess } from "./searchAndProcess";
-import { generateSearchQueries } from "./generateSearchQueries";
+import { metadata, schemaTask, wait } from "@trigger.dev/sdk/v3";
+import { z } from "zod";
 import { generateLearnings } from "./generateLearnings";
+import { generatePdfAndUpload } from "./generatePdfAndUpload";
 import { generateReport } from "./generateReport";
+import { generateSearchQueries } from "./generateSearchQueries";
+import { searchAndProcess } from "./searchAndProcess";
 
 export const mainLLM = openai("gpt-4o-mini");
 export const fastLLM = openai("gpt-4o-mini");
@@ -57,19 +56,23 @@ export const deepResearch = schemaTask({
       breadth: maxBreadth,
     });
 
-    metadata.set("status", {
-      progress: 5,
-      label: "Generated initial search queries.",
-    });
-
-    // Small delay to ensure UI shows this update
-    await wait.for({ seconds: 1 });
-
     if (!searchQueriesResult.ok) {
       throw new Error(
         `Failed to generate search queries: ${searchQueriesResult.error}`,
       );
     }
+
+    metadata.set("status", {
+      progress: 5,
+      label: `Generated initial search queries: ${
+        searchQueriesResult.output.queries.join(
+          ", ",
+        )
+      }`,
+    });
+
+    // Small delay to ensure UI shows this update
+    await wait.for({ seconds: 3 });
 
     let currentQueries = searchQueriesResult.output.queries;
     research.queries = currentQueries;
@@ -85,11 +88,12 @@ export const deepResearch = schemaTask({
       const nextLevelQueries: string[] = [];
 
       const baseProgress = 5 + depth * progressPerDepth;
+
       metadata.set("status", {
         progress: Math.round(baseProgress),
         label: `Depth ${
           depth + 1
-        }/${maxDepth}: Performing ${currentQueries.length} searches in parallel.`,
+        }/${maxDepth}: Searching ${currentQueries.length} queries in parallel...`,
       });
 
       // Parallelize search processing for all queries at this depth level
@@ -118,30 +122,17 @@ export const deepResearch = schemaTask({
         const progressAfterSearch = Math.round(
           baseProgress + progressPerDepth / 2,
         );
-        metadata.set("status", {
-          progress: progressAfterSearch,
-          label: `Depth ${
-            depth + 1
-          }/${maxDepth}: Analyzing ${searchResult.output.length} results for "${originalQuery}".`,
-        });
-
-        // Small delay to ensure UI shows this update
-        await wait.for({ seconds: 0.5 });
 
         research.searchResults.push(...searchResult.output);
 
         // Only batch trigger if we have results
         if (searchResult.output.length > 0) {
-          // Parallelize learning generation for all search results from this query
           metadata.set("status", {
             progress: progressAfterSearch,
             label: `Depth ${
               depth + 1
-            }/${maxDepth}: Synthesizing learnings from ${searchResult.output.length} sources for "${originalQuery}".`,
+            }/${maxDepth}: Generating learnings from ${searchResult.output.length} sources...`,
           });
-
-          // Small delay to ensure UI shows this update
-          await wait.for({ seconds: 0.5 });
 
           const learningBatch = await generateLearnings.batchTriggerAndWait(
             searchResult.output.map((result) => ({

@@ -1,4 +1,4 @@
-import { schemaTask } from "@trigger.dev/sdk/v3";
+import { metadata, schemaTask } from "@trigger.dev/sdk/v3";
 import { generateObject } from "ai";
 import z from "zod";
 import { mainLLM } from "./deepResearch";
@@ -14,6 +14,11 @@ export const generateLearnings = schemaTask({
     }),
   }),
   run: async (payload) => {
+    metadata.root.set("status", {
+      progress: 50,
+      label: `Generating learnings for ${payload.searchResult.title}...`,
+    });
+
     const { object } = await generateObject({
       model: mainLLM,
       prompt:

@@ -1,4 +1,4 @@
-import { task } from "@trigger.dev/sdk/v3";
+import { metadata, task } from "@trigger.dev/sdk/v3";
 import { generateObject, generateText, tool } from "ai";
 import z from "zod";
 import { fastLLM, mainLLM, SearchResult } from "./deepResearch";
@@ -9,6 +9,11 @@ export const searchAndProcess = task({
   run: async (
     payload: { query: string; accumulatedSources: SearchResult[] },
   ) => {
+    metadata.root.set("status", {
+      progress: 40,
+      label: `Searching for ${payload.query}`,
+    });
+
     const pendingSearchResults: SearchResult[] = [];
     const finalSearchResults: SearchResult[] = [];
 
@@ -70,6 +75,15 @@ export const searchAndProcess = task({
 
             console.log("Found:", pendingResult.url);
             console.log("Evaluation completed:", evaluation);
+
+            if (evaluation === "relevant") {
+              metadata.root.set("status", {
+                progress: 45,
+                label:
+                  `Found relevant search results for ${pendingResult.title}`,
+              });
+            }
+
             return evaluation === "irrelevant"
               ? "Search results are irrelevant. Please search again with a more specific query."
               : "Search results are relevant. End research for this query.";

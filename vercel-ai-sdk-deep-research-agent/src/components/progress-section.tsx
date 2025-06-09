@@ -36,7 +36,7 @@ export function ProgressSection({
       </div>
 
       <Progress value={progress} />
-      <p className="text-sm font-medium">{message || " "}</p>
+      <p className="text-sm font-medium truncate">{message || " "}</p>
     </div>
   );
 }
