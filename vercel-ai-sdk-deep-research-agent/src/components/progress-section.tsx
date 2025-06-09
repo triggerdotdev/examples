@@ -2,6 +2,7 @@
 "use client";
 
 import { Progress } from "@/components/ui/progress";
+import { Badge } from "./ui/badge";
 
 export type ProgressSectionProps = {
   status: string;
@@ -20,10 +21,10 @@ export function ProgressSection({
   return (
     <div className="w-full space-y-4">
       <div className="flex justify-between items-center">
-        <p className="text-sm font-medium">{status}</p>
         <p className="text-sm font-medium">{message}</p>
+        <Badge variant="outline">{status}</Badge>
       </div>
-      <Progress value={progress ? progress * 100 : 0} />
+      <Progress value={progress} />
     </div>
   );
 }

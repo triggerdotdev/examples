@@ -33,6 +33,13 @@ export const deepResearch = schemaTask({
     maxBreadth: z.number().min(1).max(10).optional(),
   }),
   run: async (payload) => {
+    metadata.set("status", {
+      progress: 0,
+      label: "Starting research...",
+    });
+
+    await wait.for({ seconds: 5 });
+
     // const maxDepth = payload.maxDepth || 2;
     // const maxBreadth = payload.maxBreadth || 3;
 
@@ -52,7 +59,7 @@ export const deepResearch = schemaTask({
 
     metadata.set("status", {
       progress: 10,
-      label: "Generating search queries",
+      label: "Generating search queries...",
     });
 
     // if (!searchQueriesResult.ok) {
@@ -77,7 +84,7 @@ export const deepResearch = schemaTask({
 
     metadata.set("status", {
       progress: 20,
-      label: "Generating search results",
+      label: "Generating search results...",
     });
 
     // // Parallelize search processing for all queries at this depth level
@@ -112,7 +119,7 @@ export const deepResearch = schemaTask({
 
     metadata.set("status", {
       progress: 50,
-      label: "Generating learnings from search results",
+      label: "Generating learnings from search results...",
     });
 
     // research.searchResults.push(...searchResult.output);
@@ -164,7 +171,7 @@ export const deepResearch = schemaTask({
 
     metadata.set("status", {
       progress: 70,
-      label: "Generating report",
+      label: "Generating report...",
     });
 
     // if (!report.ok) {
@@ -181,7 +188,7 @@ export const deepResearch = schemaTask({
 
     metadata.set("status", {
       progress: 80,
-      label: "Generating PDF",
+      label: "Generating PDF...",
     });
 
     // if (!pdfResult.ok) {
@@ -192,14 +199,14 @@ export const deepResearch = schemaTask({
     await wait.for({ seconds: 5 });
     metadata.set("status", {
       progress: 90,
-      label: "Uploading PDF to R2",
+      label: "Uploading PDF to R2...",
     });
 
     await wait.for({ seconds: 5 });
 
     metadata.set("status", {
       progress: 100,
-      label: "Completed",
+      label: "Research complete!",
     });
 
     return {

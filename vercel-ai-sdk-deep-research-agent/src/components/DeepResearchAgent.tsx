@@ -10,36 +10,30 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
 import { deepResearch } from "@/trigger/deepResearch";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { useRealtimeTaskTrigger } from "@trigger.dev/react-hooks";
-import { Search } from "lucide-react";
-import { useForm } from "react-hook-form";
-import * as z from "zod";
-import { parseStatus, ProgressMetadata } from "@/lib/schemas";
+import { Search, Telescope } from "lucide-react";
+import { useState } from "react";
+import { z } from "zod";
 
-const formSchema = z.object({
-  prompt: z
-    .string()
-    .min(1, {
-      message: "Research prompt must be at least 30 characters.",
-    })
-    .max(1000, {
-      message: "Research prompt must be less than 1000 characters.",
-    }),
+export const ProgressMetadataSchema = z.object({
+  status: z.object({
+    progress: z.number(),
+    label: z.string(),
+  }),
 });
 
+export type ProgressMetadata = z.infer<typeof ProgressMetadataSchema>;
+
+export function parseStatus(data: unknown): ProgressMetadata {
+  return ProgressMetadataSchema.parse(data);
+}
+
 export function DeepResearchAgent({ triggerToken }: { triggerToken: string }) {
+  const [prompt, setPrompt] = useState("");
+  const [promptError, setPromptError] = useState<string | null>(null);
+
   const triggerInstance = useRealtimeTaskTrigger<typeof deepResearch>(
     "deep-research",
     {
@@ -50,96 +44,84 @@ export function DeepResearchAgent({ triggerToken }: { triggerToken: string }) {
 
   const run = triggerInstance.run;
 
-  const status: ProgressMetadata = {
-    status: {
-      progress: 0,
-      label: " ",
-    },
-  };
+  let progress = 0;
+  let label = " ";
 
   if (run?.metadata) {
-    const {
-      status: { progress, label },
-    } = parseStatus(run.metadata);
-    status.status.progress = progress;
-    status.status.label = label;
+    console.log("values", run.metadata);
+    const { status } = parseStatus(run.metadata);
+    progress = status.progress;
+    label = status.label;
   }
 
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      prompt: "",
-    },
-  });
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
 
-  const onSubmit = (values: z.infer<typeof formSchema>) => {
-    console.log("values", triggerInstance.run);
-    triggerInstance.submit({ prompt: values.prompt });
+    if (prompt.length < 30) {
+      setPromptError("Research prompt must be at least 30 characters.");
+      return;
+    }
+
+    setPromptError(null);
+    triggerInstance.submit({ prompt });
   };
 
+  const isSubmitDisabled = prompt.length < 30 || prompt.length > 1000;
+
   return (
-    <div className="min-h-screen bg-background text-foreground p-6">
+    <div className="min-h-screen bg-background text-foreground p-6 flex place-items-center justify-center">
       <div className="max-w-4xl mx-auto space-y-6">
-        <div className="flex items-center gap-2 mb-8">
-          <Search className="h-5 w-5 text-primary" />
-          <h1 className="text-xl font-semibold">Deep Research Agent</h1>
+        <div className="flex items-center justify-center gap-3 mb-6">
+          <Telescope className="w-8 h-8" />
+          <h1 className="text-4xl font-bold">Deep Research Agent</h1>
         </div>
 
-        <Card>
-          <CardHeader>
-            <div className="flex justify-between items-start">
-              <div>
-                <CardTitle>
-                  {run?.id ? `Research: "${run.id}"` : "New Research"}
-                </CardTitle>
-                <CardDescription>{run?.status}</CardDescription>
-              </div>
-              <StatusBadge label={run?.status || " "} />
-            </div>
-          </CardHeader>
+        <Card className="pt-6">
           <CardContent className="space-y-6">
-            {(!run || run.status !== "COMPLETED") && (
-              <Form {...form}>
-                <form className="space-y-6">
-                  <FormField
-                    control={form.control}
-                    name="prompt"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Research Prompt</FormLabel>
-                        <FormControl>
-                          <Textarea
-                            placeholder="Enter your research question or topic here... (Press Enter to start)"
-                            className="min-h-[120px] resize-none"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormDescription>
-                          Describe what you'd like to research. Be specific for
-                          better results.
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <Button
-                    type="submit"
-                    onClick={form.handleSubmit(onSubmit)}
-                    disabled={!form.formState.isValid}
-                    className="w-full"
+            {!run && (
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <label
+                    htmlFor="prompt"
+                    className="text-lg font-semibold leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                   >
-                    <Search className="w-4 h-4 mr-2" />
-                    Start Deep Research
-                  </Button>
-                </form>
-              </Form>
+                    What would you like to research?
+                  </label>
+                  <Textarea
+                    id="prompt"
+                    placeholder="Enter your research question or topic here... (Press Enter to start)"
+                    className="min-h-[120px] resize-none"
+                    value={prompt}
+                    onChange={(e) => setPrompt(e.target.value)}
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    Describe what you'd like to research. Your prompt must be at
+                    least 30 characters long.
+                  </p>
+                  {promptError && (
+                    <p className="text-sm font-medium text-destructive">
+                      {promptError}
+                    </p>
+                  )}
+                </div>
+                <Button
+                  type="submit"
+                  disabled={isSubmitDisabled}
+                  className="w-full"
+                >
+                  <Search className="w-4 h-4 mr-1" />
+                  Start Deep Research
+                </Button>
+              </form>
             )}
 
-            <ProgressSection
-              status={run?.status || " "}
-              progress={status.status.progress}
-              message={status.status.label}
-            />
+            {run && (
+              <ProgressSection
+                status={run?.status || " "}
+                progress={progress}
+                message={label}
+              />
+            )}
 
             {run?.status === "COMPLETED" && (
               <div className="space-y-4 text-center">
