@@ -123,6 +123,7 @@ export function DeepResearchAgent({ triggerToken }: { triggerToken: string }) {
             {/* {run?.status === "COMPLETED" && ( */}
             <div className="space-y-4 text-center">
               <h3 className="text-2xl font-bold">Research Complete!</h3>
+              <p className="font-semibold"> "{prompt}"</p>
               <p>
                 Your detailed research report is ready. You can view and
                 download it now.
