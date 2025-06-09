@@ -1,6 +1,5 @@
 "use client";
 
-import { deepResearchAction } from "@/app/actions/deep-research";
 import { ProgressSection } from "@/components/progress-section";
 import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
@@ -21,34 +20,50 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
-import { useToast } from "@/hooks/use-toast";
-import { useRealtimeDeepResearch } from "@/hooks/useRealtimeDeepResearch";
+import { deepResearch } from "@/trigger/deepResearch";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useRealtimeTaskTrigger } from "@trigger.dev/react-hooks";
 import { Search } from "lucide-react";
-import { useCallback, useState } from "react";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
+import { parseStatus, ProgressMetadata } from "@/lib/schemas";
 
 const formSchema = z.object({
   prompt: z
     .string()
-    .min(30, {
-      message: "Research prompt must be at least 50 characters.",
+    .min(1, {
+      message: "Research prompt must be at least 30 characters.",
     })
     .max(1000, {
       message: "Research prompt must be less than 1000 characters.",
     }),
 });
 
-export default function DeepResearchAgent() {
-  const [runHandle, setRunHandle] = useState<{
-    id: string;
-    publicAccessToken: string;
-  } | null>(null);
+export function DeepResearchAgent({ triggerToken }: { triggerToken: string }) {
+  const triggerInstance = useRealtimeTaskTrigger<typeof deepResearch>(
+    "deep-research",
+    {
+      accessToken: triggerToken,
+      baseURL: process.env.NEXT_PUBLIC_TRIGGER_API_URL,
+    }
+  );
 
-  const { progress, label } = useRealtimeDeepResearch(runHandle?.id);
+  const run = triggerInstance.run;
 
-  const { toast } = useToast();
+  const status: ProgressMetadata = {
+    status: {
+      progress: 0,
+      label: " ",
+    },
+  };
+
+  if (run?.metadata) {
+    const {
+      status: { progress, label },
+    } = parseStatus(run.metadata);
+    status.status.progress = progress;
+    status.status.label = label;
+  }
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -57,39 +72,9 @@ export default function DeepResearchAgent() {
     },
   });
 
-  const onSubmit = useCallback(
-    async (values: z.infer<typeof formSchema>) => {
-      if (runHandle && progress !== 100) {
-        return;
-      }
-
-      try {
-        const handle = await deepResearchAction(values.prompt);
-        setRunHandle(handle);
-        form.reset();
-        toast({
-          title: "Research started",
-          description: "Your deep research request has been submitted.",
-        });
-      } catch (error) {
-        toast({
-          title: "Failed to start research",
-          description:
-            error instanceof Error
-              ? error.message
-              : "An unknown error occurred.",
-          variant: "destructive",
-        });
-      }
-    },
-    [toast, form, progress, runHandle]
-  );
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      form.handleSubmit(onSubmit)();
-    }
+  const onSubmit = (values: z.infer<typeof formSchema>) => {
+    console.log("values", triggerInstance.run);
+    triggerInstance.submit({ prompt: values.prompt });
   };
 
   return (
@@ -105,22 +90,17 @@ export default function DeepResearchAgent() {
             <div className="flex justify-between items-start">
               <div>
                 <CardTitle>
-                  {runHandle?.id
-                    ? `Research: "${runHandle.id}"`
-                    : "New Research"}
+                  {run?.id ? `Research: "${run.id}"` : "New Research"}
                 </CardTitle>
-                <CardDescription>{label}</CardDescription>
+                <CardDescription>{run?.status}</CardDescription>
               </div>
-              <StatusBadge label={label} />
+              <StatusBadge label={run?.status || " "} />
             </div>
           </CardHeader>
           <CardContent className="space-y-6">
-            {(!runHandle || progress !== 100) && (
+            {(!run || run.status !== "COMPLETED") && (
               <Form {...form}>
-                <form
-                  onSubmit={form.handleSubmit(onSubmit)}
-                  className="space-y-6"
-                >
+                <form className="space-y-6">
                   <FormField
                     control={form.control}
                     name="prompt"
@@ -131,7 +111,6 @@ export default function DeepResearchAgent() {
                           <Textarea
                             placeholder="Enter your research question or topic here... (Press Enter to start)"
                             className="min-h-[120px] resize-none"
-                            onKeyDown={handleKeyDown}
                             {...field}
                           />
                         </FormControl>
@@ -145,9 +124,8 @@ export default function DeepResearchAgent() {
                   />
                   <Button
                     type="submit"
-                    disabled={
-                      !form.formState.isValid || form.formState.isSubmitting
-                    }
+                    onClick={form.handleSubmit(onSubmit)}
+                    disabled={!form.formState.isValid}
                     className="w-full"
                   >
                     <Search className="w-4 h-4 mr-2" />
@@ -158,12 +136,12 @@ export default function DeepResearchAgent() {
             )}
 
             <ProgressSection
-              status={label}
-              progress={progress}
-              message={label}
+              status={run?.status || " "}
+              progress={status.status.progress}
+              message={status.status.label}
             />
 
-            {progress === 100 && (
+            {run?.status === "COMPLETED" && (
               <div className="space-y-4 text-center">
                 <h3 className="text-2xl font-bold">Research Complete!</h3>
                 <p>
@@ -178,20 +156,12 @@ export default function DeepResearchAgent() {
               </div>
             )}
 
-            {progress === 100 && (
+            {run?.status === "FAILED" && (
               <div className="space-y-4 text-center">
                 <h3 className="text-2xl font-bold text-destructive">
                   Research Failed
                 </h3>
                 <p>Unfortunately, the research could not be completed.</p>
-                <Button
-                  onClick={() => {
-                    setRunHandle(null);
-                    form.reset();
-                  }}
-                >
-                  Start a New Research
-                </Button>
               </div>
             )}
           </CardContent>

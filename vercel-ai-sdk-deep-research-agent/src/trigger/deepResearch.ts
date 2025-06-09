@@ -48,9 +48,9 @@ export const deepResearch = schemaTask({
     //   breadth: maxBreadth,
     // });
 
-    await wait.for({ seconds: 2 });
+    await wait.for({ seconds: 5 });
 
-    metadata.set("progress", {
+    metadata.set("status", {
       progress: 10,
       label: "Generating search queries",
     });
@@ -73,9 +73,9 @@ export const deepResearch = schemaTask({
 
     //   const nextLevelQueries: string[] = [];
 
-    await wait.for({ seconds: 2 });
+    await wait.for({ seconds: 5 });
 
-    metadata.set("progress", {
+    metadata.set("status", {
       progress: 20,
       label: "Generating search results",
     });
@@ -108,9 +108,9 @@ export const deepResearch = schemaTask({
     //     continue;
     //   }
 
-    await wait.for({ seconds: 2 });
+    await wait.for({ seconds: 5 });
 
-    metadata.set("progress", {
+    metadata.set("status", {
       progress: 50,
       label: "Generating learnings from search results",
     });
@@ -160,9 +160,9 @@ export const deepResearch = schemaTask({
 
     // const report = await generateReport.triggerAndWait({ research });
 
-    await wait.for({ seconds: 2 });
+    await wait.for({ seconds: 5 });
 
-    metadata.set("progress", {
+    metadata.set("status", {
       progress: 70,
       label: "Generating report",
     });
@@ -177,9 +177,9 @@ export const deepResearch = schemaTask({
     //   title: payload.prompt,
     // });
 
-    await wait.for({ seconds: 2 });
+    await wait.for({ seconds: 5 });
 
-    metadata.set("progress", {
+    metadata.set("status", {
       progress: 80,
       label: "Generating PDF",
     });
@@ -189,14 +189,15 @@ export const deepResearch = schemaTask({
     //   return report.output.report; // Return just the HTML if PDF fails
     // }
 
-    metadata.set("progress", {
+    await wait.for({ seconds: 5 });
+    metadata.set("status", {
       progress: 90,
       label: "Uploading PDF to R2",
     });
 
-    await wait.for({ seconds: 2 });
+    await wait.for({ seconds: 5 });
 
-    metadata.set("progress", {
+    metadata.set("status", {
       progress: 100,
       label: "Completed",
     });
