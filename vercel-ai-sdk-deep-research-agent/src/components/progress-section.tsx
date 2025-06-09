@@ -17,14 +17,19 @@ export function ProgressSection({
   progress,
   status,
   message,
+  prompt,
 }: ProgressSectionProps) {
   return (
-    <div className="w-full space-y-4">
-      <div className="flex justify-between items-center">
-        <p className="text-sm font-medium">{message}</p>
-        <Badge variant="outline">{status}</Badge>
+    <div className="w-full space-y-3">
+      <div className="flex justify-between items-center gap-2">
+        <p className="text-sm font-semibold truncate w-[80%]">
+          {prompt || " "}
+        </p>
+        <Badge variant="outline">{status || " "}</Badge>
       </div>
+
       <Progress value={progress} />
+      <p className="text-sm font-medium">{message || " "}</p>
     </div>
   );
 }
