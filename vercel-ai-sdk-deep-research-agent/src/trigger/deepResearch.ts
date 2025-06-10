@@ -47,6 +47,11 @@ export const deepResearchOrchestrator = schemaTask({
       label: "Starting research...",
     });
 
+    metadata.set("status", {
+      progress: 0,
+      label: "Starting research...",
+    });
+
     const research = await deepResearch(
       payload.prompt,
       payload.depth ?? 2,

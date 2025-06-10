@@ -4,7 +4,7 @@ import { ProgressSection } from "@/components/progress-section";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { deepResearch } from "@/trigger/deepResearch";
+import { deepResearchOrchestrator } from "@/trigger/deepResearch";
 import { useRealtimeTaskTrigger } from "@trigger.dev/react-hooks";
 import { Search, Telescope } from "lucide-react";
 import { useState } from "react";
@@ -28,13 +28,12 @@ export function DeepResearchAgent({ triggerToken }: { triggerToken: string }) {
   const [prompt, setPrompt] = useState("");
   const [promptError, setPromptError] = useState<string | null>(null);
 
-  const triggerInstance = useRealtimeTaskTrigger<typeof deepResearch>(
-    "deep-research",
-    {
-      accessToken: triggerToken,
-      baseURL: process.env.NEXT_PUBLIC_TRIGGER_API_URL,
-    }
-  );
+  const triggerInstance = useRealtimeTaskTrigger<
+    typeof deepResearchOrchestrator
+  >("deep-research", {
+    accessToken: triggerToken,
+    baseURL: process.env.NEXT_PUBLIC_TRIGGER_API_URL,
+  });
 
   const run = triggerInstance.run;
 
