@@ -110,7 +110,7 @@ export function DeepResearchAgent({ triggerToken }: { triggerToken: string }) {
               </form>
             )}
 
-            {run && (
+            {run && run.status !== "COMPLETED" && (
               <ProgressSection
                 prompt={prompt}
                 status={run?.status || " "}
@@ -119,7 +119,7 @@ export function DeepResearchAgent({ triggerToken }: { triggerToken: string }) {
               />
             )}
 
-            {run?.status === "COMPLETED" && (
+            {run && run.status === "COMPLETED" && (
               <div className="space-y-4 text-center">
                 <h3 className="text-2xl font-bold">Research Complete!</h3>
                 <p className="font-semibold"> "{prompt}"</p>
@@ -127,17 +127,16 @@ export function DeepResearchAgent({ triggerToken }: { triggerToken: string }) {
                   Your detailed research report is ready. You can view and
                   download it now.
                 </p>
-                {pdfTitle !== "" && (
-                  <Button asChild>
-                    <a
-                      href={`${process.env.NEXT_PUBLIC_R2_PUBLIC_URL}/${pdfTitle}.pdf`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      View Final Report
-                    </a>
-                  </Button>
-                )}
+
+                <Button asChild>
+                  <a
+                    href={`${process.env.NEXT_PUBLIC_R2_PUBLIC_URL}/${pdfTitle}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    View Final Report
+                  </a>
+                </Button>
               </div>
             )}
 

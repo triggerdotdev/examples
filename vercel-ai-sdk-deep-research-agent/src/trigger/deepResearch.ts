@@ -6,7 +6,7 @@ import { generateReport } from "./generateReport";
 import { Exa } from "exa-js";
 import { z } from "zod";
 
-export const mainModel = openai("gpt-4o-mini");
+export const mainModel = openai("gpt-4o");
 
 type Learning = {
   learning: string;
@@ -59,7 +59,7 @@ export const deepResearchOrchestrator = schemaTask({
     });
 
     const report = await generateReport.triggerAndWait({
-      research: JSON.stringify(research),
+      research: research,
     });
 
     metadata.set("status", {
@@ -71,7 +71,7 @@ export const deepResearchOrchestrator = schemaTask({
       throw new Error("No report generated");
     }
 
-    const reportName = `research-report-${Date.now()}.pdf`;
+    const reportName = `research-report-${Date.now()}`;
 
     const pdf = await generatePdfAndUpload.triggerAndWait({
       report: report.output.report,
@@ -86,6 +86,9 @@ export const deepResearchOrchestrator = schemaTask({
       progress: 100,
       label: "Deep research complete!",
     });
+
+    // Set the PDF name in metadata so the frontend can access it
+    metadata.set("pdfName", pdf.output.key);
 
     return {
       report: report.output.report,
@@ -176,16 +179,22 @@ export const deepResearch = async (
 };
 
 const generateSearchQueries = async (query: string, n: number = 3) => {
-  const {
-    object: { queries },
-  } = await generateObject({
-    model: mainModel,
-    prompt: `Generate ${n} search queries for the following query: ${query}`,
-    schema: z.object({
-      queries: z.array(z.string()).min(1).max(5),
-    }),
-  });
-  return queries;
+  try {
+    const {
+      object: { queries },
+    } = await generateObject({
+      model: mainModel,
+      prompt: `Generate ${n} search queries for the following query: ${query}`,
+      schema: z.object({
+        queries: z.array(z.string()).min(1).max(5),
+      }),
+    });
+    return queries;
+  } catch (error) {
+    console.error(`Error generating search queries for "${query}":`, error);
+    // Return a fallback query
+    return [query];
+  }
 };
 
 const exa = new Exa(process.env.EXA_API_KEY);
@@ -217,82 +226,101 @@ const searchAndProcess = async (
 ) => {
   const pendingSearchResults: SearchResult[] = [];
   const finalSearchResults: SearchResult[] = [];
-  await generateText({
-    model: mainModel,
-    prompt: `Search the web for information about ${query}`,
-    system:
-      "You are a researcher. For each query, search the web and then evaluate if the results are relevant and will help answer the following query",
-    maxSteps: 5,
-    tools: {
-      searchWeb: tool({
-        description: "Search the web for information about a given query",
-        parameters: z.object({
-          query: z.string().min(1),
+
+  try {
+    await generateText({
+      model: mainModel,
+      prompt: `Search the web for information about ${query}`,
+      system:
+        "You are a researcher. For each query, search the web and then evaluate if the results are relevant and will help answer the following query",
+      maxSteps: 5,
+      tools: {
+        searchWeb: tool({
+          description: "Search the web for information about a given query",
+          parameters: z.object({
+            query: z.string().min(1),
+          }),
+          async execute({ query }) {
+            const results = await searchWeb(query);
+            pendingSearchResults.push(...results);
+            return results;
+          },
         }),
-        async execute({ query }) {
-          const results = await searchWeb(query);
-          pendingSearchResults.push(...results);
-          return results;
-        },
-      }),
-      evaluate: tool({
-        description: "Evaluate the search results",
-        parameters: z.object({}),
-        async execute() {
-          const pendingResult = pendingSearchResults.pop()!;
-          const { object: evaluation } = await generateObject({
-            model: mainModel,
-            prompt:
-              `Evaluate whether the search results are relevant and will help answer the following query: ${query}. If the page already exists in the existing results, mark it as irrelevant.
+        evaluate: tool({
+          description: "Evaluate the search results",
+          parameters: z.object({}),
+          async execute() {
+            const pendingResult = pendingSearchResults.pop()!;
+            const { object: evaluation } = await generateObject({
+              model: mainModel,
+              prompt:
+                `Evaluate whether the search results are relevant and will help answer the following query: ${query}. If the page already exists in the existing results, mark it as irrelevant.
  
             <search_results>
             ${JSON.stringify(pendingResult)}
             </search_results>
             `,
-            output: "enum",
-            enum: ["relevant", "irrelevant"],
-          });
-          if (evaluation === "relevant") {
-            finalSearchResults.push(pendingResult);
-          }
-          console.log("Found:", pendingResult.url);
-          metadata.set("status", {
-            progress: 25,
-            label: `Found relevant search result: "${pendingResult.url}"`,
-          });
+              output: "enum",
+              enum: ["relevant", "irrelevant"],
+            });
+            if (evaluation === "relevant") {
+              finalSearchResults.push(pendingResult);
+            }
+            console.log("Found:", pendingResult.url);
+            metadata.set("status", {
+              progress: 25,
+              label: `Found relevant search result: "${pendingResult.url}"`,
+            });
 
-          console.log("Evaluation completed:", evaluation);
+            console.log("Evaluation completed:", evaluation);
 
-          metadata.set("status", {
-            progress: 25,
-            label: `Search result: "${pendingResult.url} is ${evaluation}"`,
-          });
+            metadata.set("status", {
+              progress: 25,
+              label: `Search result: "${pendingResult.url} is ${evaluation}"`,
+            });
 
-          return evaluation === "irrelevant"
-            ? "Search results are irrelevant. Please search again with a more specific query."
-            : "Search results are relevant. End research for this query.";
-        },
-      }),
-    },
-  });
+            return evaluation === "irrelevant"
+              ? "Search results are irrelevant. Please search again with a more specific query."
+              : "Search results are relevant. End research for this query.";
+          },
+        }),
+      },
+    });
+  } catch (error) {
+    console.error(`Error in searchAndProcess for query "${query}":`, error);
+    // If we hit server errors, fall back to direct search
+    const fallbackResults = await searchWeb(query);
+    return fallbackResults.slice(0, 1); // Return at most 1 result as fallback
+  }
+
   return finalSearchResults;
 };
 
 const generateLearnings = async (query: string, searchResult: SearchResult) => {
-  const { object } = await generateObject({
-    model: mainModel,
-    prompt:
-      `The user is researching "${query}". The following search result were deemed relevant.
-    Generate a learning and a follow-up question from the following search result:
- 
-    <search_result>
-    ${JSON.stringify(searchResult)}
-    </search_result>
-    `,
-    schema: z.object({
-      learning: z.string(),
-      followUpQuestions: z.array(z.string()),
-    }),
-  });
-  return object;
+  try {
+    const { object } = await generateObject({
+      model: mainModel,
+      prompt:
+        `The user is researching "${query}". The following search result were deemed relevant.
+      Generate a learning and a follow-up question from the following search result:
+   
+      <search_result>
+      ${JSON.stringify(searchResult)}
+      </search_result>
+      `,
+      schema: z.object({
+        learning: z.string(),
+        followUpQuestions: z.array(z.string()),
+      }),
+    });
+    return object;
+  } catch (error) {
+    console.error(`Error generating learnings for query "${query}":`, error);
+    // Return a basic fallback learning
+    return {
+      learning:
+        `Found relevant information about "${query}" from ${searchResult.url}`,
+      followUpQuestions: [`What are the key implications of ${query}?`],
+    };
+  }
 };
