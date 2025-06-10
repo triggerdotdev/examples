@@ -30,8 +30,6 @@ const accumulatedResearch: Research = {
   completedQueries: [],
 };
 
-// add an orchestrator task for deepresearch then generate report
-
 export const deepResearchOrchestrator = schemaTask({
   id: "deep-research",
   schema: z.object({
