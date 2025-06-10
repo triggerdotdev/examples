@@ -95,9 +95,21 @@ Level 0 (Initial Query): "AI safety in autonomous vehicles"
 5. **Recursive Deepening**: Follow-up questions become new queries for the next depth level
 6. **Accumulation**: All learnings, sources, and queries are accumulated across recursion levels
 
-### Trigger.dev Realtime progress updates
+### Using Trigger.dev Realtime to trigger and subscribe to the deep research task
 
-As each task is completed, the metadata is set and the frontend is updated:
+We use the [`useRealtimeTaskTrigger`](https://trigger.dev/docs/frontend/react-hooks/triggering#userealtimetasktrigger) React hook to trigger the `deep-research` task and subscribe to it's updates.
+
+**Frontend (React Hook)**:
+
+```typescript
+const triggerInstance = useRealtimeTaskTrigger<typeof deepResearchOrchestrator>(
+  "deep-research",
+  { accessToken: triggerToken }
+);
+const { progress, label } = parseStatus(triggerInstance.run?.metadata);
+```
+
+As the research progresses, the metadata is set within the tasks and the frontend is kept updated with every new status:
 
 **Task Metadata**:
 
@@ -106,18 +118,6 @@ metadata.set("status", {
   progress: 25,
   label: `Searching the web for: "${query}"`,
 });
-```
-
-**Frontend (React Hook)**:
-
-We use the [`useRealtimeTaskTrigger`](https://trigger.dev/docs/frontend/react-hooks/triggering#userealtimetasktrigger) hook to get the task metadata and update the frontend in real-time.
-
-```typescript
-const triggerInstance = useRealtimeTaskTrigger<typeof deepResearchOrchestrator>(
-  "deep-research",
-  { accessToken: triggerToken }
-);
-const { progress, label } = parseStatus(triggerInstance.run?.metadata);
 ```
 
 ## Relevant code
