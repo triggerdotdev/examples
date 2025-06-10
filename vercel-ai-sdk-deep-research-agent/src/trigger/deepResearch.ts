@@ -1,39 +1,45 @@
 import { openai } from "@ai-sdk/openai";
-import { metadata, schemaTask, wait } from "@trigger.dev/sdk/v3";
-import { z } from "zod";
-import { generateLearnings } from "./generateLearnings";
+import { metadata, schemaTask } from "@trigger.dev/sdk/v3";
 import { generatePdfAndUpload } from "./generatePdfAndUpload";
+import { generateObject, generateText, tool } from "ai";
 import { generateReport } from "./generateReport";
-import { generateSearchQueries } from "./generateSearchQueries";
-import { searchAndProcess } from "./searchAndProcess";
+import { Exa } from "exa-js";
+import { z } from "zod";
 
-export const mainLLM = openai("gpt-4o-mini");
-export const fastLLM = openai("gpt-4o-mini");
+export const mainModel = openai("gpt-4o-mini");
+export const fastModel = openai("gpt-4o-mini");
 
-export type Learning = {
+type Learning = {
   learning: string;
   followUpQuestions: string[];
 };
 
-export type SearchResult = {
-  title: string;
-  url: string;
-  content: string;
-};
-
-export type Research = {
-  query: string;
+type Research = {
+  query: string | undefined;
   queries: string[];
   searchResults: SearchResult[];
   learnings: Learning[];
+  completedQueries: string[];
 };
 
-export const deepResearch = schemaTask({
+const accumulatedResearch: Research = {
+  query: undefined,
+  queries: [],
+  searchResults: [],
+  learnings: [],
+  completedQueries: [],
+};
+
+// add an orchestrator task for deepresearch then generate report
+
+export const deepResearchOrchestrator = schemaTask({
   id: "deep-research",
   schema: z.object({
     prompt: z.string().min(1),
-    maxDepth: z.number().min(1).max(5).optional(),
-    maxBreadth: z.number().min(1).max(10).optional(),
+    // How many levels of queries to generate
+    depth: z.number().min(1).max(5).optional(),
+    // How many queries to generate for each depth level
+    breadth: z.number().min(1).max(10).optional(),
   }),
   run: async (payload) => {
     metadata.set("status", {
@@ -41,179 +47,185 @@ export const deepResearch = schemaTask({
       label: "Starting research...",
     });
 
-    const maxDepth = payload.maxDepth || 2;
-    const maxBreadth = payload.maxBreadth || 3;
+    const research = await deepResearch(
+      payload.prompt,
+      payload.depth ?? 2,
+      payload.breadth ?? 3,
+    );
 
-    const research: Research = {
-      query: payload.prompt,
-      queries: [],
-      searchResults: [],
-      learnings: [],
-    };
-
-    const searchQueriesResult = await generateSearchQueries.triggerAndWait({
-      prompt: payload.prompt,
-      breadth: maxBreadth,
-    });
-
-    if (!searchQueriesResult.ok) {
-      throw new Error(
-        `Failed to generate search queries: ${searchQueriesResult.error}`,
-      );
-    }
-
-    metadata.set("status", {
-      progress: 5,
-      label: `Generated initial search queries: ${
-        searchQueriesResult.output.queries.join(
-          ", ",
-        )
-      }`,
-    });
-
-    // Small delay to ensure UI shows this update
-    await wait.for({ seconds: 3 });
-
-    let currentQueries = searchQueriesResult.output.queries;
-    research.queries = currentQueries;
-    const progressPerDepth = (70 - 5) / maxDepth; // Progress from 5% to 70%
-
-    // Iterative approach instead of recursion
-    for (let depth = 0; depth < maxDepth; depth++) {
-      // Stop if no more queries to explore
-      if (currentQueries.length === 0) {
-        break;
-      }
-
-      const nextLevelQueries: string[] = [];
-
-      const baseProgress = 5 + depth * progressPerDepth;
-
-      metadata.set("status", {
-        progress: Math.round(baseProgress),
-        label: `Depth ${
-          depth + 1
-        }/${maxDepth}: Searching ${currentQueries.length} queries in parallel...`,
-      });
-
-      // Parallelize search processing for all queries at this depth level
-      console.log(
-        `Depth ${depth}: Processing ${currentQueries.length} queries in parallel`,
-      );
-
-      const searchBatch = await searchAndProcess.batchTriggerAndWait(
-        currentQueries.map((query) => ({
-          payload: { query, accumulatedSources: research.searchResults },
-        })),
-      );
-
-      // Process all search results
-      for (let i = 0; i < searchBatch.runs.length; i++) {
-        const searchResult = searchBatch.runs[i];
-        const originalQuery = currentQueries[i];
-
-        if (!searchResult.ok) {
-          console.error(
-            `Failed to search for "${originalQuery}": ${searchResult.error}`,
-          );
-          continue;
-        }
-
-        const progressAfterSearch = Math.round(
-          baseProgress + progressPerDepth / 2,
-        );
-
-        research.searchResults.push(...searchResult.output);
-
-        // Only batch trigger if we have results
-        if (searchResult.output.length > 0) {
-          metadata.set("status", {
-            progress: progressAfterSearch,
-            label: `Depth ${
-              depth + 1
-            }/${maxDepth}: Generating learnings from ${searchResult.output.length} sources...`,
-          });
-
-          const learningBatch = await generateLearnings.batchTriggerAndWait(
-            searchResult.output.map((result) => ({
-              payload: {
-                query: originalQuery,
-                searchResult: result,
-              },
-            })),
-          );
-
-          // Collect learnings and follow-up questions
-          for (const learning of learningBatch.runs) {
-            if (!learning.ok) {
-              console.error(`Failed to generate learnings: ${learning.error}`);
-              continue;
-            }
-
-            research.learnings.push(learning.output);
-
-            // Add follow-up questions for next depth level
-            nextLevelQueries.push(
-              ...learning.output.followUpQuestions.slice(
-                0,
-                Math.ceil(maxBreadth / (depth + 1)),
-              ),
-            );
-          }
-        }
-      }
-
-      // Prepare queries for next depth level
-      currentQueries = nextLevelQueries.slice(0, maxBreadth);
-    }
-
-    metadata.set("status", {
-      progress: 70,
-      label: "Compiling all research into a final report.",
-    });
-
-    // Small delay to ensure UI shows this update
-    await wait.for({ seconds: 1 });
+    const reportName = `research-report-${Date.now()}.pdf`;
 
     const report = await generateReport.triggerAndWait({ research });
 
     if (!report.ok) {
-      throw new Error(`Failed to generate report: ${report.error}`);
+      throw new Error("No report generated");
     }
 
-    // Generate and upload PDF
-    metadata.set("status", {
-      progress: 85,
-      label: "Generating PDF and uploading to R2...",
-    });
-
-    const pdfName = "deep-research-" + Date.now();
-    metadata.set("pdfName", pdfName);
-
-    const pdfResult = await generatePdfAndUpload.triggerAndWait({
+    const pdf = await generatePdfAndUpload.triggerAndWait({
       report: report.output.report,
-      title: payload.prompt,
-      name: pdfName,
+      name: reportName,
     });
 
-    if (!pdfResult.ok) {
-      console.error(`PDF generation failed: ${pdfResult.error}`);
-      metadata.set("status", {
-        progress: 100,
-        label: "Research complete (PDF generation failed).",
-      });
-      return report.output.report; // Return just the HTML if PDF fails
+    if (!pdf.ok) {
+      throw new Error("No PDF generated");
     }
-
-    metadata.set("status", {
-      progress: 100,
-      label: "Research complete!",
-    });
 
     return {
-      name: pdfName,
       report: report.output.report,
-      pdfLocation: pdfResult.output.pdfLocation,
+      pdf: pdf.output.pdfLocation,
     };
   },
 });
+
+const deepResearch = async (
+  prompt: string,
+  depth: number,
+  breadth: number,
+) => {
+  if (!accumulatedResearch.query) {
+    accumulatedResearch.query = prompt;
+  }
+
+  if (depth === 0) {
+    return accumulatedResearch;
+  }
+
+  const queries = await generateSearchQueries(prompt, breadth);
+  accumulatedResearch.queries = queries;
+
+  for (const query of queries) {
+    console.log(`Searching the web for: ${query}`);
+    const searchResults = await searchAndProcess(
+      query,
+      accumulatedResearch.searchResults,
+    );
+    accumulatedResearch.searchResults.push(...searchResults);
+    for (const searchResult of searchResults) {
+      console.log(`Processing search result: ${searchResult.url}`);
+      const learnings = await generateLearnings(query, searchResult);
+      accumulatedResearch.learnings.push(learnings);
+      accumulatedResearch.completedQueries.push(query);
+
+      const newQuery = `Overall research goal: ${prompt}
+        Previous search queries: ${
+        accumulatedResearch.completedQueries.join(", ")
+      }
+ 
+        Follow-up questions: ${learnings.followUpQuestions.join(", ")}
+        `;
+      await deepResearch(newQuery, depth - 1, Math.ceil(breadth / 2));
+    }
+  }
+  return accumulatedResearch;
+};
+
+const generateSearchQueries = async (query: string, n: number = 3) => {
+  const {
+    object: { queries },
+  } = await generateObject({
+    model: mainModel,
+    prompt: `Generate ${n} search queries for the following query: ${query}`,
+    schema: z.object({
+      queries: z.array(z.string()).min(1).max(5),
+    }),
+  });
+  return queries;
+};
+
+const exa = new Exa(process.env.EXA_API_KEY);
+
+type SearchResult = {
+  title: string;
+  url: string;
+  content: string;
+};
+
+const searchWeb = async (query: string) => {
+  const { results } = await exa.searchAndContents(query, {
+    numResults: 1,
+    livecrawl: "always",
+  });
+  return results.map(
+    (r) =>
+      ({
+        title: r.title,
+        url: r.url,
+        content: r.text,
+      }) as SearchResult,
+  );
+};
+
+const searchAndProcess = async (
+  query: string,
+  searchResults: SearchResult[],
+) => {
+  const pendingSearchResults: SearchResult[] = [];
+  const finalSearchResults: SearchResult[] = [];
+  await generateText({
+    model: mainModel,
+    prompt: `Search the web for information about ${query}`,
+    system:
+      "You are a researcher. For each query, search the web and then evaluate if the results are relevant and will help answer the following query",
+    maxSteps: 5,
+    tools: {
+      searchWeb: tool({
+        description: "Search the web for information about a given query",
+        parameters: z.object({
+          query: z.string().min(1),
+        }),
+        async execute({ query }) {
+          const results = await searchWeb(query);
+          pendingSearchResults.push(...results);
+          return results;
+        },
+      }),
+      evaluate: tool({
+        description: "Evaluate the search results",
+        parameters: z.object({}),
+        async execute() {
+          const pendingResult = pendingSearchResults.pop()!;
+          const { object: evaluation } = await generateObject({
+            model: mainModel,
+            prompt:
+              `Evaluate whether the search results are relevant and will help answer the following query: ${query}. If the page already exists in the existing results, mark it as irrelevant.
+ 
+            <search_results>
+            ${JSON.stringify(pendingResult)}
+            </search_results>
+            `,
+            output: "enum",
+            enum: ["relevant", "irrelevant"],
+          });
+          if (evaluation === "relevant") {
+            finalSearchResults.push(pendingResult);
+          }
+          console.log("Found:", pendingResult.url);
+          console.log("Evaluation completed:", evaluation);
+          return evaluation === "irrelevant"
+            ? "Search results are irrelevant. Please search again with a more specific query."
+            : "Search results are relevant. End research for this query.";
+        },
+      }),
+    },
+  });
+  return finalSearchResults;
+};
+
+const generateLearnings = async (query: string, searchResult: SearchResult) => {
+  const { object } = await generateObject({
+    model: mainModel,
+    prompt:
+      `The user is researching "${query}". The following search result were deemed relevant.
+    Generate a learning and a follow-up question from the following search result:
+ 
+    <search_result>
+    ${JSON.stringify(searchResult)}
+    </search_result>
+    `,
+    schema: z.object({
+      learning: z.string(),
+      followUpQuestions: z.array(z.string()),
+    }),
+  });
+  return object;
+};
