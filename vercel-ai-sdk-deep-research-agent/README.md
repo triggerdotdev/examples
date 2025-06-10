@@ -8,7 +8,7 @@
 
 This full-stack project is an intelligent deep research agent that autonomously conducts multi-layered web research, generating comprehensive reports which are then converted to PDF and uploaded to storage.
 
-https://github.com/user-attachments/assets/16cf3386-a79a-4de8-8be6-b2246145d058
+https://github.com/user-attachments/assets/aa86d2b2-7aa7-4948-82ff-5e1e80cf8e37
 
 ## Tech stack
 
