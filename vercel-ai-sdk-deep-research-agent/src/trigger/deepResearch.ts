@@ -6,6 +6,7 @@ import { generateReport } from "./generateReport";
 import { Exa } from "exa-js";
 import { z } from "zod";
 
+// You can change this to any other model available on the AI SDK
 export const mainModel = openai("gpt-4o");
 
 type Learning = {
@@ -50,7 +51,6 @@ export const deepResearchOrchestrator = schemaTask({
       payload.prompt,
       payload.depth,
       payload.breadth,
-      10, // Starting progress at 10%
     );
 
     metadata.set("status", {
