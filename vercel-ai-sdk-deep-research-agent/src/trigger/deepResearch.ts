@@ -1,5 +1,5 @@
 import { openai } from "@ai-sdk/openai";
-import { metadata, schemaTask } from "@trigger.dev/sdk/v3";
+import { metadata, schemaTask } from "@trigger.dev/sdk";
 import { generatePdfAndUpload } from "./generatePdfAndUpload";
 import { generateObject, generateText, tool } from "ai";
 import { generateReport } from "./generateReport";
@@ -7,7 +7,6 @@ import { Exa } from "exa-js";
 import { z } from "zod";
 
 export const mainModel = openai("gpt-4o-mini");
-export const fastModel = openai("gpt-4o-mini");
 
 type Learning = {
   learning: string;
@@ -35,25 +34,23 @@ export const deepResearchOrchestrator = schemaTask({
   schema: z.object({
     prompt: z.string().min(1),
     // How many levels of queries to generate
-    depth: z.number().min(1).max(5).optional(),
+    depth: z.number().min(1).max(5).optional().default(2),
     // How many queries to generate for each depth level
-    breadth: z.number().min(1).max(10).optional(),
+    breadth: z.number().min(1).max(10).optional().default(2),
   }),
   run: async (payload) => {
     metadata.set("status", {
       progress: 0,
-      label: "Starting research...",
-    });
-
-    metadata.set("status", {
-      progress: 0,
-      label: "Starting research...",
+      label: `Researching ${payload.prompt}. Depth: ${
+        payload.depth ?? 2
+      }. Breadth: ${payload.breadth ?? 3}`,
     });
 
     const research = await deepResearch(
       payload.prompt,
-      payload.depth ?? 2,
-      payload.breadth ?? 3,
+      payload.depth,
+      payload.breadth,
+      10, // Starting progress at 10%
     );
 
     metadata.set("status", {
@@ -61,7 +58,9 @@ export const deepResearchOrchestrator = schemaTask({
       label: "Research complete. Generating report...",
     });
 
-    const report = await generateReport.triggerAndWait({ research });
+    const report = await generateReport.triggerAndWait({
+      research: JSON.stringify(research),
+    });
 
     metadata.set("status", {
       progress: 60,
@@ -83,6 +82,11 @@ export const deepResearchOrchestrator = schemaTask({
       throw new Error("No PDF generated");
     }
 
+    metadata.set("status", {
+      progress: 100,
+      label: "Deep research complete!",
+    });
+
     return {
       report: report.output.report,
       pdf: pdf.output.pdfLocation,
@@ -90,10 +94,11 @@ export const deepResearchOrchestrator = schemaTask({
   },
 });
 
-const deepResearch = async (
+export const deepResearch = async (
   prompt: string,
   depth: number,
   breadth: number,
+  currentProgress: number = 10, // Starting progress
 ) => {
   if (!accumulatedResearch.query) {
     accumulatedResearch.query = prompt;
@@ -103,11 +108,31 @@ const deepResearch = async (
     return accumulatedResearch;
   }
 
+  metadata.set("status", {
+    progress: 25,
+    label: `Generating ${breadth} search queries for: "${prompt}"...`,
+  });
+
   const queries = await generateSearchQueries(prompt, breadth);
   accumulatedResearch.queries = queries;
 
+  metadata.set("status", {
+    progress: 25,
+    label: `Depth ${depth}: Search queries: ${
+      accumulatedResearch.queries.join(
+        ", ",
+      )
+    }`,
+  });
+
   for (const query of queries) {
     console.log(`Searching the web for: ${query}`);
+
+    metadata.set("status", {
+      progress: 25,
+      label: `Searching the web for: "${query}"`,
+    });
+
     const searchResults = await searchAndProcess(
       query,
       accumulatedResearch.searchResults,
@@ -116,6 +141,12 @@ const deepResearch = async (
 
     for (const searchResult of searchResults) {
       console.log(`Processing search result: ${searchResult.url}`);
+
+      metadata.set("status", {
+        progress: 25,
+        label: `Processing search result: "${searchResult.url}"`,
+      });
+
       const learnings = await generateLearnings(query, searchResult);
       accumulatedResearch.learnings.push(learnings);
       accumulatedResearch.completedQueries.push(query);
@@ -127,7 +158,18 @@ const deepResearch = async (
  
         Follow-up questions: ${learnings.followUpQuestions.join(", ")}
         `;
-      await deepResearch(newQuery, depth - 1, Math.ceil(breadth / 2));
+
+      metadata.set("status", {
+        progress: 25,
+        label: `Generating learnings for ${newQuery}...`,
+      });
+
+      await deepResearch(
+        newQuery,
+        depth - 1,
+        Math.ceil(breadth / 2),
+        currentProgress,
+      );
     }
   }
   return accumulatedResearch;
@@ -214,7 +256,18 @@ const searchAndProcess = async (
             finalSearchResults.push(pendingResult);
           }
           console.log("Found:", pendingResult.url);
+          metadata.set("status", {
+            progress: 25,
+            label: `Found relevant search result: "${pendingResult.url}"`,
+          });
+
           console.log("Evaluation completed:", evaluation);
+
+          metadata.set("status", {
+            progress: 25,
+            label: `Search result: "${pendingResult.url} is ${evaluation}"`,
+          });
+
           return evaluation === "irrelevant"
             ? "Search results are irrelevant. Please search again with a more specific query."
             : "Search results are relevant. End research for this query.";

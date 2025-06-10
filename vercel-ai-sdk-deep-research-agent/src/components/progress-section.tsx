@@ -20,7 +20,7 @@ export function ProgressSection({
   prompt,
 }: ProgressSectionProps) {
   return (
-    <div className="w-full space-y-3 min-h-20">
+    <div className="w-full space-y-3 min-h-32">
       <div className="flex justify-between items-center gap-2">
         <p className="text-sm font-semibold truncate w-[80%]">
           {prompt || " "}
@@ -36,7 +36,7 @@ export function ProgressSection({
       </div>
 
       <Progress value={progress} />
-      <p className="text-sm font-medium truncate">{message || " "}</p>
+      <p className="text-sm font-medium">{message || " "}</p>
     </div>
   );
 }

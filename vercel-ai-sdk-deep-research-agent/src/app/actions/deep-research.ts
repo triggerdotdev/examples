@@ -1,6 +1,6 @@
 "use server";
 
-import { tasks } from "@trigger.dev/sdk/v3";
+import { tasks } from "@trigger.dev/sdk";
 import type { deepResearch } from "@/trigger/deepResearch";
 
 export async function deepResearchAction(formData: FormData) {

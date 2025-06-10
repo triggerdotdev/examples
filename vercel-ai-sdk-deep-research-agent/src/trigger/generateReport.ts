@@ -1,6 +1,6 @@
-import { task } from "@trigger.dev/sdk/v3";
+import { metadata, task } from "@trigger.dev/sdk";
 import { generateText } from "ai";
-import { mainLLM, Research } from "./deepResearch";
+import { mainModel } from "./deepResearch";
 
 const SYSTEM_PROMPT = `You are an expert researcher. Today is ${
   new Date().toISOString()
@@ -21,23 +21,30 @@ const SYSTEM_PROMPT = `You are an expert researcher. Today is ${
 
 export const generateReport = task({
   id: "generate-report",
-  run: async (payload: { research: Research }) => {
+  run: async (payload: { research: string }) => {
+    const research = JSON.parse(payload.research);
+
+    metadata.root.set("status", {
+      progress: 0,
+      label: "Generating report...",
+    });
+
     // Create a more efficient summary instead of full JSON dump
     const summary = {
-      query: payload.research.query,
-      totalSources: payload.research.searchResults.length,
-      keyFindings: payload.research.learnings.map((l) => l.learning).slice(
+      query: research.query,
+      totalSources: research.searchResults.length,
+      keyFindings: research.learnings.map((l) => l.learning).slice(
         0,
         10,
       ), // Limit to top 10
-      topSources: payload.research.searchResults.slice(0, 5).map((r) => ({
+      topSources: research.searchResults.slice(0, 5).map((r) => ({
         title: r.title,
         url: r.url,
       })), // Just title/URL, not full content
     };
 
     const { text } = await generateText({
-      model: mainLLM,
+      model: mainModel,
       prompt: `Research Query: "${summary.query}"
       
 Key Findings:

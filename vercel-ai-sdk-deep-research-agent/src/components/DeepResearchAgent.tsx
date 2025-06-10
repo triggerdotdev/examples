@@ -64,11 +64,11 @@ export function DeepResearchAgent({ triggerToken }: { triggerToken: string }) {
   const isSubmitDisabled = prompt.length < 30 || prompt.length > 1000;
 
   return (
-    <div className="min-h-screen bg-black text-foreground p-6 flex place-items-center justify-center">
+    <div className="min-h-screen bg-white text-foreground p-6 flex place-items-center justify-center">
       <div className="max-w-2xl w-full mx-auto space-y-6">
         <div className="flex items-center justify-center gap-3 mb-6">
           <Telescope className="w-8 h-8" />
-          <h1 className="text-4xl font-bold text-white">Deep Research Agent</h1>
+          <h1 className="text-4xl font-bold">Deep Research Agent</h1>
         </div>
 
         <Card className="pt-6">
