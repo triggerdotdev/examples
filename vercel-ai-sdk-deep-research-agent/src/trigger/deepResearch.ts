@@ -58,13 +58,23 @@ export const deepResearchOrchestrator = schemaTask({
       payload.breadth ?? 3,
     );
 
-    const reportName = `research-report-${Date.now()}.pdf`;
+    metadata.set("status", {
+      progress: 50,
+      label: "Research complete. Generating report...",
+    });
 
     const report = await generateReport.triggerAndWait({ research });
+
+    metadata.set("status", {
+      progress: 60,
+      label: "Creating PDF and uploading to R2 storage...",
+    });
 
     if (!report.ok) {
       throw new Error("No report generated");
     }
+
+    const reportName = `research-report-${Date.now()}.pdf`;
 
     const pdf = await generatePdfAndUpload.triggerAndWait({
       report: report.output.report,
@@ -105,6 +115,7 @@ const deepResearch = async (
       accumulatedResearch.searchResults,
     );
     accumulatedResearch.searchResults.push(...searchResults);
+
     for (const searchResult of searchResults) {
       console.log(`Processing search result: ${searchResult.url}`);
       const learnings = await generateLearnings(query, searchResult);
