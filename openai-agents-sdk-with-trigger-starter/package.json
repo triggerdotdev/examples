@@ -1,0 +1,11 @@
+{
+  "dependencies": {
+    "@openai/agents": "^0.0.9",
+    "@trigger.dev/sdk": "4.0.0-v4-beta.21",
+    "resend": "^4.6.0",
+    "zod": "^3.25.67"
+  },
+  "devDependencies": {
+    "@trigger.dev/build": "^4.0.0-v4-beta.21"
+  }
+}
