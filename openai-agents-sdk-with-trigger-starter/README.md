@@ -36,7 +36,7 @@ Use the Trigger.dev dashboard to test each task:
 
 ### Basic Tasks
 
-- **[Basic Agent Chat](src/trigger/basicAgentChat.ts)**: Personality-based conversations with model optimization
+- **[Basic Agent Chat](src/trigger/basicAgentChat.ts)**: Personality-based conversations with strategic model selection
 - **[Agent with Tools](src/trigger/agentWithTools.ts)**: Weather API calls with structured validation
 - **[Streaming Agent](src/trigger/streamingAgent.ts)**: Real-time content generation with progress tracking
 
@@ -53,29 +53,17 @@ Use the Trigger.dev dashboard to test each task:
 - [src/trigger/agentWithTools.ts](src/trigger/agentWithTools.ts) - OpenAI tool calling with Zod validation integrated into Trigger.dev's retry and error handling mechanisms
 - [src/trigger/streamingAgent.ts](src/trigger/streamingAgent.ts) - Native OpenAI streaming responses with real-time progress tracking via Trigger.dev metadata
 - [src/trigger/scheduledAgent.ts](src/trigger/scheduledAgent.ts) - Cron-scheduled OpenAI agents running every 6 hours with automatic trend analysis
-- [src/trigger/parallelAgents.ts](src/trigger/parallelAgents.ts) - Concurrent OpenAI agent execution using Trigger.dev batch operations for scalable text analysis
+- [src/trigger/parallelAgents.ts](src/trigger/parallelAgents.ts) - Concurrent OpenAI agent execution using Trigger.dev batch operations (`batch.triggerByTaskAndWait`) for scalable text analysis
 - [src/trigger/agentWithGuardrails.ts](src/trigger/agentWithGuardrails.ts) - OpenAI classification agents as input guardrails with structured validation and exception handling
 - [src/trigger/agentHandoff.ts](src/trigger/agentHandoff.ts) - OpenAI Agents SDK handoff pattern with specialist delegation orchestrated through Trigger.dev workflows
-
-## Platform capabilities
-
-- **Durable Task Orchestration**: Built on Trigger.dev v4 with automatic retries, queuing, and failure recovery for production-grade agent workflows
-- **Multi-Model Architecture**: Strategic model selection across GPT-4, o1-preview, o1-mini, and gpt-4o-mini based on task complexity and cost optimization
-- **Agent-to-Agent Handoffs**: True multi-agent collaboration with structured data passing and LLM-powered decision making for specialist delegation
-- **Concurrent Processing**: Parallel agent execution using batch operations for scalable multi-task analysis and processing
-- **Real-time Streaming**: Native streaming support with progress tracking and metadata updates for live response generation
-- **Content Safety**: Input guardrails with classification agents and structured validation to prevent misuse and ensure safe interactions
-- **Production Observability**: Full logging, monitoring, and debugging through Trigger.dev dashboard with execution traces and performance metrics
-- **Type-Safe Development**: Complete TypeScript integration with Zod validation for payload safety and enhanced developer experience
 
 ## Learn More
 
 To learn more about the technologies used in this project, check out the following resources:
 
-- [OpenAI Agents SDK Documentation](https://platform.openai.com/docs/agents) - learn about creating and managing AI agents
-- [OpenAI Agents SDK Handoffs Guide](https://openai.github.io/openai-agents-js/guides/handoffs/) - learn about agent-to-agent delegation patterns
-- [Trigger.dev Documentation](https://trigger.dev/docs) - learn about Trigger.dev and its features
-- [Trigger.dev Task Development](https://trigger.dev/docs/tasks) - learn about creating and managing tasks
-- [Trigger.dev Batch Operations](https://trigger.dev/docs/tasks/batch) - learn about parallel task execution
-- [Trigger.dev Scheduling](https://trigger.dev/docs/tasks/scheduled) - learn about cron-based task scheduling
-- [Multi-Agent Collaboration Patterns](https://cookbook.openai.com/examples/agents_sdk/multi-agent-portfolio-collaboration/multi_agent_portfolio_collaboration) - advanced agent orchestration examples
+- [OpenAI Agents SDK docs](https://openai.github.io/openai-agents-js/) - learn about creating and managing AI agents
+- [OpenAI Agents SDK handoffs](https://openai.github.io/openai-agents-js/guides/handoffs/) - learn about agent-to-agent delegation patterns
+- [Trigger.dev docs](https://trigger.dev/docs) - learn about Trigger.dev and its features
+- [Trigger.dev batch operations](https://trigger.dev/docs/triggering#batch-trigger) - learn about parallel task execution
+- [Trigger.dev scheduled tasks (cron)](https://trigger.dev/docs/tasks/scheduled#scheduled-tasks-cron) - learn about cron-based task scheduling
+- [Multi-agent collaboration patterns](https://cookbook.openai.com/examples/agents_sdk/multi-agent-portfolio-collaboration/multi_agent_portfolio_collaboration) - advanced agent orchestration examples
