@@ -1,16 +1,27 @@
-# OpenAI Agents SDK for Typescript with Trigger.dev starter kit
+# OpenAI Agents SDK + Trigger.dev playground
 
 > **ℹ️ Note:** This is a v4 project. If you are using v3 and want to upgrade, please refer to our [v4 upgrade guide](https://trigger.dev/docs/v4-upgrade-guide).
 
-This open source AI agent starter kit includes 7 different tasks, each using a different agent pattern; from basic conversations, to workflows with tools, streaming, guardrails, handoffs, and more.
+Get hands-on with AI agents by exploring 7 production-ready patterns built with the OpenAI Agents SDK and Trigger.dev. Clone this repo to experiment with everything from basic calls to workflows with tools, streaming, guardrails, handoffs, and more.
 
 By combining the OpenAI Agents SDK with Trigger.dev, you can create durable agents that can be deployed to production and scaled to any size, with retries, queues, and full observability built-in.
 
-This project uses:
+## Tech stack
 
+- [Node.js](https://nodejs.org) runtime environment
 - [OpenAI Agents SDK for Typescript](https://openai.github.io/openai-agents-js/) for creating and managing AI agents
 - [Trigger.dev](https://trigger.dev) for task orchestration, batching, scheduling, and workflow management
-- [Zod](https://zod.dev) for payload validation and type safety
+- [Zod](https://zod.dev) for payload validation
+
+## Agent tasks
+
+- **[Basic Agent Chat](src/trigger/basicAgentChat.ts)**: Personality-based conversations with strategic model selection
+- **[Agent with Tools](src/trigger/agentWithTools.ts)**: A simple agent that can call tools to get weather data
+- **[Streaming Agent](src/trigger/streamingAgent.ts)**: Real-time content generation with progress tracking
+- **[Agent Handoffs](src/trigger/agentHandoff.ts)**: True multi-agent collaboration using the [handoff pattern](https://openai.github.io/openai-agents-js/guides/handoffs/) where agents can dynamically transfer control to specialists
+- **[Parallel Agents](src/trigger/parallelAgents.ts)**: Concurrent agent processing for complex analysis tasks
+- **[Scheduled Agent](src/trigger/scheduledAgent.ts)**: Time-based agent workflows for continuous monitoring
+- **[Agent with Guardrails](src/trigger/agentWithGuardrails.ts)**: Input guardrails for safe AI interactions
 
 ## Getting started
 
@@ -31,21 +42,6 @@ Use the Trigger.dev dashboard to test each task:
 3. Click "Test"
 4. Use the example payload from the task file comments
 5. Run and observe the results in real-time
-
-## Agent tasks
-
-### Basic Tasks
-
-- **[Basic Agent Chat](src/trigger/basicAgentChat.ts)**: Personality-based conversations with strategic model selection
-- **[Agent with Tools](src/trigger/agentWithTools.ts)**: Weather API calls with structured validation
-- **[Streaming Agent](src/trigger/streamingAgent.ts)**: Real-time content generation with progress tracking
-
-### Advanced Tasks
-
-- **[Agent Handoffs](src/trigger/agentHandoff.ts)**: True multi-agent collaboration using the [handoff pattern](https://openai.github.io/openai-agents-js/guides/handoffs/) where agents can dynamically transfer control to specialists
-- **[Parallel Agents](src/trigger/parallelAgents.ts)**: Concurrent agent processing for complex analysis tasks
-- **[Scheduled Agent](src/trigger/scheduledAgent.ts)**: Time-based agent workflows for continuous monitoring
-- **[Agent with Guardrails](src/trigger/agentWithGuardrails.ts)**: Input guardrails for safe AI interactions
 
 ## Relevant code
 
