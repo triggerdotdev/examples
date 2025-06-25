@@ -4,143 +4,157 @@ import { z } from "zod";
 
 // Example payload for testing:
 // {
-//   "userQuestion": "What is the square root of 144 and when was calculus invented?"
+//   "userQuestion": "What is the square root of 144?"
 // }
 
 export interface AgentHandoffPayload {
   userQuestion: string;
 }
 
-// Define handoff input schemas
-const MathHandoffData = z.object({
-  problem: z.string().describe("The math problem to solve"),
-  complexity: z.enum(["basic", "intermediate", "advanced"]).nullable().describe(
-    "The complexity level of the math problem",
-  ),
+// Define handoff schemas to enable logging
+const MathInput = z.object({
+  problem: z.string(),
 });
 
-const HistoryHandoffData = z.object({
-  topic: z.string().describe("The historical topic or question"),
-  timeFrame: z.string().nullable().describe("Specific time period if relevant"),
+const HistoryInput = z.object({
+  topic: z.string(),
 });
 
-const ScienceHandoffData = z.object({
-  subject: z.string().describe("The scientific subject or question"),
-  fieldOfScience: z.enum(["physics", "chemistry", "biology", "general"])
-    .nullable().describe("The specific field of science"),
+const ScienceInput = z.object({
+  subject: z.string(),
 });
 
-type MathHandoffData = z.infer<typeof MathHandoffData>;
-type HistoryHandoffData = z.infer<typeof HistoryHandoffData>;
-type ScienceHandoffData = z.infer<typeof ScienceHandoffData>;
-
-export const agentHandoffExample = task({
-  id: "agent-handoff-example",
+export const agentHandoff = task({
+  id: "agent-handoff",
   maxDuration: 120,
   run: async (payload: AgentHandoffPayload) => {
-    logger.info("Starting agent handoff example", {
+    logger.info("🎬 Processing user question", {
       question: payload.userQuestion,
     });
 
     // Create specialist agents
-    const mathAgent = new Agent<MathHandoffData>({
+    const mathAgent = new Agent({
       name: "Math Specialist",
-      instructions: `You are a mathematics expert. When you receive a handoff:
-1. Solve math problems step by step with clear explanations
-2. Show your work and provide examples when helpful
-3. If the problem involves multiple disciplines, explain the mathematical aspects thoroughly
-4. Always be precise with calculations and formulas`,
+      instructions:
+        `You are a mathematics expert with strict limitations. You can ONLY:
+1. Solve mathematical calculations and equations
+2. Explain mathematical concepts
+3. Work with numbers and mathematical proofs
+
+You MUST refuse to answer anything that isn't purely mathematical.
+If a question involves history (even math history) or science, inform the user that you can only handle mathematical calculations and concepts.`,
       model: "gpt-4o-mini",
     });
+    logger.info("📐 Math agent ready");
 
-    const historyAgent = new Agent<HistoryHandoffData>({
+    const historyAgent = new Agent({
       name: "History Specialist",
-      instructions: `You are a history expert. When you receive a handoff:
-1. Provide detailed historical context and accurate information
-2. Include relevant dates and background information
-3. Explain the significance of historical events or figures
-4. If the topic spans multiple time periods, organize your response chronologically`,
+      instructions:
+        `You are a history expert with strict limitations. You can ONLY:
+1. Provide historical dates and timelines
+2. Explain historical events and their context
+3. Discuss historical figures and periods
+
+You MUST refuse to answer anything that isn't purely historical.
+If a question involves calculations or scientific concepts, inform the user that you can only handle historical information.`,
       model: "gpt-4o-mini",
     });
+    logger.info("📚 History agent ready");
 
-    const scienceAgent = new Agent<ScienceHandoffData>({
+    const scienceAgent = new Agent({
       name: "Science Specialist",
-      instructions: `You are a science expert. When you receive a handoff:
-1. Explain scientific concepts clearly with examples
-2. Provide real-world applications when relevant
-3. Break down complex topics into understandable parts
-4. Include the underlying scientific principles`,
+      instructions:
+        `You are a science expert with strict limitations. You can ONLY:
+1. Explain scientific concepts and principles
+2. Discuss physics, chemistry, and biology topics
+3. Describe scientific processes
+
+You MUST refuse to answer anything that isn't purely scientific.
+If a question involves historical dates or mathematical calculations, inform the user that you can only handle scientific concepts.`,
       model: "gpt-4o-mini",
     });
+    logger.info("🔬 Science agent ready");
 
-    // Create handoff configurations with callbacks
+    // Create handoff configurations with real-time logging
+    let handoffReason = "";
+    let handoffSpecialist = "";
+
     const mathHandoff = handoff(mathAgent, {
-      inputType: MathHandoffData,
+      inputType: MathInput,
       toolDescriptionOverride:
-        "Transfer to math specialist for mathematical calculations, equations, or quantitative problems",
+        "Transfer ONLY mathematical calculations and concepts - no history or science allowed",
       onHandoff: (ctx, input) => {
-        logger.info("Transferring to Math Specialist", {
-          problem: input?.problem,
-          complexity: input?.complexity,
+        handoffSpecialist = "Math Specialist";
+        handoffReason = "Mathematical concepts or calculations required";
+        logger.info("📐 Math question handed off to Math Specialist", {
+          problem: input?.problem ?? "unknown",
+          reason: handoffReason,
         });
       },
     });
 
     const historyHandoff = handoff(historyAgent, {
-      inputType: HistoryHandoffData,
+      inputType: HistoryInput,
       toolDescriptionOverride:
-        "Transfer to history specialist for historical events, dates, figures, or periods",
+        "Transfer ONLY historical information and dates - no calculations or science allowed",
       onHandoff: (ctx, input) => {
-        logger.info("Transferring to History Specialist", {
-          topic: input?.topic,
-          timeFrame: input?.timeFrame,
+        handoffSpecialist = "History Specialist";
+        handoffReason = "Historical information required";
+        logger.info("📚 History question handed off to History Specialist", {
+          topic: input?.topic ?? "unknown",
+          reason: handoffReason,
         });
       },
     });
 
     const scienceHandoff = handoff(scienceAgent, {
-      inputType: ScienceHandoffData,
+      inputType: ScienceInput,
       toolDescriptionOverride:
-        "Transfer to science specialist for physics, chemistry, biology, or general scientific concepts",
+        "Transfer ONLY scientific concepts - no historical dates or calculations allowed",
       onHandoff: (ctx, input) => {
-        logger.info("Transferring to Science Specialist", {
-          subject: input?.subject,
-          fieldOfScience: input?.fieldOfScience,
+        handoffSpecialist = "Science Specialist";
+        handoffReason = "Scientific concepts required";
+        logger.info("🔬 Science question handed off to Science Specialist", {
+          subject: input?.subject ?? "unknown",
+          reason: handoffReason,
         });
       },
     });
 
-    // Create triage agent with handoffs to specialists
+    // Create triage agent with handoffs to specialists using Agent.create()
     const triageAgent = Agent.create({
       name: "Triage Agent",
       instructions:
-        `You are a helpful triage agent that routes questions to appropriate specialists.
+        `You are a triage agent that routes questions to the right specialist. Keep it simple:
 
-Analyze the user's question and determine if it requires specialized knowledge:
-- For mathematical problems, calculations, equations, or numerical analysis: transfer to the Math Specialist
-- For historical events, dates, historical figures, or time periods: transfer to the History Specialist  
-- For scientific concepts, physics, chemistry, biology, or scientific principles: transfer to the Science Specialist
+Math Specialist: For calculations and math concepts
+History Specialist: For dates and historical events
+Science Specialist: For scientific concepts
 
-If a question involves multiple disciplines, choose the most relevant specialist or handle it yourself if it's general knowledge.
-
-Always be helpful and explain your reasoning when transferring to a specialist.`,
+Just give the direct answer to the question. No explanations about why you chose the specialist.`,
       model: "gpt-4o-mini",
       handoffs: [mathHandoff, historyHandoff, scienceHandoff],
+    });
+
+    logger.info("🎯 Triaging question through triage agent...", {
+      question: payload.userQuestion,
     });
 
     // Run the triage agent - it will decide whether to handle the question itself or hand off
     const result = await run(triageAgent, payload.userQuestion);
 
-    logger.info("Agent handoff example completed", {
+    logger.info("✨ Response generated", {
       question: payload.userQuestion,
-      finalOutput: result.finalOutput,
+      answer: result.finalOutput,
+      specialist: handoffSpecialist,
+      reason: handoffReason,
     });
 
     return {
-      userQuestion: payload.userQuestion,
-      response: result.finalOutput,
-      // Include the full result object for debugging and additional info
-      // runResult: result,
+      question: payload.userQuestion,
+      answer: result.finalOutput,
+      specialist: handoffSpecialist || "No specialist used",
+      reason: handoffReason || "No specialist was used",
     };
   },
 });
