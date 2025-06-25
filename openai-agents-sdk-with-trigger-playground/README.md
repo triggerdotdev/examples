@@ -1,4 +1,4 @@
-# OpenAI Agents SDK + Trigger.dev playground
+# OpenAI Agents SDK for Typescript + Trigger.dev playground
 
 > **ℹ️ Note:** This is a v4 project. If you are using v3 and want to upgrade, please refer to our [v4 upgrade guide](https://trigger.dev/docs/v4-upgrade-guide).
 
