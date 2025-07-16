@@ -1,33 +1,33 @@
-# City Day Planner with Mastra Agents
+# What Should I Wear Today? - Mastra Agents
 
-A weather-aware city day planner powered by Mastra agents and Trigger.dev. This system creates personalized day plans based on real-time weather conditions and detailed hourly forecasts.
+A weather-aware clothing advisor powered by Mastra agents and Trigger.dev. This system provides personalized clothing recommendations based on real-time weather conditions.
 
 ## 🌟 Features
 
-- **Weather-Aware Planning**: Creates activity recommendations based on current conditions and hourly forecasts
+- **Weather-Aware Clothing Advice**: Get clothing recommendations based on current temperature, rain chance, and wind speed
 - **Intelligent Memory System**: Uses Mastra's working memory to efficiently share weather data between agents
-- **Detailed Explanations**: Explains why each activity is recommended for specific weather conditions
-- **Time-Specific Recommendations**: Separate plans for morning, afternoon, and evening
-- **Backup Plans**: Indoor alternatives when weather turns bad
-- **Gear Recommendations**: Suggests what to bring/wear based on conditions
+- **Activity-Specific Recommendations**: Tailored advice for different activities (walking, running, etc.)
+- **Fast Response**: Optimized for quick responses (~3 seconds)
+- **Simple Input**: Just provide a city and optional activity
+- **Natural Language Output**: Returns human-readable clothing advice paragraph
 
 ## 🏗️ Architecture
 
 ### Agents
 
-- **Weather Analyst** (`weather-analyst.ts`) - Collects and analyzes weather data, stores in memory
-- **Day Planner** (`day-planner.ts`) - Reads weather data from memory and creates structured day plans
+- **Weather Analyst** (`weather-analyst.ts`) - Gets weather data and stores essentials in memory
+- **Clothing Advisor** (`clothing-advisor.ts`) - Reads weather data from memory and provides clothing recommendations
 
 ### Tasks
 
-- **`weather-analysis`** - Analyzes weather and stores data in memory
-- **`activity-planner`** - Creates day plan using weather data from memory
-- **`city-day-planner`** - Orchestrates both tasks with shared memory
+- **`weather-data`** - Gets weather data and stores temperature, rain chance, and wind speed in memory
+- **`clothing-advice`** - Reads weather data from memory and generates clothing recommendations
+- **`what-should-i-wear-today`** - Main task that orchestrates both subtasks with shared memory
 
 ### Memory System
 
-- **Shared Schema** (`weather-data.ts`) - Type-safe weather data structure
-- **Working Memory** - Stores weather data between task executions
+- **Simplified Schema** (`weather-data.ts`) - Lightweight weather data structure (4 fields only)
+- **Working Memory** - Stores essential weather data between task executions
 - **Thread-Scoped** - Data shared within same execution thread
 
 ## 🚀 Getting Started
@@ -70,77 +70,62 @@ npx trigger.dev@v4-beta dev
 
 ## 🎯 Usage
 
-### Main Task: City Day Planner
+### Main Task: What Should I Wear Today?
 
-Creates a complete weather-aware day plan:
+Get clothing recommendations based on weather:
 
 ```bash
-npx trigger.dev@v4-beta dev --trigger city-day-planner --payload '{"location": "London"}'
+npx trigger.dev@latest dev --trigger what-should-i-wear-today --payload '{"city": "London", "activity": "walking"}'
 ```
+
+**Payload:**
+
+- `city` (required): City name (e.g., "London", "New York", "Tokyo")
+- `activity` (optional): Activity type (defaults to "walking")
 
 **How it works:**
 
-1. Weather analyst fetches detailed weather data and stores in memory
-2. Day planner reads from memory and creates structured recommendations
+1. Weather analyst fetches current weather data and stores temperature, rain chance, and wind speed in memory
+2. Clothing advisor reads from memory and generates clothing recommendations
 3. No duplicate API calls - efficient memory-based task chaining
 
 ### Individual Tasks
 
-**Weather Analysis Only:**
+**Weather Data Only:**
 
 ```bash
-npx trigger.dev@v4-beta dev --trigger weather-analysis --payload '{"location": "Paris"}'
+npx trigger.dev@latest dev --trigger weather-data --payload '{"city": "Paris"}'
 ```
 
-**Activity Planning Only:**
+**Clothing Advice Only:**
 
 ```bash
-npx trigger.dev@v4-beta dev --trigger activity-planner --payload '{"location": "Tokyo"}'
+npx trigger.dev@latest dev --trigger clothing-advice --payload '{"city": "Tokyo", "activity": "running", "threadId": "run_abc123"}'
 ```
 
 ### Sample Output
 
-```json
-{
-  "success": true,
-  "location": "London",
-  "weatherAnalysis": "🌤️ Current conditions: 22°C, partly cloudy...",
-  "dayPlan": "🌅 MORNING PLAN (6AM-12PM)\n• Hyde Park Walk - Perfect for cool morning temperatures (18°C)\n• Best timing: 7AM-10AM\n• Weather conditions: 18°C, 0% rain, light winds\n• Why it works: Cool temperatures ideal for walking...",
-  "threadId": "run_abc123",
-  "metadata": {
-    "memoryShared": true,
-    "totalProcessingTimeMs": 8432
-  }
-}
+The main task returns a simple paragraph with clothing advice:
+
+```
+"For walking in London you should wear a light t-shirt or short-sleeved shirt with comfortable pants or shorts, as the temperature is warm at 25°C. With only a 3% chance of rain, you won't need any rain protection, and the light wind at 8 km/h means you can stick to breathable, comfortable clothing for your walk."
 ```
 
 ## 🧠 Memory System
 
-The system uses Mastra's working memory to share weather data between agents:
+The system uses Mastra's working memory to share simplified weather data between agents:
 
 ```typescript
 // Weather data stored in memory
 {
   location: "London",
-  lastUpdated: "2024-01-15T10:30:00Z",
-  currentWeather: {
-    temperature: 22,
-    conditions: "Partly cloudy",
-    // ... more current conditions
-  },
-  hourlyForecast: [
-    {
-      time: "2024-01-15T11:00:00Z",
-      temperature: 23,
-      precipitation: 0.1,
-      // ... hourly details
-    }
-  ],
-  dailyForecast: [
-    // ... daily forecasts
-  ]
+  temperature: 24.8,      // Current temperature in Celsius
+  rainChance: 3,          // Rain chance percentage (0-100)
+  windSpeed: 8.3          // Wind speed in km/h
 }
 ```
+
+This simplified schema focuses on the essential data needed for clothing decisions, making the system faster and more efficient.
 
 ## 🛠️ Technical Stack
 
@@ -158,11 +143,12 @@ src/
 ├── mastra/
 │   ├── agents/
 │   │   ├── weather-analyst.ts    # Weather data collection
-│   │   └── day-planner.ts        # Activity planning
+│   │   ├── clothing-advisor.ts   # Clothing recommendations
+│   │   └── day-planner.ts        # (Legacy) Activity planning
 │   ├── tools/
 │   │   └── weather-tool.ts       # Enhanced weather API tool
 │   ├── schemas/
-│   │   └── weather-data.ts       # Shared weather schema
+│   │   └── weather-data.ts       # Simplified weather schema
 │   └── index.ts                  # Mastra configuration
 ├── trigger/
 │   └── weather-task.ts           # Trigger.dev tasks
@@ -179,7 +165,17 @@ src/
 
 ### Modifying Weather Schema
 
-Update `src/mastra/schemas/weather-data.ts` to change the weather data structure.
+Update `src/mastra/schemas/weather-data.ts` to change the weather data structure. The current schema is optimized for speed with just 4 fields.
+
+### Adding New Activities
+
+The system supports different activities. You can extend the clothing advisor agent to provide more specific recommendations for activities like:
+
+- Running
+- Cycling
+- Hiking
+- Formal events
+- Outdoor work
 
 ### Adding New Tasks
 
@@ -187,33 +183,35 @@ Create new tasks in `src/trigger/weather-task.ts` using the existing agents.
 
 ## 📊 Features Comparison
 
-| Feature              | Before                 | After                  |
-| -------------------- | ---------------------- | ---------------------- |
-| Weather API Calls    | 2+ per execution       | 1 per execution        |
-| Task Complexity      | Mixed responsibilities | Single responsibility  |
-| Memory Usage         | No persistence         | Shared working memory  |
-| Agent Specialization | Generic agents         | Specialized analysts   |
-| Error Handling       | Basic logging          | Comprehensive tracking |
+| Feature              | Before (Day Planner)   | After (Clothing Advisor) |
+| -------------------- | ---------------------- | ------------------------ |
+| Weather API Calls    | 2+ per execution       | 1 per execution          |
+| Data Schema          | 40+ fields complex     | 4 fields simplified      |
+| Response Time        | 20+ seconds            | ~3 seconds               |
+| Output Format        | Complex JSON structure | Simple text paragraph    |
+| Memory Usage         | Full weather data      | Essential data only      |
+| Agent Specialization | Generic agents         | Purpose-built agents     |
 
 ## 🔄 Task Flow
 
 ```mermaid
 graph TD
-    A[City Day Planner] --> B[Weather Analysis Task]
+    A[What Should I Wear Today] --> B[Weather Data Task]
     B --> C[Weather Analyst Agent]
     C --> D[Weather Tool - API Call]
-    D --> E[Store in Memory]
-    E --> F[Activity Planner Task]
-    F --> G[Day Planner Agent]
+    D --> E[Store in Memory:<br/>temp, rain, wind]
+    E --> F[Clothing Advice Task]
+    F --> G[Clothing Advisor Agent]
     G --> H[Read from Memory]
-    H --> I[Generate Day Plan]
-    I --> J[Complete Day Plan]
+    H --> I[Generate Clothing Advice]
+    I --> J[Return Advice Paragraph]
 ```
 
 ## 📈 Performance Benefits
 
-- **50% fewer API calls** - Memory system eliminates duplicate weather requests
-- **Faster execution** - No waiting for duplicate API responses
+- **Single API call** - Memory system eliminates duplicate weather requests
+- **~3 second responses** - Optimized for speed with simplified data schema
+- **Efficient memory usage** - Only 4 essential fields stored (vs 40+ in full schema)
 - **Better reliability** - Memory persistence across task failures
 - **Cleaner architecture** - Specialized agents with clear responsibilities
 

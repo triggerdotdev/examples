@@ -1,197 +1,165 @@
 import { logger, task } from "@trigger.dev/sdk/v3";
 import { mastra } from "../mastra";
 
-export const cityDayPlannerTask = task({
-  id: "city-day-planner",
-  maxDuration: 300,
-  run: async (payload: { location: string; structured?: boolean }, { ctx }) => {
-    logger.info(`🌍 Starting day planner for ${payload.location}`, {
-      location: payload.location,
-      taskId: ctx.task.id,
-      runId: ctx.run.id,
-    });
+export const whatShouldIWearTodayTask = task({
+  id: "what-should-i-wear-today",
+  maxDuration: 15,
+  run: async (payload: { city: string; activity?: string }, { ctx }) => {
+    const activity = payload.activity || "walking";
+
+    logger.info(
+      `👕 What should I wear today for ${activity} in ${payload.city}`,
+      {
+        city: payload.city,
+        activity,
+        taskId: ctx.task.id,
+        runId: ctx.run.id,
+      },
+    );
 
     try {
       const startTime = Date.now();
-
-      // Use task run ID as threadId for memory sharing between tasks
       const threadId = ctx.run.id;
 
-      // First analyze the weather and store in memory
-      logger.info(
-        `🔄 Step 1: Analyzing weather in ${payload.location} and storing in memory`,
-        {
-          location: payload.location,
-          threadId,
-        },
-      );
+      // Step 1: Get simplified weather data and store in memory
+      logger.info("🌤️ Getting weather data", {
+        city: payload.city,
+        threadId,
+      });
 
-      const weatherResult = await weatherAnalysisTask.triggerAndWait({
-        location: payload.location,
+      const weatherResult = await weatherDataTask.triggerAndWait({
+        city: payload.city,
       });
 
       if (!weatherResult.ok) {
-        throw new Error(`Weather analysis failed: ${weatherResult.error}`);
+        throw new Error(`Weather data failed: ${weatherResult.error}`);
       }
 
-      logger.info(
-        `🔄 Step 2: Creating day plan using memory data`,
-        {
-          location: payload.location,
-          threadId: weatherResult.output.threadId,
-        },
-      );
-
-      // Then create the day plan using the same threadId to access memory
-      const planResult = await activityPlannerTask.triggerAndWait({
-        location: payload.location,
-        threadId: weatherResult.output.threadId, // Use same threadId to share memory
+      // Step 2: Get clothing recommendation from memory
+      logger.info("👔 Getting clothing recommendation", {
+        city: payload.city,
+        activity,
+        threadId: weatherResult.output.threadId,
       });
 
-      if (!planResult.ok) {
-        throw new Error(`Day planning failed: ${planResult.error}`);
+      const clothingResult = await clothingAdviceTask.triggerAndWait({
+        city: payload.city,
+        activity,
+        threadId: weatherResult.output.threadId,
+      });
+
+      logger.info("🔍 Clothing result debug", {
+        ok: clothingResult.ok,
+        output: clothingResult.ok ? clothingResult.output : null,
+        error: clothingResult.ok ? null : clothingResult.error,
+      });
+
+      if (!clothingResult.ok) {
+        throw new Error(`Clothing advice failed: ${clothingResult.error}`);
       }
 
       const totalTime = Date.now() - startTime;
 
-      logger.info(`✅ Day planner completed for ${payload.location}`, {
-        location: payload.location,
-        totalProcessingTimeMs: totalTime,
-        weatherAnalysisLength: weatherResult.output.weatherAnalysis?.length ||
-          0,
-        dayPlanLength: planResult.output.dayPlan?.length || 0,
-        sharedThreadId: weatherResult.output.threadId,
-        structured: payload.structured || false,
-      });
-
-      const result: any = {
-        success: true,
-        location: payload.location,
-        weatherAnalysis: weatherResult.output.weatherAnalysis,
-        dayPlan: planResult.output.dayPlan,
-        threadId: weatherResult.output.threadId,
-        metadata: {
+      logger.info(
+        `✅ Completed clothing recommendation for ${activity} in ${payload.city}`,
+        {
+          city: payload.city,
+          activity,
           totalProcessingTimeMs: totalTime,
-          weatherMetadata: weatherResult.output.metadata,
-          planMetadata: planResult.output.metadata,
-          memoryShared: true, // Flag to indicate memory was used
+          finalAdvice: clothingResult.output.advice,
+          hasAdvice: !!clothingResult.output.advice,
         },
-        timestamp: new Date().toISOString(),
-      };
+      );
 
-      // Add structured weather data if requested
-      if (payload.structured) {
-        // The structured weather data is available through the weather tool
-        // which was called by the weather analyst agent
-        result.structuredDataNote =
-          "Structured weather data is available through the weather tool output in the agent's execution steps. Access via agent.steps or use the weather tool directly for structured output.";
-      }
-
-      return result;
+      return clothingResult.output.advice || "No clothing advice generated";
     } catch (error) {
-      logger.error("❌ City day planner failed", {
-        location: payload.location,
+      logger.error("❌ What should I wear today task failed", {
+        city: payload.city,
+        activity,
         error: error instanceof Error ? error.message : "Unknown error",
-        errorStack: error instanceof Error ? error.stack : undefined,
       });
 
-      return {
-        success: false,
-        location: payload.location,
-        error: error instanceof Error ? error.message : "Unknown error",
-        timestamp: new Date().toISOString(),
-      };
+      throw error;
     }
   },
 });
 
-export const weatherAnalysisTask = task({
-  id: "weather-analysis",
-  maxDuration: 300,
-  run: async (payload: { location: string; structured?: boolean }, { ctx }) => {
-    logger.info(`🌤️ Starting weather analysis for ${payload.location}`, {
-      location: payload.location,
+export const weatherDataTask = task({
+  id: "weather-data",
+  maxDuration: 10,
+  run: async (payload: { city: string }, { ctx }) => {
+    logger.info(`🌤️ Getting weather data for ${payload.city}`, {
+      city: payload.city,
       taskId: ctx.task.id,
-      runId: ctx.run.id,
     });
 
     try {
       const weatherAnalyst = mastra.getAgent("weatherAnalyst");
       const startTime = Date.now();
-
-      // Use task run ID as threadId for memory sharing
       const threadId = ctx.run.id;
 
-      logger.info("🤖 Using weather analyst with memory", {
-        agentName: weatherAnalyst.name,
-        location: payload.location,
-        threadId,
-      });
-
       const response = await weatherAnalyst.generate(
-        `Please analyze the weather for ${payload.location} including current conditions, hourly forecasts for the next 24 hours, and daily forecasts. Store all weather data in working memory so other agents can access it. Focus on conditions that matter for daily planning: temperature changes, precipitation, wind, UV index, and visibility.`,
+        `Get current weather for ${payload.city}. Use the weather tool to get the data, then store ONLY these 4 fields in working memory:
+- location: "${payload.city}"
+- temperature: the current temperature from the tool
+- rainChance: the rain chance from today's forecast
+- windSpeed: the current wind speed
+
+You MUST store this data in working memory so other agents can access it. After storing, confirm what you stored.`,
         {
-          maxSteps: 3,
+          maxSteps: 2,
           threadId,
-          resourceId: payload.location, // Use location as resourceId for consistency
+          resourceId: payload.city,
         },
       );
 
-      // Extract structured weather data from the response steps if requested
-      let structuredWeatherData = null;
-      if (payload.structured && response.steps) {
+      // Extract structured weather data from weatherTool result
+      let weatherData = null;
+      if (response.steps) {
         for (const step of response.steps) {
           if (step.toolResults) {
             for (const toolResult of step.toolResults) {
               if (toolResult.toolName === "weatherTool" && toolResult.result) {
-                structuredWeatherData = toolResult.result;
+                weatherData = toolResult.result;
                 break;
               }
             }
           }
-          if (structuredWeatherData) break;
+          if (weatherData) break;
         }
       }
 
       const processingTime = Date.now() - startTime;
 
-      logger.info("✅ Weather analysis completed and stored in memory", {
-        location: payload.location,
+      logger.info("✅ Weather data retrieved", {
+        city: payload.city,
         processingTimeMs: processingTime,
-        responseLength: response.text.length,
-        steps: response.steps?.length || 0,
-        threadId,
+        hasStructuredData: !!weatherData,
+        weatherData: weatherData,
+        responseText: response.text,
+        stepsCount: response.steps?.length || 0,
       });
 
-      const result: any = {
+      return {
         success: true,
-        location: payload.location,
-        weatherAnalysis: response.text,
-        threadId, // Return threadId for chaining
+        city: payload.city,
+        weatherData,
+        threadId,
         metadata: {
           processingTimeMs: processingTime,
-          steps: response.steps?.length || 0,
-          tokenUsage: response.usage,
+          hasStructuredData: !!weatherData,
         },
         timestamp: new Date().toISOString(),
       };
-
-      // Add structured weather data if requested and available
-      if (payload.structured && structuredWeatherData) {
-        result.structuredWeatherData = structuredWeatherData;
-      }
-
-      return result;
     } catch (error) {
-      logger.error("❌ Weather analysis failed", {
-        location: payload.location,
+      logger.error("❌ Weather data task failed", {
+        city: payload.city,
         error: error instanceof Error ? error.message : "Unknown error",
-        errorStack: error instanceof Error ? error.stack : undefined,
       });
 
       return {
         success: false,
-        location: payload.location,
+        city: payload.city,
         error: error instanceof Error ? error.message : "Unknown error",
         timestamp: new Date().toISOString(),
       };
@@ -199,71 +167,76 @@ export const weatherAnalysisTask = task({
   },
 });
 
-export const activityPlannerTask = task({
-  id: "activity-planner",
-  maxDuration: 300,
-  run: async (payload: { location: string; threadId?: string }, { ctx }) => {
-    logger.info("🎯 Starting activity planning", {
-      location: payload.location,
-      threadId: payload.threadId,
+export const clothingAdviceTask = task({
+  id: "clothing-advice",
+  maxDuration: 10,
+  run: async (
+    payload: { city: string; activity: string; threadId?: string },
+    { ctx },
+  ) => {
+    logger.info("👔 Getting clothing advice", {
+      city: payload.city,
+      activity: payload.activity,
       taskId: ctx.task.id,
-      runId: ctx.run.id,
     });
 
     try {
-      const dayPlannerAgent = mastra.getAgent("dayPlannerAgent");
+      const clothingAgent = mastra.getAgent("clothingAdvisorAgent");
       const startTime = Date.now();
-
-      // Use provided threadId or fallback to run ID
       const threadId = payload.threadId || ctx.run.id;
 
-      logger.info("🤖 Using day planner agent with memory", {
-        agentName: dayPlannerAgent.name,
-        location: payload.location,
-        threadId,
-      });
+      const response = await clothingAgent.generate(
+        `You must provide clothing advice for ${payload.activity} in ${payload.city}. 
 
-      const response = await dayPlannerAgent.generate(
-        `Please create a weather-aware day plan for ${payload.location}. First check working memory for weather data. If weather data is available in memory, use that data to create a structured day plan. Only call the weather tool if no data is available in memory. Include activities for morning, afternoon, and evening with specific timing, weather conditions at each time, explanations for why each activity works with the weather, and what to bring. Also include backup indoor plans.`,
+First, check your working memory for weather data for ${payload.city}. The data should contain: location, temperature, rainChance, windSpeed.
+
+If you find the weather data in memory, use it. If not, you can use the weather tool.
+
+Based on the weather conditions, provide exactly one paragraph starting with "For ${payload.activity} in ${payload.city} you should wear..." and explain why based on the specific weather conditions.
+
+You MUST provide a response. Do not return empty or blank responses.`,
         {
-          maxSteps: 3,
+          maxSteps: 2,
           threadId,
-          resourceId: payload.location, // Use location as resourceId for consistency
+          resourceId: payload.city,
         },
       );
 
       const processingTime = Date.now() - startTime;
 
-      logger.info("✅ Day plan created using memory data", {
-        location: payload.location,
+      logger.info("✅ Clothing advice generated", {
+        city: payload.city,
+        activity: payload.activity,
         processingTimeMs: processingTime,
         responseLength: response.text.length,
-        steps: response.steps?.length || 0,
-        threadId,
+        responseText: response.text,
+        hasResponse: !!response.text,
       });
 
       return {
         success: true,
-        location: payload.location,
-        dayPlan: response.text,
-        threadId, // Return threadId for reference
+        city: payload.city,
+        activity: payload.activity,
+        advice: response.text || "No advice generated",
+        threadId,
         metadata: {
           processingTimeMs: processingTime,
-          steps: response.steps?.length || 0,
-          tokenUsage: response.usage,
+          responseLength: response.text.length,
+          hasResponse: !!response.text,
         },
         timestamp: new Date().toISOString(),
       };
     } catch (error) {
-      logger.error("❌ Day planning failed", {
-        location: payload.location,
+      logger.error("❌ Clothing advice task failed", {
+        city: payload.city,
+        activity: payload.activity,
         error: error instanceof Error ? error.message : "Unknown error",
-        errorStack: error instanceof Error ? error.stack : undefined,
       });
 
       return {
         success: false,
-        location: payload.location,
+        city: payload.city,
+        activity: payload.activity,
         error: error instanceof Error ? error.message : "Unknown error",
         timestamp: new Date().toISOString(),
       };

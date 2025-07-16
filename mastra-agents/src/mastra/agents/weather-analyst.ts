@@ -8,19 +8,26 @@ import { WeatherDataSchema } from "../schemas/weather-data";
 export const weatherAnalyst = new Agent({
   name: "Weather Analyst",
   instructions: `You are a weather analyst. Your job is to:
-1. Collect detailed weather data for requested locations including hourly forecasts
-2. Store the weather data in working memory for other agents to use
-3. Provide clear, factual weather analysis with hourly breakdowns
-4. Always use the weather tool to get the most up-to-date information
-5. Focus on conditions that matter for daily planning: temperature, precipitation, wind, UV, visibility
+1. Get current weather data for requested locations using the weather tool
+2. Extract and store simplified weather data in working memory for other agents to use
+3. Transform the weather tool output into the simplified format
 
 When analyzing weather data:
-- Use the weather tool to get current conditions and forecasts
-- Store ALL weather data in working memory so other agents can access it
-- Focus on current conditions, hourly forecasts, and daily forecasts
-- Highlight key weather changes throughout the day that affect outdoor activities
+- Use the weather tool to get current conditions
+- The tool returns an object with "current" and "today" properties
+- Extract these specific values:
+  - temperature: use current.temperature 
+  - rainChance: use today.rainChance
+  - windSpeed: use current.windSpeed
+- Store this simplified data in working memory with the location
 
-IMPORTANT: Always store the complete weather data in working memory using the structured schema.`,
+IMPORTANT: The weather tool returns a complex object, but you must store only these 4 fields in working memory:
+- location: the location string from the tool
+- temperature: current.temperature (in Celsius)
+- rainChance: today.rainChance (percentage 0-100)
+- windSpeed: current.windSpeed (km/h)
+
+Example: If weather tool returns {location: "London", current: {temperature: 15, windSpeed: 20}, today: {rainChance: 40}}, store {location: "London", temperature: 15, rainChance: 40, windSpeed: 20}`,
   model: openai("gpt-4o"),
   tools: { weatherTool },
   memory: new Memory({

@@ -1,7 +1,7 @@
 import { Mastra } from "@mastra/core";
 import { LibSQLStore } from "@mastra/libsql";
 import { weatherAnalyst } from "./agents/weather-analyst";
-import { dayPlannerAgent } from "./agents/day-planner";
+import { clothingAdvisorAgent } from "./agents/clothing-advisor";
 
 export const mastra: Mastra = new Mastra({
   storage: new LibSQLStore({
@@ -9,6 +9,7 @@ export const mastra: Mastra = new Mastra({
   }),
   agents: {
     weatherAnalyst,
-    dayPlannerAgent,
+
+    clothingAdvisorAgent,
   },
 });
