@@ -26,6 +26,7 @@ yarn-debug.log*
 yarn-error.log*
 
 # local env files
+.env
 .env*.local
 
 # vercel
@@ -36,3 +37,11 @@ yarn-error.log*
 next-env.d.ts
 
 .trigger
+
+# Database files
+*.db
+*.db-shm
+*.db-wal
+
+# Editor files
+.vscode/
