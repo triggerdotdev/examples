@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "@mastra/core": "^0.10.15",
     "@trigger.dev/sdk": "^4.0.0-v4-beta.22"
   },
   "devDependencies": {
