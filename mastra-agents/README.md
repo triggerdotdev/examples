@@ -1,4 +1,4 @@
-# Mastra agents + Trigger.dev real-world example project:
+# Mastra agents + Trigger.dev task orchestration example project:
 
 > **ℹ️ Note:** This is a v4 project. If you are using v3 and want to upgrade, please refer to our [v4 upgrade guide](https://trigger.dev/docs/v4-upgrade-guide).
 
@@ -88,4 +88,3 @@ To learn more about the technologies used in this project, check out the followi
 - [Mastra working memory](https://docs.mastra.ai/memory/working-memory) - learn about efficient data sharing between agents
 - [Trigger.dev docs](https://trigger.dev/docs) - learn about Trigger.dev and its features
 - [Trigger.dev task orchestration](https://trigger.dev/docs/triggering#triggering-from-a-task) - learn about sequential task execution with `triggerAndWait`
-- [Multi-agent workflow patterns](https://docs.mastra.ai/agents/multi-agent-workflows) - advanced agent collaboration examples
