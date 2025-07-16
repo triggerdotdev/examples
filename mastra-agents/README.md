@@ -84,7 +84,6 @@ Update `src/mastra/index.ts` with your chosen storage provider before deploying.
 
 To learn more about the technologies used in this project, check out the following resources:
 
-- [Mastra docs](https://docs.mastra.ai) - learn about AI agent orchestration and memory management
-- [Mastra working memory](https://docs.mastra.ai/memory/working-memory) - learn about efficient data sharing between agents
+- [Mastra docs](https://mastra.ai/en/docs) - learn about AI agent orchestration and memory management
+- [Mastra working memory](https://mastra.ai/en/docs/memory/overview) - learn about efficient data sharing between agents
 - [Trigger.dev docs](https://trigger.dev/docs) - learn about Trigger.dev and its features
-- [Trigger.dev task orchestration](https://trigger.dev/docs/triggering#triggering-from-a-task) - learn about sequential task execution with `triggerAndWait`
