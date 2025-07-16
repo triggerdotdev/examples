@@ -1,0 +1,8 @@
+{
+  "dependencies": {
+    "@trigger.dev/sdk": "^4.0.0-v4-beta.22"
+  },
+  "devDependencies": {
+    "@trigger.dev/build": "^4.0.0-v4-beta.22"
+  }
+}
