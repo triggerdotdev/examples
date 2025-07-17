@@ -2,7 +2,7 @@
 
 > **ℹ️ Note:** This is a Trigger.dev v4 project. If you are using v3 and want to upgrade, please refer to our [v4 upgrade guide](https://trigger.dev/docs/v4-upgrade-guide).
 
-Enter a city and a activity, and get a clothing recommendation generated for you based on today's weather.
+Enter a city and an activity, and get a clothing recommendation generated for you based on today's weather.
 
 ![agent-output](https://github.com/user-attachments/assets/edfca304-6b22-4fa8-9362-71ecb3fe4903)
 
