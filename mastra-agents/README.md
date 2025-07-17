@@ -1,8 +1,8 @@
 # Mastra agents + Trigger.dev task orchestration example project:
 
-> **ℹ️ Note:** This is a v4 project. If you are using v3 and want to upgrade, please refer to our [v4 upgrade guide](https://trigger.dev/docs/v4-upgrade-guide).
+> **ℹ️ Note:** This is a Trigger.dev v4 project. If you are using v3 and want to upgrade, please refer to our [v4 upgrade guide](https://trigger.dev/docs/v4-upgrade-guide).
 
-Enter a city and activity, and get a clothing recommendation generated based on the weather.
+Enter a city and a activity, and get a clothing recommendation generated for you based on today's weather.
 
 By combining Mastra's persistent memory system and agent orchestration with Trigger.dev's durable task execution, retries and observability, you get production-ready AI workflows that survive failures, scale automatically, and maintain context across long-running operations.
 
@@ -10,6 +10,7 @@ By combining Mastra's persistent memory system and agent orchestration with Trig
 
 - [Node.js](https://nodejs.org) runtime environment
 - [Mastra](https://mastra.ai) for AI agent orchestration and memory management
+- [PostgreSQL](https://postgresql.org) for persistent storage and memory sharing
 - [Trigger.dev](https://trigger.dev) for task orchestration, batching, and observability
 - [OpenAI GPT-4](https://openai.com) for natural language processing
 - [Open-Meteo API](https://open-meteo.com) for weather data (no API key required)
@@ -19,11 +20,12 @@ By combining Mastra's persistent memory system and agent orchestration with Trig
 
 - **[Agent Memory Sharing](src/trigger/weather-task.ts)**: Efficient data sharing between agents using Mastra's working memory system
 - **[Task Orchestration](src/trigger/weather-task.ts)**: Multi-step workflows with `triggerAndWait` for sequential agent execution
+- **[Centralized Storage](src/mastra/index.ts)**: Single PostgreSQL storage instance shared across all agents to prevent connection duplication
 - **[Custom Tools](src/mastra/tools/weather-tool.ts)**: External API integration with structured output validation
 - **[Agent Specialization](src/mastra/agents/)**: Purpose-built agents with specific roles and instructions
 - **[Schema Optimization](src/mastra/schemas/weather-data.ts)**: Lightweight data structures for performance
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 src/
@@ -48,37 +50,44 @@ src/
 - [src/mastra/agents/clothing-advisor.ts](src/mastra/agents/clothing-advisor.ts) - Purpose-built agent that reads from working memory and generates natural language responses
 - [src/mastra/tools/weather-tool.ts](src/mastra/tools/weather-tool.ts) - Custom Mastra tool with Zod validation for external API calls and error handling
 - [src/mastra/schemas/weather-data.ts](src/mastra/schemas/weather-data.ts) - Optimized Zod schema for efficient memory storage and type safety
-- [src/mastra/index.ts](src/mastra/index.ts) - Mastra configuration with LibSQL storage and agent registration
+- [src/mastra/index.ts](src/mastra/index.ts) - Mastra configuration with PostgreSQL storage and agent registration
 
-## Getting started
+## Storage Architecture
+
+This project uses a **centralized PostgreSQL storage** approach where a single database connection is shared across all Mastra agents. This prevents duplicate database connections and ensures efficient memory sharing between the weather analyst and clothing advisor agents.
+
+### Storage Configuration
+
+The storage is configured once in the main Mastra instance (`src/mastra/index.ts`) and automatically inherited by all agent Memory instances. This eliminates the "duplicate database object" warning that can occur with multiple PostgreSQL connections.
+
+The PostgreSQL storage works seamlessly in both local development and serverless environments with any PostgreSQL provider, such as:
+
+- [Local PostgreSQL instance](https://postgresql.org)
+- [Supabase](https://supabase.com) - Serverless PostgreSQL
+- [Neon](https://neon.tech) - Serverless PostgreSQL
+- [Railway](https://railway.app) - Simple PostgreSQL hosting
+- [AWS RDS](https://aws.amazon.com/rds/postgresql/) - Managed PostgreSQL
+
+## Running the project
 
 1. After cloning the repo, run `npm install` to install the dependencies.
 2. Set up your environment variables (see `.env.example`)
 3. If you haven't already, sign up for a free Trigger.dev account [here](https://cloud.trigger.dev/login) and create a new project.
 4. Copy the project ref from the Trigger.dev dashboard and add it to the `trigger.config.ts` file.
-5. In your terminal, run the Trigger.dev dev CLI command with `npx trigger.dev@latest dev`.
+5. In your terminal, run the Trigger.dev dev CLI command with `npx trigger.dev@v4-beta dev`.
 
 Now you should be able to visit your Trigger.dev dashboard and test any of the agent tasks with the example payloads provided in each task file.
 
-## Testing locally
-
-Use the Trigger.dev dashboard to test each task:
+## Testing
 
 ### Example payload
 
 ```json
-{ "city": "New York", "activity": "walking" }
+{
+  "city": "New York",
+  "activity": "walking"
+}
 ```
-
-## Deployment
-
-This project uses LibSQL as a local database for development, but **LibSQL doesn't work in serverless environments**. For production deployment, you'll need to switch to a serverless-compatible storage option:
-
-- **Turso** (LibSQL-compatible): Set `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` in your environment variables. Create an account and database [here](https://turso.tech/signup).
-- **PostgreSQL** (Supabase): Set `DATABASE_URL` in your environment variables. Create an account and database [here](https://supabase.com/dashboard/sign-in).
-- **No persistence**: Remove storage from mastra config entirely.
-
-Update `src/mastra/index.ts` with your chosen storage provider before deploying.
 
 ## Learn More
 

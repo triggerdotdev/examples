@@ -71,7 +71,22 @@ export const whatShouldIWearTodayTask = task({
         },
       );
 
-      return clothingResult.output.advice || "No clothing advice generated";
+      // Format the date to be used in the response
+      const formattedDate = new Date(startTime).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+
+      return [
+        {
+          city: payload.city,
+          activity: activity,
+          date: formattedDate,
+          clothingAdvice: clothingResult.output.advice ||
+            "No clothing advice generated",
+        },
+      ];
     } catch (error) {
       logger.error("❌ What should I wear today task failed", {
         city: payload.city,

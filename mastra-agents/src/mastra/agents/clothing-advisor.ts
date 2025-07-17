@@ -1,9 +1,8 @@
 import { Agent } from "@mastra/core";
 import { Memory } from "@mastra/memory";
 import { openai } from "@ai-sdk/openai";
-import { LibSQLStore } from "@mastra/libsql";
-import { WeatherDataSchema } from "../schemas/weather-data";
 import { weatherTool } from "../tools/weather-tool";
+import { WeatherDataSchema } from "../schemas/weather-data";
 
 export const clothingAdvisorAgent = new Agent({
   name: "Clothing Advisor",
@@ -41,9 +40,6 @@ You MUST generate a clothing recommendation paragraph. Do not store or update an
   model: openai("gpt-4o"),
   tools: { weatherTool },
   memory: new Memory({
-    storage: new LibSQLStore({
-      url: "file:./mastra.db",
-    }),
     options: {
       workingMemory: {
         enabled: true,

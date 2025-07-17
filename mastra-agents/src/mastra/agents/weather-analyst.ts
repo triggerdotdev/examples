@@ -1,7 +1,6 @@
 import { Agent } from "@mastra/core";
 import { Memory } from "@mastra/memory";
 import { openai } from "@ai-sdk/openai";
-import { LibSQLStore } from "@mastra/libsql";
 import { weatherTool } from "../tools/weather-tool";
 import { WeatherDataSchema } from "../schemas/weather-data";
 
@@ -31,9 +30,6 @@ Example: If weather tool returns {location: "London", current: {temperature: 15,
   model: openai("gpt-4o"),
   tools: { weatherTool },
   memory: new Memory({
-    storage: new LibSQLStore({
-      url: "file:./mastra.db",
-    }),
     options: {
       workingMemory: {
         enabled: true,
