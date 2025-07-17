@@ -4,6 +4,8 @@
 
 Enter a city and a activity, and get a clothing recommendation generated for you based on today's weather.
 
+![agent-output](https://github.com/user-attachments/assets/edfca304-6b22-4fa8-9362-71ecb3fe4903)
+
 By combining Mastra's persistent memory system and agent orchestration with Trigger.dev's durable task execution, retries and observability, you get production-ready AI workflows that survive failures, scale automatically, and maintain context across long-running operations.
 
 ## Tech stack
