@@ -5,7 +5,7 @@
 Before we dive into the code, you'll need:
 - Node.js (version 16 or higher) 
 - A Trigger.dev account - Sign up at https://trigger.dev for their free tier
-- Anchor Browser API access - Get your API key from the Anchor Browser dashboard
+- Anchor Browser API access - Get your API key from the [Anchor Browser dashboard](https://anchorbrowser.io)
 
 #### Dependencies installation
 
