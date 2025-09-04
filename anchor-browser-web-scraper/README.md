@@ -58,7 +58,8 @@ export default defineConfig({
 
 ### Core Monitoring Job
 
-Create a new file within your project subfolder for trigger.dev functions, src/trigger/broadway-monitor.ts. Below is our Broadway ticket monitor task that runs daily at 5pm ET:
+Create a new file within your project subfolder for trigger.dev functions, [src/trigger/broadway-monitor.ts](src/trigger/broadway-monitor.ts). Below is our Broadway ticket monitor task that runs daily at 5pm ET:
+
 
 ```
 import { schedules } from "@trigger.dev/sdk";
@@ -121,3 +122,7 @@ Run the Trigger.dev development server from your project root directory to regis
 ```
 npx trigger.dev@latest dev
 ```
+
+### Learn more
+- [Trigger.dev docs](https://trigger.dev/docs) - learn about Trigger.dev
+- [Anchor Browser docs](https://docs.anchorbrowser.io/introduction) - learn about Anchor Browser
