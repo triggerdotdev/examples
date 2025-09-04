@@ -1,5 +1,15 @@
 ### Project Setup
 
+This example demonstrates automated web monitoring using Trigger.dev's job scheduling and Anchor Browser's AI-powered browser automation tools. The project runs daily at 5pm ET to find the cheapest Broadway tickets available for same-day shows.
+
+##### How it works:
+
+1. Trigger.dev schedules and executes the monitoring job
+2. Anchor Browser spins up a remote browser session with an AI agent
+3. The AI agent uses computer vision and natural language processing to analyze the [TDF website](https://www.tdf.org/discount-ticket-programs/tkts-by-tdf/tkts-live/)
+4. AI agent returns the lowest-priced show with specific details: name, price, and showtime
+
+
 #### Prerequisites
 
 Before we dive into the code, you'll need:
