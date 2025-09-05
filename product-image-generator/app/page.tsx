@@ -1,9 +1,111 @@
+"use client";
+
+import { useState } from "react";
 import { Home, ImageIcon, Settings, Upload, User } from "lucide-react";
 import { Button } from "./components/ui/button";
 import { Card } from "./components/ui/card";
 import UploadCard from "./components/UploadCard";
+import GeneratedCard from "./components/GeneratedCard";
+import { generateSingleImageAction } from "./actions";
 
 export default function ImageManagementApp() {
+  const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null);
+  const [generationRunIds, setGenerationRunIds] = useState<{
+    [key: string]: string | null;
+  }>({
+    "isolated-table": null,
+    "lifestyle-scene": null,
+    "hero-shot": null,
+  });
+  const [generationAccessTokens, setGenerationAccessTokens] = useState<{
+    [key: string]: string | null;
+  }>({
+    "isolated-table": null,
+    "lifestyle-scene": null,
+    "hero-shot": null,
+  });
+
+  const promptTitles = {
+    "isolated-table": "Table Shot",
+    "lifestyle-scene": "Lifestyle Scene",
+    "hero-shot": "Hero Shot",
+  };
+
+  const handleUploadComplete = async (imageUrl: string) => {
+    try {
+      // Store the uploaded image URL for retries
+      setUploadedImageUrl(imageUrl);
+
+      // Trigger all 3 generations individually for better progress tracking
+      const promptIds = ["isolated-table", "lifestyle-scene", "hero-shot"];
+
+      for (const promptId of promptIds) {
+        const result = await generateSingleImageAction(
+          imageUrl,
+          promptId,
+          "product"
+        );
+
+        if (result.success) {
+          console.log(`Successfully triggered generation for ${promptId}:`, {
+            runId: result.runId,
+            hasAccessToken: !!result.accessToken,
+          });
+          setGenerationRunIds((prev) => ({
+            ...prev,
+            [promptId]: result.runId,
+          }));
+          setGenerationAccessTokens((prev) => ({
+            ...prev,
+            [promptId]: result.accessToken,
+          }));
+        } else {
+          console.error(
+            `Failed to start generation for ${promptId}:`,
+            result.error
+          );
+        }
+      }
+    } catch (error) {
+      console.error("Failed to start image generations:", error);
+    }
+  };
+
+  const handleRetryGeneration = async (promptId: string) => {
+    if (!uploadedImageUrl) {
+      console.error("No base image URL available for retry");
+      return;
+    }
+
+    try {
+      // Reset the specific generation
+      setGenerationRunIds((prev) => ({ ...prev, [promptId]: null }));
+      setGenerationAccessTokens((prev) => ({ ...prev, [promptId]: null }));
+
+      // Trigger the specific generation again
+      const result = await generateSingleImageAction(
+        uploadedImageUrl,
+        promptId,
+        "product"
+      );
+
+      if (result.success) {
+        setGenerationRunIds((prev) => ({ ...prev, [promptId]: result.runId }));
+        setGenerationAccessTokens((prev) => ({
+          ...prev,
+          [promptId]: result.accessToken,
+        }));
+      } else {
+        console.error(
+          `Failed to retry generation for ${promptId}:`,
+          result.error
+        );
+      }
+    } catch (error) {
+      console.error(`Failed to retry generation for ${promptId}:`, error);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Navigation Header */}
@@ -39,28 +141,54 @@ export default function ImageManagementApp() {
       <main className="container px-6 py-8">
         <div className="mb-8">
           <h2 className="text-3xl font-bold text-foreground mb-2 font-[family-name:var(--font-playfair)]">
-            Image Gallery
+            Product Image Generator
           </h2>
           <p className="text-muted-foreground">
-            Upload and organize your images with our intuitive drag-and-drop
-            interface
+            Upload a product image and automatically generate professional
+            marketing shots
           </p>
         </div>
 
-        {/* Image Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-          {/* First Slot - Upload Card */}
-          <UploadCard />
+        {/* Top Row - Upload + 3 Generated Images */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          {/* Upload card stays square */}
+          <UploadCard onUploadComplete={handleUploadComplete} />
+          <GeneratedCard
+            runId={generationRunIds["isolated-table"]}
+            accessToken={generationAccessTokens["isolated-table"]}
+            promptId="isolated-table"
+            promptTitle={promptTitles["isolated-table"]}
+            onRetry={() => handleRetryGeneration("isolated-table")}
+          />
+          <GeneratedCard
+            runId={generationRunIds["lifestyle-scene"]}
+            accessToken={generationAccessTokens["lifestyle-scene"]}
+            promptId="lifestyle-scene"
+            promptTitle={promptTitles["lifestyle-scene"]}
+            onRetry={() => handleRetryGeneration("lifestyle-scene")}
+          />
+          <GeneratedCard
+            runId={generationRunIds["hero-shot"]}
+            accessToken={generationAccessTokens["hero-shot"]}
+            promptId="hero-shot"
+            promptTitle={promptTitles["hero-shot"]}
+            onRetry={() => handleRetryGeneration("hero-shot")}
+          />
+        </div>
 
-          {/* Remaining 7 Slots - Blank States */}
-          {Array.from({ length: 7 }).map((_, index) => (
+        {/* Bottom Row - 4 More Cards (Future Implementation) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {Array.from({ length: 4 }).map((_, index) => (
             <Card
-              key={index + 1}
-              className="aspect-square bg-card border border-border"
+              key={index + 4}
+              className="aspect-[3/4] bg-card border border-dashed border-muted-foreground/25"
             >
               <div className="h-full flex items-center justify-center">
-                <div className="w-16 h-16 rounded-lg bg-muted flex items-center justify-center">
-                  <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                <div className="text-center">
+                  <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center mx-auto mb-2">
+                    <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                  </div>
+                  <p className="text-sm text-muted-foreground">Coming Soon</p>
                 </div>
               </div>
             </Card>
@@ -71,11 +199,11 @@ export default function ImageManagementApp() {
         <div className="mt-8 flex gap-4">
           <Button className="gap-2">
             <Upload className="h-4 w-4" />
-            Upload Images
+            Upload New Image
           </Button>
           <Button variant="outline" className="gap-2 bg-transparent">
             <Settings className="h-4 w-4" />
-            Organize
+            Settings
           </Button>
         </div>
       </main>

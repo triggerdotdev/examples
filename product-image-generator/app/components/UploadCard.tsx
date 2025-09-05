@@ -7,7 +7,11 @@ import { useRef, useState, useEffect } from "react";
 import { uploadImageToR2Action } from "../actions";
 import { runs, configure } from "@trigger.dev/sdk/v3";
 
-export default function UploadCard() {
+interface UploadCardProps {
+  onUploadComplete?: (imageUrl: string) => void;
+}
+
+export default function UploadCard({ onUploadComplete }: UploadCardProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [runId, setRunId] = useState<string | null>(null);
@@ -51,6 +55,11 @@ export default function UploadCard() {
             setUploadProgress("completed");
             setProgressMessage("Upload completed!");
             setIsLoading(false);
+
+            // Notify parent component
+            if (onUploadComplete && run.output.publicUrl) {
+              onUploadComplete(run.output.publicUrl);
+            }
             break;
           } else if (run.status === "FAILED") {
             const errorMsg = run.metadata?.error || "Upload failed";
@@ -145,7 +154,7 @@ export default function UploadCard() {
 
   return (
     <Card
-      className={`aspect-square border-2 border-dashed transition-colors cursor-pointer group relative overflow-hidden ${
+      className={`aspect-[3/4] border-2 border-dashed transition-colors cursor-pointer group relative overflow-hidden ${
         isDragOver
           ? "border-primary bg-primary/5"
           : "border-primary/30 bg-card hover:border-primary/50"
