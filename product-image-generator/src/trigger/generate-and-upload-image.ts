@@ -128,14 +128,17 @@ export const generateAndUploadImage = task({
       });
       metadata.set("status", "completed");
 
-      // Set final metadata with result
+      // Set final metadata with result - this is the best practice for Trigger.dev
       metadata.set("result", {
-        prompt,
-        model,
-        size,
-        imageSize: imageBuffer.length,
+        success: true,
         publicUrl: uploadOutput.publicUrl,
         r2Key: uploadOutput.r2Key,
+        imageSize: imageBuffer.length,
+        contentType: "image/png",
+        model,
+        size,
+        prompt,
+        baseImageUrl,
       });
 
       return {

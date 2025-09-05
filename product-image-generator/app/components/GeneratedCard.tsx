@@ -3,8 +3,8 @@
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import { Download, RefreshCw } from "lucide-react";
-import { useState, useEffect } from "react";
-import { runs, configure } from "@trigger.dev/sdk/v3";
+import { useState } from "react";
+import { useRealtimeRun } from "@trigger.dev/react-hooks";
 
 interface GeneratedCardProps {
   runId: string | null;
@@ -21,71 +21,50 @@ export default function GeneratedCard({
   promptTitle,
   onRetry,
 }: GeneratedCardProps) {
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(
     null
   );
-  const [generationProgress, setGenerationProgress] = useState<string>("idle");
-  const [progressMessage, setProgressMessage] = useState<string>("");
-  const [progressStep, setProgressStep] = useState<{
-    step: number;
-    total: number;
-  } | null>(null);
 
-  // Subscribe to run updates when runId and accessToken are available
-  useEffect(() => {
-    if (!runId || !accessToken) return;
+  // Use the React hook for realtime run subscription
+  const { run, error } = useRealtimeRun(runId || undefined, {
+    accessToken: accessToken || undefined,
+    enabled: !!(runId && accessToken), // Only subscribe if we have both
+  });
 
-    const subscribeToRun = async () => {
-      setIsLoading(true);
-      setGenerationProgress("generating");
-      setError(null);
-
-      try {
-        configure({
-          secretKey: accessToken,
-        });
-
-        for await (const run of runs.subscribeToRun(runId)) {
-          // Update progress from metadata
-          if (run.metadata?.progress) {
-            const progress = run.metadata.progress as {
-              step: number;
-              total: number;
-              message: string;
-            };
-            setProgressMessage(progress.message);
-            setProgressStep({ step: progress.step, total: progress.total });
-          }
-
-          // Handle completion
-          if (run.status === "COMPLETED" && run.output) {
-            setGeneratedImageUrl(run.output.publicUrl);
-            setGenerationProgress("completed");
-            setProgressMessage("Generation completed!");
-            setIsLoading(false);
-            break;
-          } else if (run.status === "FAILED") {
-            const errorMsg = run.metadata?.error || "Generation failed";
-            setError(
-              typeof errorMsg === "string" ? errorMsg : "Generation failed"
-            );
-            setGenerationProgress("failed");
-            setProgressMessage("");
-            setIsLoading(false);
-            break;
-          }
-        }
-      } catch (err) {
-        setError("Failed to get task updates");
-        setGenerationProgress("failed");
-        setIsLoading(false);
+  // Extract progress information from run metadata
+  const progressData = run?.metadata?.progress as
+    | {
+        step: number;
+        total: number;
+        message: string;
       }
-    };
+    | undefined;
 
-    subscribeToRun();
-  }, [runId, accessToken]);
+  const isLoading = run?.status === "EXECUTING" || run?.status === "QUEUED";
+  const generationProgress =
+    run?.status === "COMPLETED"
+      ? "completed"
+      : run?.status === "FAILED"
+      ? "failed"
+      : run?.status === "EXECUTING"
+      ? "generating"
+      : "idle";
+
+  // Update generated image URL when run completes
+  if (run?.status === "COMPLETED" && !generatedImageUrl) {
+    // First try to get publicUrl from output
+    let publicUrl = run.output?.publicUrl;
+
+    // If not in output, try metadata.result (our new pattern)
+    if (!publicUrl && run.metadata?.result) {
+      const result = run.metadata.result as any;
+      publicUrl = result.publicUrl;
+    }
+
+    if (publicUrl) {
+      setGeneratedImageUrl(publicUrl);
+    }
+  }
 
   const handleDownload = () => {
     if (generatedImageUrl) {
@@ -100,11 +79,7 @@ export default function GeneratedCard({
 
   const handleRetry = () => {
     if (onRetry) {
-      setError(null);
       setGeneratedImageUrl(null);
-      setGenerationProgress("idle");
-      setProgressMessage("");
-      setProgressStep(null);
       onRetry();
     }
   };
@@ -144,7 +119,9 @@ export default function GeneratedCard({
           <p className="text-sm font-medium text-card-foreground mb-2">
             {promptTitle}
           </p>
-          <p className="text-xs text-red-600 mb-3">{error}</p>
+          <p className="text-xs text-red-600 mb-3">
+            {error?.message || "Generation failed"}
+          </p>
           {onRetry && (
             <Button size="sm" variant="outline" onClick={handleRetry}>
               <RefreshCw className="h-4 w-4 mr-2" />
@@ -166,24 +143,25 @@ export default function GeneratedCard({
             {promptTitle}
           </p>
           <p className="text-xs text-muted-foreground mb-2">
-            {generationProgress === "generating"
-              ? progressMessage || "Generating..."
-              : generationProgress === "idle"
-              ? "Waiting to start..."
-              : "Ready"}
+            {progressData?.message ||
+              (generationProgress === "generating"
+                ? "Generating..."
+                : generationProgress === "idle"
+                ? "Waiting to start..."
+                : "Ready")}
           </p>
-          {progressStep && generationProgress === "generating" && (
+          {progressData && generationProgress === "generating" && (
             <>
               <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
                 <div
                   className="bg-primary h-2 rounded-full transition-all duration-300"
                   style={{
-                    width: `${(progressStep.step / progressStep.total) * 100}%`,
+                    width: `${(progressData.step / progressData.total) * 100}%`,
                   }}
                 ></div>
               </div>
               <p className="text-xs text-muted-foreground">
-                Step {progressStep.step} of {progressStep.total}
+                Step {progressData.step} of {progressData.total}
               </p>
             </>
           )}

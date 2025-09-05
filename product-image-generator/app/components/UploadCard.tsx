@@ -32,9 +32,9 @@ export default function UploadCard({ onUploadComplete }: UploadCardProps) {
 
     const subscribeToRun = async () => {
       try {
-        // Configure the SDK with the access token for client-side authentication
+        // Configure the SDK with the public access token for client-side authentication
         configure({
-          secretKey: accessToken,
+          accessToken: accessToken,
         });
 
         for await (const run of runs.subscribeToRun(runId)) {

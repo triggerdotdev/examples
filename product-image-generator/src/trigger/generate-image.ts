@@ -1,7 +1,18 @@
 import { experimental_generateImage } from "ai";
 import { logger, metadata, task } from "@trigger.dev/sdk";
 import { openai } from "@ai-sdk/openai";
-import { uploadImageToR2 } from "./image-upload";
+import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { Buffer } from "buffer";
+
+// Initialize S3 client for R2
+const s3Client = new S3Client({
+  region: "auto",
+  endpoint: process.env.R2_ENDPOINT,
+  credentials: {
+    accessKeyId: process.env.R2_ACCESS_KEY_ID ?? "",
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY ?? "",
+  },
+});
 
 export const generateProductImage = task({
   id: "generate-product-image",
@@ -79,21 +90,42 @@ export const generateProductImage = task({
         ? `generated-derivative-${timestamp}.png`
         : `generated-${timestamp}.png`;
 
-      // Upload the generated image to R2 and wait for completion
-      const uploadResult = await uploadImageToR2.triggerAndWait({
-        imageBuffer: base64Image,
-        fileName: filename,
-        contentType: "image/png",
+      // Generate unique key for R2
+      const sanitizedFileName = filename.replace(/[^a-zA-Z0-9.-]/g, "_");
+      const r2Key = `uploaded-images/${timestamp}-${sanitizedFileName}`;
+
+      const uploadParams = {
+        Bucket: process.env.R2_BUCKET,
+        Key: r2Key,
+        Body: imageBuffer,
+        ContentType: "image/png",
+        // Add cache control for better performance
+        CacheControl: "public, max-age=31536000", // 1 year
+      };
+
+      // Upload to R2
+      logger.log("About to upload to R2", {
+        bucket: process.env.R2_BUCKET,
+        endpoint: process.env.R2_ENDPOINT,
+        r2Key,
+        fileSize: imageBuffer.length,
+        hasAccessKey: !!process.env.R2_ACCESS_KEY_ID,
+        hasSecretKey: !!process.env.R2_SECRET_ACCESS_KEY,
       });
 
-      if (!uploadResult.ok) {
-        throw new Error(`Image upload failed: ${uploadResult.error}`);
-      }
+      const result = await s3Client.send(new PutObjectCommand(uploadParams));
+      logger.log("S3 PutObject response:", result as any);
+      logger.log(`Image uploaded successfully to R2`, { r2Key });
 
-      const uploadOutput = uploadResult.output;
+      // Construct the public URL using the R2_PUBLIC_URL env var
+      const publicUrl = `${process.env.R2_PUBLIC_URL}/${r2Key}`;
 
-      // Log the upload completion
-      logger.log("Upload task completed successfully");
+      const uploadOutput = {
+        publicUrl,
+        r2Key,
+        fileSize: imageBuffer.length,
+        fileName: sanitizedFileName,
+      };
 
       // Update final progress
       metadata.set("progress", {
@@ -103,24 +135,26 @@ export const generateProductImage = task({
       });
       metadata.set("status", "completed");
 
-      // Set final metadata with result
+      // Set final metadata with result - this is the best practice for Trigger.dev
       metadata.set("result", {
-        prompt,
-        model,
-        size,
-        imageSize: imageBuffer.length,
+        success: true,
         publicUrl: uploadOutput.publicUrl,
         r2Key: uploadOutput.r2Key,
+        imageSize: imageBuffer.length,
+        contentType: "image/png",
+        model: model as string,
+        size: size as string,
+        prompt,
+        baseImageUrl: baseImageUrl || null,
+        isDerivative: !!baseImageUrl,
       });
 
       return {
         success: true,
-        imageBuffer: base64Image,
-        imageSize: imageBuffer.length,
-        contentType: "image/png",
         publicUrl: uploadOutput.publicUrl,
         r2Key: uploadOutput.r2Key,
-        // Note: We don't include uploadRunId since we're using triggerAndWait
+        imageSize: imageBuffer.length,
+        contentType: "image/png",
         model,
         size,
         prompt,
