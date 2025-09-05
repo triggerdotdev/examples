@@ -8,7 +8,7 @@ import { uploadImageToR2Action } from "../actions";
 import { runs, configure } from "@trigger.dev/sdk/v3";
 
 interface UploadCardProps {
-  onUploadComplete?: (imageUrl: string) => void;
+  onUploadComplete?: (imageUrl: string, productAnalysis?: any) => void;
 }
 
 export default function UploadCard({ onUploadComplete }: UploadCardProps) {
@@ -56,9 +56,12 @@ export default function UploadCard({ onUploadComplete }: UploadCardProps) {
             setProgressMessage("Upload completed!");
             setIsLoading(false);
 
-            // Notify parent component
+            // Notify parent component with URL and analysis
             if (onUploadComplete && run.output.publicUrl) {
-              onUploadComplete(run.output.publicUrl);
+              const productAnalysis =
+                run.output.productAnalysis ||
+                run.metadata?.result?.productAnalysis;
+              onUploadComplete(run.output.publicUrl, productAnalysis);
             }
             break;
           } else if (run.status === "FAILED") {
@@ -170,7 +173,7 @@ export default function UploadCard({ onUploadComplete }: UploadCardProps) {
           <img
             src={uploadedImageUrl}
             alt="Uploaded image"
-            className="h-full w-full object-cover rounded-lg"
+            className="h-full w-full object-contain rounded-lg bg-gray-50"
             style={{
               opacity: uploadProgress === "completed" ? 1 : 0.7,
               transition: "opacity 0.3s ease-in-out",

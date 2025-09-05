@@ -10,6 +10,7 @@ import { generateSingleImageAction } from "./actions";
 
 export default function ImageManagementApp() {
   const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null);
+  const [productAnalysis, setProductAnalysis] = useState<any>(null);
   const [generationRunIds, setGenerationRunIds] = useState<{
     [key: string]: string | null;
   }>({
@@ -31,10 +32,17 @@ export default function ImageManagementApp() {
     "hero-shot": "Hero Shot",
   };
 
-  const handleUploadComplete = async (imageUrl: string) => {
+  const handleUploadComplete = async (imageUrl: string, analysis?: any) => {
     try {
-      // Store the uploaded image URL for retries
+      // Store the uploaded image URL and analysis for retries
       setUploadedImageUrl(imageUrl);
+      setProductAnalysis(analysis);
+
+      // Only trigger generations if we have product analysis
+      if (!analysis) {
+        console.error("No product analysis available");
+        return;
+      }
 
       // Trigger all 3 generations individually for better progress tracking
       const promptIds = ["isolated-table", "lifestyle-scene", "hero-shot"];
@@ -42,8 +50,8 @@ export default function ImageManagementApp() {
       for (const promptId of promptIds) {
         const result = await generateSingleImageAction(
           imageUrl,
-          promptId,
-          "product"
+          analysis,
+          promptId
         );
 
         if (result.success) {
@@ -72,8 +80,10 @@ export default function ImageManagementApp() {
   };
 
   const handleRetryGeneration = async (promptId: string) => {
-    if (!uploadedImageUrl) {
-      console.error("No base image URL available for retry");
+    if (!uploadedImageUrl || !productAnalysis) {
+      console.error(
+        "No base image URL or product analysis available for retry"
+      );
       return;
     }
 
@@ -82,11 +92,11 @@ export default function ImageManagementApp() {
       setGenerationRunIds((prev) => ({ ...prev, [promptId]: null }));
       setGenerationAccessTokens((prev) => ({ ...prev, [promptId]: null }));
 
-      // Trigger the specific generation again
+      // Trigger the specific generation again with product analysis
       const result = await generateSingleImageAction(
         uploadedImageUrl,
-        promptId,
-        "product"
+        productAnalysis,
+        promptId
       );
 
       if (result.success) {

@@ -1,6 +1,9 @@
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { logger, metadata, task } from "@trigger.dev/sdk";
+import { openai } from "@ai-sdk/openai";
+import { generateObject } from "ai";
 import { Buffer } from "buffer";
+import { z } from "zod";
 
 // Initialize S3 client for R2
 const s3Client = new S3Client({
@@ -12,6 +15,71 @@ const s3Client = new S3Client({
   },
 });
 
+// Define the product analysis schema
+const productAnalysisSchema = z.object({
+  material: z.string().describe(
+    "Primary material type (e.g., glass, plastic, metal, fabric, wood)",
+  ),
+  colors: z.array(z.string()).describe(
+    "Array of colors present in the product",
+  ),
+  shape: z.string().describe("Detailed shape description"),
+  size_proportions: z.string().describe(
+    "Relative size and proportions description",
+  ),
+  functional_elements: z.array(z.string()).describe("List of functional parts"),
+  surface_finish: z.string().describe(
+    "Finish type (matte, glossy, textured, etc.)",
+  ),
+  text_branding: z.string().describe("Any visible text, logos, or branding"),
+  unique_features: z.array(z.string()).describe(
+    "Distinctive identifying characteristics",
+  ),
+  product_category: z.string().describe("What type of product this is"),
+});
+
+// Structured product analysis using AI SDK
+async function analyzeProductStructured(imageUrl: string) {
+  try {
+    const result = await generateObject({
+      model: openai("gpt-4o"),
+      schema: productAnalysisSchema,
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text:
+                "Analyze this product image and extract detailed properties. Be extremely specific and detailed about materials, colors, shape, functional elements, and unique characteristics. This will be used to preserve exact product appearance in AI generation.",
+            },
+            {
+              type: "image",
+              image: imageUrl,
+            },
+          ],
+        },
+      ],
+    });
+
+    return result.object;
+  } catch (error) {
+    logger.warn("Failed to analyze product", { error });
+    // Return fallback structure
+    return {
+      material: "unknown",
+      colors: ["unknown"],
+      shape: "product shape",
+      size_proportions: "standard proportions",
+      functional_elements: ["main body"],
+      surface_finish: "standard finish",
+      text_branding: "none visible",
+      unique_features: ["distinctive product"],
+      product_category: "general product",
+    };
+  }
+}
+
 export const uploadImageToR2 = task({
   id: "upload-image-to-r2",
   maxDuration: 300, // 5 minutes max
@@ -22,20 +90,20 @@ export const uploadImageToR2 = task({
   }) => {
     const { imageBuffer, fileName, contentType } = payload;
 
-    // Set initial metadata
+    // Set initial metadata with 5 steps (added analysis)
     metadata.set("status", "starting");
     metadata.set("progress", {
       step: 1,
-      total: 4,
-      message: "Preparing upload...",
+      total: 5,
+      message: "Preparing upload and analysis...",
     });
 
-    logger.log("Starting image upload to R2", { fileName, contentType });
+    logger.log("Starting image upload and analysis", { fileName, contentType });
 
     // Convert base64 to buffer
     metadata.set("progress", {
       step: 2,
-      total: 4,
+      total: 5,
       message: "Processing image data...",
     });
     const buffer = Buffer.from(imageBuffer, "base64");
@@ -50,7 +118,7 @@ export const uploadImageToR2 = task({
 
     metadata.set("progress", {
       step: 3,
-      total: 4,
+      total: 5,
       message: "Uploading to storage...",
     });
 
@@ -78,23 +146,34 @@ export const uploadImageToR2 = task({
       logger.log("S3 PutObject response:", result as any);
       logger.log(`Image uploaded successfully to R2`, { r2Key });
 
-      // Update metadata for completion
-      metadata.set("progress", {
-        step: 4,
-        total: 4,
-        message: "Upload completed!",
-      });
-      metadata.set("status", "completed");
-
       // Construct the public URL using the R2_PUBLIC_URL env var
       const publicUrl = `${process.env.R2_PUBLIC_URL}/${r2Key}`;
 
-      // Set final metadata with result
+      // Step 4: Analyze product properties
+      metadata.set("progress", {
+        step: 4,
+        total: 5,
+        message: "Analyzing product properties...",
+      });
+
+      const productAnalysis = await analyzeProductStructured(publicUrl);
+      logger.log("Product analysis completed", { productAnalysis });
+
+      // Step 5: Complete
+      metadata.set("progress", {
+        step: 5,
+        total: 5,
+        message: "Upload and analysis completed!",
+      });
+      metadata.set("status", "completed");
+
+      // Set final metadata with result including analysis
       metadata.set("result", {
         publicUrl,
         r2Key,
         fileSize,
         fileName: sanitizedFileName,
+        productAnalysis,
       });
 
       return {
@@ -105,11 +184,16 @@ export const uploadImageToR2 = task({
         fileSize,
         contentType,
         fileName: sanitizedFileName,
+        productAnalysis,
       };
     } catch (error) {
       // Set error metadata
       metadata.set("status", "failed");
-      metadata.set("progress", { step: 0, total: 4, message: "Upload failed" });
+      metadata.set("progress", {
+        step: 0,
+        total: 5,
+        message: "Upload and analysis failed",
+      });
       metadata.set(
         "error",
         error instanceof Error ? error.message : "Unknown error",

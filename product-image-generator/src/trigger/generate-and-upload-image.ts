@@ -19,9 +19,20 @@ export const generateAndUploadImage = task({
   id: "generate-and-upload-image",
   maxDuration: 600, // 10 minutes max
   run: async (payload: {
-    prompt: string;
+    promptStyle: string; // Style prompt (table-shot, lifestyle, hero)
     baseImageUrl: string;
-    model?: "flux" | "dall-e-3";
+    productAnalysis: {
+      material: string;
+      colors: string[];
+      shape: string;
+      size_proportions: string;
+      functional_elements: string[];
+      surface_finish: string;
+      text_branding: string;
+      unique_features: string[];
+      product_category: string;
+    };
+    model?: "flux";
     size?: "1024x1024" | "1792x1024" | "1024x1792";
     strength?: number;
     guidance?: number;
@@ -29,61 +40,99 @@ export const generateAndUploadImage = task({
     seed?: number;
   }) => {
     const {
-      prompt,
+      promptStyle,
       baseImageUrl,
+      productAnalysis,
       model = "flux",
-      size = "1024x1024", // Match your settings
+      size = "1024x1024",
       strength = 0.7,
       guidance = 7, // From your settings
       steps = 30, // From your settings
-      seed = 1601, // From your settings
+      seed = Math.floor(Math.random() * 1000000), // Random seed for variety
     } = payload;
 
-    // Set initial metadata with 5 steps total
+    // Set initial metadata with 4 steps (no analysis needed)
     metadata.set("status", "starting");
     metadata.set("progress", {
       step: 1,
-      total: 5,
+      total: 4,
       message: "Preparing image generation...",
     });
 
     logger.log("Starting image generation and upload", {
-      prompt,
+      promptStyle,
       baseImageUrl,
+      productAnalysis,
       model,
       size,
     });
 
     try {
-      // Step 2: Generate image
+      // Step 2: Create structured prompt
       metadata.set("progress", {
         step: 2,
-        total: 5,
-        message: "Generating image with AI...",
+        total: 4,
+        message: "Creating enhanced prompt...",
       });
 
-      // Use Flux with your exact settings from the screenshot
+      // Build detailed product description from analysis with fallbacks
+      const productDetails = [
+        `Material: ${productAnalysis?.material || "unknown"}`,
+        `Colors: ${productAnalysis?.colors?.join(", ") || "unknown"}`,
+        `Shape: ${productAnalysis?.shape || "unknown"}`,
+        `Proportions: ${productAnalysis?.size_proportions || "standard"}`,
+        `Functional elements: ${
+          productAnalysis?.functional_elements?.join(", ") || "standard"
+        }`,
+        `Surface finish: ${productAnalysis?.surface_finish || "standard"}`,
+        `Text/branding: ${productAnalysis?.text_branding || "none"}`,
+        `Unique features: ${
+          productAnalysis?.unique_features?.join(", ") || "standard"
+        }`,
+      ].join(". ");
+
+      // Style-specific prompts
+      const stylePrompts = {
+        "isolated-table":
+          `Professional product photography on clean white table with studio lighting, minimalist background, commercial style`,
+        "lifestyle-scene":
+          `Lifestyle product photography in modern home setting with natural lighting, styled environment, aspirational setting`,
+        "hero-shot":
+          `Premium hero shot with dramatic lighting, luxury commercial photography style, perfect for marketing materials`,
+      };
+
+      const baseStylePrompt =
+        stylePrompts[promptStyle as keyof typeof stylePrompts] ||
+        stylePrompts["isolated-table"];
+
+      // Combine everything into one unambiguous prompt
+      const enhancedPrompt =
+        `${baseStylePrompt}. Product specifications that MUST be preserved exactly: ${productDetails}. The product must maintain these exact characteristics while only the background and lighting change.`;
+
+      logger.log("Enhanced prompt created", { enhancedPrompt });
+
+      // Use Flux with structured prompt
       const generateParams: any = {
         model: replicate.image("black-forest-labs/flux-dev"),
-        prompt: prompt,
+        prompt: enhancedPrompt,
         image: baseImageUrl, // Reference image for img2img
-        width: 1024, // From your settings
-        height: 1024, // From your settings
-        guidance_scale: 7, // From your settings
-        num_inference_steps: 30, // From your settings
-        strength: 0.7, // Good balance for product preservation
-        seed: 1601, // From your settings
+        width: parseInt(size.split("x")[0]),
+        height: parseInt(size.split("x")[1]),
+        guidance_scale: guidance,
+        num_inference_steps: steps,
+        strength: strength,
+        seed: seed,
         num_outputs: 1,
       };
 
       const { image } = await experimental_generateImage(generateParams);
       logger.log("Image generated successfully");
 
-      // Step 3: Prepare for upload
+      // Step 4: Upload to storage
       metadata.set("progress", {
-        step: 3,
-        total: 5,
-        message: "Preparing image for upload...",
+        step: 4,
+        total: 4,
+        message: "Uploading to storage...",
       });
 
       const imageBuffer = Buffer.from(image.uint8Array);
@@ -91,13 +140,6 @@ export const generateAndUploadImage = task({
 
       const timestamp = Date.now();
       const filename = `generated-${timestamp}.png`;
-
-      // Step 4: Upload to storage
-      metadata.set("progress", {
-        step: 4,
-        total: 5,
-        message: "Uploading to storage...",
-      });
 
       // Generate unique key for R2
       const sanitizedFileName = filename.replace(/[^a-zA-Z0-9.-]/g, "_");
@@ -136,10 +178,10 @@ export const generateAndUploadImage = task({
         fileName: sanitizedFileName,
       };
 
-      // Step 5: Complete
+      // Complete
       metadata.set("progress", {
-        step: 5,
-        total: 5,
+        step: 4,
+        total: 4,
         message: "Generation and upload completed!",
       });
       metadata.set("status", "completed");
@@ -153,7 +195,7 @@ export const generateAndUploadImage = task({
         contentType: "image/png",
         model,
         size,
-        prompt,
+        promptStyle,
         baseImageUrl,
       });
 
@@ -165,7 +207,7 @@ export const generateAndUploadImage = task({
         contentType: "image/png",
         model,
         size,
-        prompt,
+        promptStyle,
         baseImageUrl,
       };
     } catch (error) {
@@ -173,7 +215,7 @@ export const generateAndUploadImage = task({
       metadata.set("status", "failed");
       metadata.set("progress", {
         step: 0,
-        total: 5,
+        total: 4,
         message: "Generation and upload failed",
       });
       metadata.set(
@@ -181,7 +223,10 @@ export const generateAndUploadImage = task({
         error instanceof Error ? error.message : "Unknown error",
       );
 
-      logger.error("Failed to generate and upload image", { error, prompt });
+      logger.error("Failed to generate and upload image", {
+        error,
+        promptStyle,
+      });
       throw error;
     }
   },

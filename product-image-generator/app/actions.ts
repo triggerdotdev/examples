@@ -75,38 +75,20 @@ export async function uploadImageToR2Action(formData: FormData) {
   }
 }
 
-
 export async function generateSingleImageAction(
   baseImageUrl: string,
+  productAnalysis: any, // Structured analysis from upload task
   promptId: string,
-  productDescription: string = "product",
 ) {
   try {
-    // Define the prompts - emphasizing exact product replication
-    const prompts = {
-      "isolated-table":
-        `Create a professional product photography shot showing the EXACT same product from the reference image, maintaining identical colors, textures, materials, and design details. Place this identical product isolated on a clean white table surface with studio lighting, minimalist background, commercial photography style, high resolution, sharp focus. The product must look exactly the same as in the reference image.`,
-      "lifestyle-scene":
-        `Create a lifestyle product photography shot showing the EXACT same product from the reference image, maintaining identical colors, textures, materials, and design details. Place this identical product in a modern home setting with natural lighting, styled environment, aspirational lifestyle, professional commercial photography. The product must look exactly the same as in the reference image, only the background and setting should change.`,
-      "hero-shot":
-        `Create a hero product shot showing the EXACT same product from the reference image, maintaining identical colors, textures, materials, and design details. Present this identical product with dramatic lighting, premium presentation, luxury commercial photography style, perfect for marketing materials, high-end aesthetic. The product must look exactly the same as in the reference image, only the lighting and presentation should be enhanced.`,
-    };
-
-    const prompt = prompts[promptId as keyof typeof prompts];
-    if (!prompt) {
-      return {
-        success: false as const,
-        error: "Invalid prompt ID",
-      };
-    }
-
     const handle = await tasks.trigger<typeof generateAndUploadImage>(
       "generate-and-upload-image",
       {
-        prompt,
+        promptStyle: promptId, // isolated-table, lifestyle-scene, hero-shot
         baseImageUrl,
-        model: "flux", // Use Flux with your settings
-        size: "1024x1024", // Square format from your settings
+        productAnalysis,
+        model: "flux",
+        size: "1024x1024",
       },
     );
 
