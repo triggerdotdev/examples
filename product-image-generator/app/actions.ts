@@ -2,7 +2,6 @@
 
 import { auth, tasks } from "@trigger.dev/sdk/v3";
 import type { uploadImageToR2 } from "../src/trigger/image-upload";
-import type { batchGenerateAndUploadImages } from "../src/trigger/batch-generate-and-upload";
 import type { generateAndUploadImage } from "../src/trigger/generate-and-upload-image";
 
 export async function createPublicAccessToken(runId: string) {
@@ -76,42 +75,6 @@ export async function uploadImageToR2Action(formData: FormData) {
   }
 }
 
-export async function batchGenerateImagesAction(
-  baseImageUrl: string,
-  productDescription?: string,
-) {
-  try {
-    const handle = await tasks.trigger<typeof batchGenerateAndUploadImages>(
-      "batch-generate-and-upload-images",
-      {
-        baseImageUrl,
-        productDescription,
-      },
-    );
-
-    // Create a public access token for this specific run
-    const tokenResult = await createPublicAccessToken(handle.id);
-
-    if (!tokenResult.success) {
-      return {
-        success: false as const,
-        error: tokenResult.error,
-      };
-    }
-
-    return {
-      success: true as const,
-      runId: handle.id,
-      accessToken: tokenResult.token,
-    };
-  } catch (error) {
-    console.error("Failed to trigger batch generation:", error);
-    return {
-      success: false as const,
-      error: "Failed to trigger batch generation",
-    };
-  }
-}
 
 export async function generateSingleImageAction(
   baseImageUrl: string,
@@ -142,8 +105,8 @@ export async function generateSingleImageAction(
       {
         prompt,
         baseImageUrl,
-        model: "dall-e-3",
-        size: "1024x1792", // Portrait format for better slot fitting
+        model: "flux", // Use Flux with your settings
+        size: "1024x1024", // Square format from your settings
       },
     );
 

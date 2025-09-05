@@ -11,6 +11,9 @@ importers:
       '@ai-sdk/openai':
         specifier: ^2.0.24
         version: 2.0.24(zod@3.25.67)
+      '@ai-sdk/replicate':
+        specifier: ^1.0.8
+        version: 1.0.8(zod@3.25.67)
       '@aws-sdk/client-s3':
         specifier: ^3.882.0
         version: 3.882.0
@@ -225,6 +228,12 @@ packages:
   '@ai-sdk/provider@2.0.0':
     resolution: {integrity: sha512-6o7Y2SeO9vFKB8lArHXehNuusnpddKPk7xqL7T2/b+OvXMRIXUO1rR4wcv1hAFUAT9avGZshty3Wlua/XA7TvA==}
     engines: {node: '>=18'}
+
+  '@ai-sdk/replicate@1.0.8':
+    resolution: {integrity: sha512-lCisqVAZt/x1HmVhVbKlLa73f69+yC+P9QmRIKbXaZb1kqnL27urTehEpSLsT+iungmWOsMY3Xr4PXhNf/8FwQ==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4
 
   '@alloc/quick-lru@5.2.0':
     resolution: {integrity: sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw==}
@@ -2561,6 +2570,12 @@ snapshots:
   '@ai-sdk/provider@2.0.0':
     dependencies:
       json-schema: 0.4.0
+
+  '@ai-sdk/replicate@1.0.8(zod@3.25.67)':
+    dependencies:
+      '@ai-sdk/provider': 2.0.0
+      '@ai-sdk/provider-utils': 3.0.8(zod@3.25.67)
+      zod: 3.25.67
 
   '@alloc/quick-lru@5.2.0': {}
 

@@ -1,6 +1,7 @@
 import { experimental_generateImage } from "ai";
 import { logger, metadata, task } from "@trigger.dev/sdk";
 import { openai } from "@ai-sdk/openai";
+import { replicate } from "@ai-sdk/replicate";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { Buffer } from "buffer";
 
@@ -20,14 +21,22 @@ export const generateAndUploadImage = task({
   run: async (payload: {
     prompt: string;
     baseImageUrl: string;
-    model?: "dall-e-2" | "dall-e-3";
+    model?: "flux" | "dall-e-3";
     size?: "1024x1024" | "1792x1024" | "1024x1792";
+    strength?: number;
+    guidance?: number;
+    steps?: number;
+    seed?: number;
   }) => {
     const {
       prompt,
       baseImageUrl,
-      model = "dall-e-3",
-      size = "1024x1792",
+      model = "flux",
+      size = "1024x1024", // Match your settings
+      strength = 0.7,
+      guidance = 7, // From your settings
+      steps = 30, // From your settings
+      seed = 1601, // From your settings
     } = payload;
 
     // Set initial metadata with 5 steps total
@@ -53,11 +62,18 @@ export const generateAndUploadImage = task({
         message: "Generating image with AI...",
       });
 
+      // Use Flux with your exact settings from the screenshot
       const generateParams: any = {
-        model: openai.image(model),
-        prompt:
-          `Create a professional marketing image: ${prompt}. Use the product from this reference image: ${baseImageUrl}. Maintain the product's key features and characteristics while adapting it to the new scenario.`,
-        size,
+        model: replicate.image("black-forest-labs/flux-dev"),
+        prompt: prompt,
+        image: baseImageUrl, // Reference image for img2img
+        width: 1024, // From your settings
+        height: 1024, // From your settings
+        guidance_scale: 7, // From your settings
+        num_inference_steps: 30, // From your settings
+        strength: 0.7, // Good balance for product preservation
+        seed: 1601, // From your settings
+        num_outputs: 1,
       };
 
       const { image } = await experimental_generateImage(generateParams);

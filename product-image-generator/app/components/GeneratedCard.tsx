@@ -2,7 +2,7 @@
 
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
-import { Download, RefreshCw } from "lucide-react";
+import { Download, RefreshCw, Expand } from "lucide-react";
 import { useState } from "react";
 import { useRealtimeRun } from "@trigger.dev/react-hooks";
 
@@ -77,6 +77,12 @@ export default function GeneratedCard({
     }
   };
 
+  const handleExpand = () => {
+    if (generatedImageUrl) {
+      window.open(generatedImageUrl, "_blank");
+    }
+  };
+
   const handleRetry = () => {
     if (onRetry) {
       setGeneratedImageUrl(null);
@@ -85,29 +91,39 @@ export default function GeneratedCard({
   };
 
   return (
-    <Card className="aspect-[3/4] border transition-colors relative overflow-hidden group bg-card">
+    <Card className="aspect-[3/4] border transition-colors relative overflow-hidden group bg-card p-0">
       {generatedImageUrl ? (
         // Show generated image
-        <div className="h-full w-full relative">
+        <div className="h-full w-full relative overflow-hidden rounded-lg">
           <img
             src={generatedImageUrl}
             alt={`Generated ${promptTitle}`}
-            className="h-full w-full object-contain rounded-lg bg-gray-50"
+            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
           />
-          {/* Download button */}
-          <div className="absolute top-2 right-2">
+          {/* Action buttons */}
+          <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
             <Button
               size="sm"
               variant="secondary"
-              className="w-8 h-8 rounded-full p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+              className="w-8 h-8 rounded-full p-0 backdrop-blur-sm bg-white/90 hover:bg-white"
+              onClick={handleExpand}
+            >
+              <Expand className="h-4 w-4" />
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              className="w-8 h-8 rounded-full p-0 backdrop-blur-sm bg-white/90 hover:bg-white"
               onClick={handleDownload}
             >
               <Download className="h-4 w-4" />
             </Button>
           </div>
           {/* Title overlay */}
-          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-3">
-            <p className="text-white text-sm font-medium">{promptTitle}</p>
+          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-3">
+            <p className="text-white text-sm font-medium drop-shadow-sm">
+              {promptTitle}
+            </p>
           </div>
         </div>
       ) : generationProgress === "failed" ? (
