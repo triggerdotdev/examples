@@ -58,9 +58,10 @@ export default function UploadCard({ onUploadComplete }: UploadCardProps) {
 
             // Notify parent component with URL and analysis
             if (onUploadComplete && run.output.publicUrl) {
+              const output = run.output as any;
+              const metadataResult = run.metadata?.result as any;
               const productAnalysis =
-                run.output.productAnalysis ||
-                run.metadata?.result?.productAnalysis;
+                output.productAnalysis || metadataResult?.productAnalysis;
               onUploadComplete(run.output.publicUrl, productAnalysis);
             }
             break;

@@ -17,6 +17,12 @@ const s3Client = new S3Client({
 
 // Define the product analysis schema
 const productAnalysisSchema = z.object({
+  exact_product_name: z.string().describe(
+    "The exact brand name and product model/name as it appears on the packaging",
+  ),
+  model_number: z.string().describe(
+    "The specific model number or identifier (e.g., Z fc, iPhone 15, etc.)",
+  ),
   material: z.string().describe(
     "Primary material type (e.g., glass, plastic, metal, fabric, wood)",
   ),
@@ -51,7 +57,7 @@ async function analyzeProductStructured(imageUrl: string) {
             {
               type: "text",
               text:
-                "Analyze this product image and extract detailed properties. Be extremely specific and detailed about materials, colors, shape, functional elements, and unique characteristics. This will be used to preserve exact product appearance in AI generation.",
+                "Analyze this product image and extract detailed properties. Be extremely specific and detailed about materials, colors, shape, functional elements, and unique characteristics. This will be used to preserve exact product appearance in AI generation. Focus on: exact brand name and model number, specific colors and color combinations (including any two-tone or multi-color designs), precise shape and proportions, functional details, label design elements, text content, and any distinctive visual features that make this product unique. Pay special attention to color accuracy - note exact color names and combinations. Be extremely precise about every visual detail that makes this product identifiable.",
             },
             {
               type: "image",
@@ -62,11 +68,14 @@ async function analyzeProductStructured(imageUrl: string) {
       ],
     });
 
+    logger.log("Product analysis completed", { analysis: result.object });
     return result.object;
   } catch (error) {
     logger.warn("Failed to analyze product", { error });
     // Return fallback structure
     return {
+      exact_product_name: "unknown product",
+      model_number: "unknown model",
       material: "unknown",
       colors: ["unknown"],
       shape: "product shape",

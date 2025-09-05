@@ -19,9 +19,11 @@ export const generateAndUploadImage = task({
   id: "generate-and-upload-image",
   maxDuration: 600, // 10 minutes max
   run: async (payload: {
-    promptStyle: string; // Style prompt (table-shot, lifestyle, hero)
+    promptStyle: string; // Style prompt (table-shot, lifestyle, hero, custom)
     baseImageUrl: string;
     productAnalysis: {
+      exact_product_name: string;
+      model_number: string;
       material: string;
       colors: string[];
       shape: string;
@@ -32,6 +34,7 @@ export const generateAndUploadImage = task({
       unique_features: string[];
       product_category: string;
     };
+    customPrompt?: string; // User's custom prompt for "custom" style
     model?: "flux";
     size?: "1024x1024" | "1792x1024" | "1024x1792";
     strength?: number;
@@ -43,11 +46,12 @@ export const generateAndUploadImage = task({
       promptStyle,
       baseImageUrl,
       productAnalysis,
+      customPrompt,
       model = "flux",
       size = "1024x1024",
-      strength = 0.7,
+      strength = 0.2,
       guidance = 7, // From your settings
-      steps = 30, // From your settings
+      steps = 20, // From your settings
       seed = Math.floor(Math.random() * 1000000), // Random seed for variety
     } = payload;
 
@@ -77,6 +81,10 @@ export const generateAndUploadImage = task({
 
       // Build detailed product description from analysis with fallbacks
       const productDetails = [
+        `Exact product: ${
+          productAnalysis?.exact_product_name || "unknown product"
+        }`,
+        `Model number: ${productAnalysis?.model_number || "unknown model"}`,
         `Material: ${productAnalysis?.material || "unknown"}`,
         `Colors: ${productAnalysis?.colors?.join(", ") || "unknown"}`,
         `Shape: ${productAnalysis?.shape || "unknown"}`,
@@ -96,9 +104,10 @@ export const generateAndUploadImage = task({
         "isolated-table":
           `Professional product photography on clean white table with studio lighting, minimalist background, commercial style`,
         "lifestyle-scene":
-          `Lifestyle product photography in modern home setting with natural lighting, styled environment, aspirational setting`,
+          `Lifestyle product photography of fashionable person of any gender or ethnicity in the sunshine holding the product in their hand with a big smile on their face - they should be pointing to the product. This should be a very sophisticated lifestyle shot`,
         "hero-shot":
-          `Premium hero shot with dramatic lighting, luxury commercial photography style, perfect for marketing materials`,
+          `Professional lifestyle shot of elegant hands holding and presenting the product, dramatic lighting, luxury commercial photography style, perfect for marketing materials, human interaction with product`,
+        "custom": customPrompt || "Professional product photography",
       };
 
       const baseStylePrompt =
@@ -107,9 +116,14 @@ export const generateAndUploadImage = task({
 
       // Combine everything into one unambiguous prompt
       const enhancedPrompt =
-        `${baseStylePrompt}. Product specifications that MUST be preserved exactly: ${productDetails}. The product must maintain these exact characteristics while only the background and lighting change.`;
+        `${baseStylePrompt}. MANDATORY PRODUCT PRESERVATION: You MUST recreate the EXACT product from the reference image. Product specifications that are ABSOLUTELY REQUIRED: ${productDetails}. The product must be IDENTICAL to the reference image - same brand name, same exact model number, same exact colors and color combinations, same shape, same proportions, same text, same logos, same design elements, same materials, same finish. DO NOT change any colors, DO NOT substitute different models or color variants, DO NOT modify the product itself in any way. The product must be pixel-perfect identical. Only change the background, lighting, and camera angle. If you cannot preserve the exact product, do not generate the image.`;
 
-      logger.log("Enhanced prompt created", { enhancedPrompt });
+      logger.log("Enhanced prompt created", {
+        enhancedPrompt,
+        promptStyle,
+        customPrompt: customPrompt || "none provided",
+        baseStylePrompt,
+      });
 
       // Use Flux with structured prompt
       const generateParams: any = {
@@ -123,6 +137,9 @@ export const generateAndUploadImage = task({
         strength: strength,
         seed: seed,
         num_outputs: 1,
+        // Add negative prompt to prevent unwanted changes
+        negative_prompt:
+          "different product, wrong brand, different model, different colors, color variants, different shape, modified product, altered design, wrong text, different logo, fake product, generic product",
       };
 
       const { image } = await experimental_generateImage(generateParams);

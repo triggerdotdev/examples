@@ -115,3 +115,45 @@ export async function generateSingleImageAction(
     };
   }
 }
+
+export async function generateCustomImageAction(
+  baseImageUrl: string,
+  productAnalysis: any, // Structured analysis from upload task
+  customPrompt: string,
+) {
+  try {
+    const handle = await tasks.trigger<typeof generateAndUploadImage>(
+      "generate-and-upload-image",
+      {
+        promptStyle: "custom", // Custom prompt style
+        baseImageUrl,
+        productAnalysis,
+        customPrompt, // User's custom prompt
+        model: "flux",
+        size: "1024x1024",
+      },
+    );
+
+    // Create a public access token for this specific run
+    const tokenResult = await createPublicAccessToken(handle.id);
+
+    if (!tokenResult.success) {
+      return {
+        success: false as const,
+        error: tokenResult.error,
+      };
+    }
+
+    return {
+      success: true as const,
+      runId: handle.id,
+      accessToken: tokenResult.token,
+    };
+  } catch (error) {
+    console.error("Failed to trigger custom image generation:", error);
+    return {
+      success: false as const,
+      error: "Failed to trigger image generation",
+    };
+  }
+}

@@ -6,6 +6,7 @@ import { Button } from "./components/ui/button";
 import { Card } from "./components/ui/card";
 import UploadCard from "./components/UploadCard";
 import GeneratedCard from "./components/GeneratedCard";
+import CustomPromptCard from "./components/CustomPromptCard";
 import { generateSingleImageAction } from "./actions";
 
 export default function ImageManagementApp() {
@@ -24,12 +25,25 @@ export default function ImageManagementApp() {
     "isolated-table": null,
     "lifestyle-scene": null,
     "hero-shot": null,
+    custom: null,
+  });
+
+  // Track custom generations for bottom row
+  const [customGenerations, setCustomGenerations] = useState<{
+    runIds: (string | null)[];
+    accessTokens: (string | null)[];
+    prompts: (string | null)[];
+  }>({
+    runIds: [null, null, null],
+    accessTokens: [null, null, null],
+    prompts: [null, null, null],
   });
 
   const promptTitles = {
     "isolated-table": "Table Shot",
     "lifestyle-scene": "Lifestyle Scene",
     "hero-shot": "Hero Shot",
+    custom: "Custom Prompt",
   };
 
   const handleUploadComplete = async (imageUrl: string, analysis?: any) => {
@@ -116,6 +130,35 @@ export default function ImageManagementApp() {
     }
   };
 
+  const handleCustomGenerationComplete = (
+    runId: string,
+    accessToken: string,
+    prompt: string,
+    cardIndex: number
+  ) => {
+    setCustomGenerations((prev) => ({
+      runIds: prev.runIds.map((id, i) => (i === cardIndex ? runId : id)),
+      accessTokens: prev.accessTokens.map((token, i) =>
+        i === cardIndex ? accessToken : token
+      ),
+      prompts: prev.prompts.map((p, i) => (i === cardIndex ? prompt : p)),
+    }));
+  };
+
+  // Check if top row generations are complete
+  const topRowGenerationsComplete =
+    generationRunIds["isolated-table"] &&
+    generationRunIds["lifestyle-scene"] &&
+    generationRunIds["hero-shot"];
+
+  // Find next available custom card slot
+  const getNextCustomCardIndex = () => {
+    return customGenerations.runIds.findIndex((id) => id === null);
+  };
+
+  const nextCustomCardIndex = getNextCustomCardIndex();
+  const hasAvailableCustomSlot = nextCustomCardIndex !== -1;
+
   return (
     <div className="min-h-screen bg-background">
       {/* Navigation Header */}
@@ -186,23 +229,80 @@ export default function ImageManagementApp() {
           />
         </div>
 
-        {/* Bottom Row - 4 More Cards (Future Implementation) */}
+        {/* Bottom Row - Sequential Custom Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {Array.from({ length: 4 }).map((_, index) => (
-            <Card
-              key={index + 4}
-              className="aspect-[3/4] bg-card border border-dashed border-muted-foreground/25"
-            >
-              <div className="h-full flex items-center justify-center">
-                <div className="text-center">
-                  <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center mx-auto mb-2">
-                    <ImageIcon className="h-6 w-6 text-muted-foreground" />
+          {Array.from({ length: 4 }).map((_, index) => {
+            const runId = customGenerations.runIds[index];
+            const accessToken = customGenerations.accessTokens[index];
+            const prompt = customGenerations.prompts[index];
+
+            // If this slot has a generation, show the generated card
+            if (runId && accessToken) {
+              return (
+                <GeneratedCard
+                  key={`custom-${index}`}
+                  runId={runId}
+                  accessToken={accessToken}
+                  promptId={`custom-${index}`}
+                  promptTitle={prompt || "Custom Scenario"}
+                  onRetry={() => {
+                    // Reset this specific custom generation
+                    setCustomGenerations((prev) => ({
+                      runIds: prev.runIds.map((id, i) =>
+                        i === index ? null : id
+                      ),
+                      accessTokens: prev.accessTokens.map((token, i) =>
+                        i === index ? null : token
+                      ),
+                      prompts: prev.prompts.map((p, i) =>
+                        i === index ? null : p
+                      ),
+                    }));
+                  }}
+                />
+              );
+            }
+
+            // If this is the next available slot and top row is complete, show custom prompt card
+            if (index === nextCustomCardIndex && topRowGenerationsComplete) {
+              return (
+                <CustomPromptCard
+                  key={`custom-prompt-${index}`}
+                  baseImageUrl={uploadedImageUrl}
+                  productAnalysis={productAnalysis}
+                  onGenerationComplete={(runId, accessToken, prompt) =>
+                    handleCustomGenerationComplete(
+                      runId,
+                      accessToken,
+                      prompt,
+                      index
+                    )
+                  }
+                />
+              );
+            }
+
+            // Otherwise show placeholder
+            return (
+              <Card
+                key={`placeholder-${index}`}
+                className="aspect-[3/4] bg-card border border-dashed border-muted-foreground/25"
+              >
+                <div className="h-full flex items-center justify-center">
+                  <div className="text-center">
+                    <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center mx-auto mb-2">
+                      <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {topRowGenerationsComplete
+                        ? "Create custom scenario"
+                        : ""}
+                    </p>
                   </div>
-                  <p className="text-sm text-muted-foreground">Coming Soon</p>
                 </div>
-              </div>
-            </Card>
-          ))}
+              </Card>
+            );
+          })}
         </div>
 
         {/* Action Buttons */}
