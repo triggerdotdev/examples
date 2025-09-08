@@ -1,14 +1,11 @@
-import type React from "react";
-import type { Metadata } from "next";
-import { GeistSans } from "geist/font/sans";
-import { GeistMono } from "geist/font/mono";
-import {
-  Playfair_Display,
-  Roboto,
-  Roboto_Condensed,
-  Source_Sans_3,
-} from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
+import { GeistMono } from "geist/font/mono";
+import { GeistSans } from "geist/font/sans";
+import type { Metadata } from "next";
+import {
+  Roboto
+} from "next/font/google";
+import type React from "react";
 import { Suspense } from "react";
 import "./globals.css";
 
