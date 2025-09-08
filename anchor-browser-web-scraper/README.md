@@ -24,7 +24,7 @@ Initialize a new Node.js project and install the required packages from Anchor B
 ```
 npm init -y
 npm install anchorbrowser
-npx trigger.dev@latest init -p <project id from trigger.dev>
+npx trigger.dev@latest init -p <your-project-id>
 ```
 
 #### Environment configuration
