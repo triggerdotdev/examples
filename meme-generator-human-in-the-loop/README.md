@@ -1,6 +1,6 @@
 # Meme generator with human-in-the-loop approval
 
-> **ℹ️ Note:** This is a v4 project. If you are using v3 and want to upgrade, please refer to our [v4 upgrade guide](https://trigger.dev/docs/v4-upgrade-guide).
+> **ℹ️ Note:** This is a v4 project. If you are using v3 and want to upgrade, please refer to our [v4 upgrade guide](https://trigger.dev/docs/migrating-from-v3).
 
 This example reference project demonstrates using a human-in-the-loop workflow to approve memes generated using OpenAI's DALL-E 3.
 

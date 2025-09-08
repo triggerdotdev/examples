@@ -1,13 +1,12 @@
 # OpenAI Agents SDK for Typescript + Trigger.dev playground
 
-> **ℹ️ Note:** This is a v4 project. If you are using v3 and want to upgrade, please refer to our [v4 upgrade guide](https://trigger.dev/docs/v4-upgrade-guide).
+> **ℹ️ Note:** This is a v4 project. If you are using v3 and want to upgrade, please refer to our [v4 upgrade guide](https://trigger.dev/docs/migrating-from-v3).
 
 Get hands-on with AI agents by exploring 7 production-ready patterns built with the OpenAI Agents SDK and Trigger.dev. Clone this repo to experiment with everything from basic calls to workflows with tools, streaming, guardrails, handoffs, and more.
 
 By combining the OpenAI Agents SDK with Trigger.dev, you can create durable agents that can be deployed to production and scaled to any size, with retries, queues, and full observability built-in.
 
 https://github.com/user-attachments/assets/d3a1c709-412f-48e8-a4aa-f0ef50dce5c8
-
 
 ## Tech stack
 

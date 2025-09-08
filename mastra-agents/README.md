@@ -1,6 +1,6 @@
 # Mastra agents with memory sharing + Trigger.dev task orchestration example project:
 
-> **ℹ️ Note:** This is a Trigger.dev v4 project. If you are using v3 and want to upgrade, please refer to our [v4 upgrade guide](https://trigger.dev/docs/v4-upgrade-guide).
+> **ℹ️ Note:** This is a Trigger.dev v4 project. If you are using v3 and want to upgrade, please refer to our [v4 upgrade guide](https://trigger.dev/docs/migrating-from-v3).
 
 Enter a city and an activity, and get a clothing recommendation generated for you based on today's weather.
 

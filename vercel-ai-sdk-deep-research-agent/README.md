@@ -2,7 +2,7 @@
 
 > **Acknowledgements**: This example project is derived from the brilliant [deep research guide](https://aie-feb-25.vercel.app/docs/deep-research) by [Nico Albanese](https://x.com/nicoalbanese10).
 
-> **ℹ️ Note:** This is a v4 project. If you are using v3 and want to upgrade, please refer to our [v4 upgrade guide](https://trigger.dev/docs/v4-upgrade-guide).
+> **ℹ️ Note:** This is a v4 project. If you are using v3 and want to upgrade, please refer to our [v4 upgrade guide](https://trigger.dev/docs/migrating-from-v3).
 
 ## Overview
 
