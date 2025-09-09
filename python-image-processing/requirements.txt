@@ -1,7 +1,7 @@
 # Core dependencies
 Pillow==10.2.0            # Image processing library
 python-dotenv==1.0.0      # Environment variable management
-requests==2.31.0          # HTTP requests
+requests==2.32.4          # HTTP requests
 numpy==1.26.3             # Numerical operations (for advanced processing)
 
 # Optional enhancements
