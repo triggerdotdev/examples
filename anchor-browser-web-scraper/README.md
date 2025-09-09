@@ -9,11 +9,11 @@ This example demonstrates automated web monitoring using Trigger.dev's job sched
 3. The AI agent uses computer vision and natural language processing to analyze the [TDF website](https://www.tdf.org/discount-ticket-programs/tkts-by-tdf/tkts-live/)
 4. AI agent returns the lowest-priced show with specific details: name, price, and showtime
 
-
 #### Prerequisites
 
 Before we dive into the code, you'll need:
-- Node.js (version 16 or higher) 
+
+- Node.js (version 16 or higher)
 - A Trigger.dev account - Sign up at https://trigger.dev for their free tier
 - Anchor Browser API access - Get your API key from the [Anchor Browser dashboard](https://anchorbrowser.io)
 
@@ -32,10 +32,10 @@ npx trigger.dev@latest init -p <your-project-id>
 Create a .env file in your project root with the following variables:
 
 ```
-# Trigger.dev Configuration 
-TRIGGER_API_KEY=tr_dev_your_trigger_api_key_here 
+# Trigger.dev Configuration
+TRIGGER_API_KEY=tr_dev_your_trigger_api_key_here
 
-# Anchor Browser Configuration 
+# Anchor Browser Configuration
 ANCHOR_BROWSER_API_KEY=sk-your_anchor_browser_api_key_here
 ```
 
@@ -50,7 +50,7 @@ Since Anchor Browser uses browser automation libraries under the hood, we need t
 Configure Trigger.dev's trigger.config.ts for browser automation dependencies:
 
 ```
-import { defineConfig } from "@trigger.dev/sdk/v3";
+import { defineConfig } from "@trigger.dev/sdk";
 
 export default defineConfig({
   project: "proj_your_project_id_here", // Get from Trigger.dev dashboard
@@ -59,7 +59,7 @@ export default defineConfig({
   build: {
     external: [
       "playwright-core",
-      "playwright", 
+      "playwright",
       "chromium-bidi"
     ]
   }
@@ -69,7 +69,6 @@ export default defineConfig({
 ### Core Monitoring Job
 
 Create a new file within your project subfolder for trigger.dev functions, [src/trigger/broadway-monitor.ts](src/trigger/broadway-monitor.ts). Below is our Broadway ticket monitor task that runs daily at 5pm ET:
-
 
 ```
 import { schedules } from "@trigger.dev/sdk";
@@ -97,9 +96,9 @@ export const broadwayMonitor = schedules.task({
       });
 
       console.log("Raw response:", response);
-      
+
       const result = response.data.result?.result || response.data.result || response.data;
-      
+
       if (result && typeof result === 'string' && result.includes('Show:')) {
         console.log(`🎭 Best Broadway Deal Found!`);
         console.log(result);
@@ -134,5 +133,6 @@ npx trigger.dev@latest dev
 ```
 
 ### Learn more
+
 - [Trigger.dev docs](https://trigger.dev/docs) - learn about Trigger.dev
 - [Anchor Browser docs](https://docs.anchorbrowser.io/introduction) - learn about Anchor Browser
