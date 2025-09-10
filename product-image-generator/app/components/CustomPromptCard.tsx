@@ -94,7 +94,6 @@ export default function CustomPromptCard({
         baseImageUrl,
         productAnalysis,
         customPrompt: customPrompt.trim(),
-        model: "flux",
         size: "1024x1792",
       });
 
@@ -126,7 +125,6 @@ export default function CustomPromptCard({
         baseImageUrl,
         productAnalysis,
         customPrompt: customPrompt.trim(),
-        model: "flux",
         size: "1024x1792",
       });
 
@@ -279,18 +277,17 @@ export default function CustomPromptCard({
         </div>
       ) : (
         // Show blank state (same as GeneratedCard but no text)
-        <div className="h-full flex flex-col items-center justify-center p-6 text-center">
+        <div
+          onClick={!baseImageUrl ? undefined : () => setShowForm(true)}
+          className={`h-full flex flex-col items-center justify-center p-6 text-center cursor-pointer hover:bg-gray-50/50 transition-colors ${
+            !baseImageUrl ? "pointer-events-none" : ""
+          }`}
+        >
           <div className="w-12 h-12 rounded-lg bg-gray-300/20 flex items-center justify-center mb-4">
             {isGenerating ? (
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
             ) : baseImageUrl && productAnalysis ? (
-              <Button
-                size="sm"
-                onClick={() => setShowForm(true)}
-                className="w-8 h-8 rounded-full p-0"
-              >
-                <Sparkles className="h-4 w-4" />
-              </Button>
+              <Sparkles className="h-4 w-4" />
             ) : (
               <ImageIcon className="h-6 w-6 text-muted-foreground" />
             )}
