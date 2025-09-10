@@ -1,6 +1,14 @@
 "use client";
 
-import { Upload } from "lucide-react";
+import {
+  Loader2,
+  LoaderCircleIcon,
+  LoaderIcon,
+  LoaderPinwheelIcon,
+  LucideLoader,
+  LucideSparkles,
+  Upload,
+} from "lucide-react";
 import { useRef, useState, useEffect } from "react";
 import type {
   ProductAnalysis,
@@ -186,8 +194,10 @@ export default function UploadCard({
       ) : isUploading || isLoading || run?.id ? (
         // Show progress state when loading or run exists
         <div className="h-full flex flex-col items-center justify-center p-6 text-center">
-          <div className="w-12 h-12 rounded-full flex items-center justify-center mb-4 transition-colors bg-yellow-300/20">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+          <div className="w-8 h-8 rounded-full flex items-center justify-center mb-4 transition-colors ">
+            <div className="animate-spin rounded-full h-6 w-6">
+              <LucideLoader className="h-6 w-6 text-blue-500" />
+            </div>
           </div>
           <p className="text-sm font-medium text-card-foreground mb-1">
             {progress?.message ||
