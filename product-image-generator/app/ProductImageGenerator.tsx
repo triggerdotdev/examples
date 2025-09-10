@@ -1,15 +1,21 @@
 "use client";
 
+import { Home, ImageIcon, Settings, User } from "lucide-react";
 import { useState } from "react";
-import { Home, ImageIcon, Settings, Upload, User } from "lucide-react";
+import CustomPromptCard from "./components/CustomPromptCard";
+import GeneratedCard from "./components/GeneratedCard";
 import { Button } from "./components/ui/button";
 import { Card } from "./components/ui/card";
 import UploadCard from "./components/UploadCard";
-import GeneratedCard from "./components/GeneratedCard";
-import CustomPromptCard from "./components/CustomPromptCard";
 import type { ProductAnalysis } from "./types/trigger";
 
-export default function ProductImageGenerator() {
+interface ProductImageGeneratorProps {
+  triggerToken: string;
+}
+
+export default function ProductImageGenerator({
+  triggerToken,
+}: ProductImageGeneratorProps) {
   const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null);
   const [productAnalysis, setProductAnalysis] =
     useState<ProductAnalysis | null>(null);
@@ -66,47 +72,57 @@ export default function ProductImageGenerator() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-8">
-        <div className="max-w-7xl mx-auto">
-          {/* Header */}
-          <div className="mb-8">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <div className="p-2 bg-primary/10 rounded-lg">
-                  <ImageIcon className="h-6 w-6 text-primary" />
-                </div>
-                <div>
-                  <h1 className="text-3xl font-bold text-foreground">
-                    Product Image Generator
-                  </h1>
-                  <p className="text-muted-foreground mt-1">
-                    Upload a product image and generate professional marketing
-                    shots
-                  </p>
-                </div>
-              </div>
-
+      {/* Fixed Header */}
+      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="container mx-auto px-4">
+          <div className="flex h-14 items-center justify-between">
+            <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
-                <Button variant="ghost" size="sm">
-                  <Settings className="h-4 w-4 mr-2" />
-                  Settings
-                </Button>
-                <Button variant="ghost" size="sm">
-                  <User className="h-4 w-4 mr-2" />
-                  Account
-                </Button>
-                <Button variant="ghost" size="sm">
-                  <Home className="h-4 w-4 mr-2" />
-                  Home
-                </Button>
+                <div className="p-1.5 bg-primary/10 rounded-md">
+                  <ImageIcon className="h-5 w-5 text-primary" />
+                </div>
+                <h1 className="text-xl font-bold text-foreground">ImageFlow</h1>
               </div>
             </div>
+
+            <nav className="flex items-center space-x-1">
+              <Button variant="ghost" size="sm">
+                <Home className="h-4 w-4 mr-2" />
+                Home
+              </Button>
+              <Button variant="ghost" size="sm">
+                <Settings className="h-4 w-4 mr-2" />
+                Settings
+              </Button>
+              <Button variant="ghost" size="sm">
+                <User className="h-4 w-4 mr-2" />
+                Account
+              </Button>
+            </nav>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="container mx-auto px-4 py-8">
+        <div className="max-w-7xl mx-auto">
+          {/* Page Title */}
+          <div className="mb-8 text-center">
+            <h2 className="text-3xl font-bold text-foreground mb-2">
+              Product Image Generator
+            </h2>
+            <p className="text-muted-foreground">
+              Upload a product image and generate professional marketing shots
+            </p>
           </div>
 
           {/* Top Row - Upload + 3 Generated Images */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             {/* Upload card stays square */}
-            <UploadCard onUploadComplete={handleUploadComplete} />
+            <UploadCard
+              triggerToken={triggerToken}
+              onUploadComplete={handleUploadComplete}
+            />
             <GeneratedCard
               baseImageUrl={uploadedImageUrl}
               productAnalysis={productAnalysis}
@@ -192,14 +208,14 @@ export default function ProductImageGenerator() {
 
           {/* Footer */}
           <div className="mt-12 text-center">
-            <p className="text-sm text-muted-foreground">
+            {/* <p className="text-sm text-muted-foreground">
               Powered by{" "}
               <span className="font-medium text-primary">Trigger.dev</span> and{" "}
               <span className="font-medium text-primary">Flux AI</span>
-            </p>
+            </p> */}
           </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

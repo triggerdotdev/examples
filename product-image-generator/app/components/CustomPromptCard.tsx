@@ -6,13 +6,6 @@ import { useState, useEffect } from "react";
 import { triggerGenerationTask } from "../actions";
 import type { generateAndUploadImage } from "../../src/trigger/generate-and-upload-image";
 import type { ProductAnalysis } from "../types/trigger";
-
-type TaskRun = {
-  id?: string;
-  status?: string;
-  output?: unknown;
-  metadata?: unknown;
-};
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 

@@ -9,42 +9,32 @@ import type {
 } from "../types/trigger";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
-import { useRealtimeRun } from "@trigger.dev/react-hooks";
-import { triggerUploadTask } from "../actions";
+import { useRealtimeTaskTrigger } from "@trigger.dev/react-hooks";
 import type { uploadImageToR2 } from "../../src/trigger/image-upload";
 
-type TaskRun = {
-  id?: string;
-  status?: string;
-  output?: unknown;
-  metadata?: unknown;
-};
-
 interface UploadCardProps {
+  triggerToken: string;
   onUploadComplete?: (
     imageUrl: string,
     productAnalysis?: ProductAnalysis
   ) => void;
 }
 
-export default function UploadCard({ onUploadComplete }: UploadCardProps) {
+export default function UploadCard({
+  triggerToken,
+  onUploadComplete,
+}: UploadCardProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [hasNotifiedComplete, setHasNotifiedComplete] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
-  const [runId, setRunId] = useState<string | null>(null);
-  const [publicAccessToken, setPublicAccessToken] = useState<string | null>(
-    null
-  );
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Subscribe to the run if we have a runId and token
-  const { run, error } = useRealtimeRun<typeof uploadImageToR2>(
-    runId ?? undefined,
-    {
-      accessToken: publicAccessToken ?? "",
-      enabled: Boolean(runId && publicAccessToken),
-    }
-  );
+  // Use realtime task trigger hook for immediate triggering
+  const { submit, run, error, isLoading } = useRealtimeTaskTrigger<
+    typeof uploadImageToR2
+  >("upload-image-to-r2", {
+    accessToken: triggerToken,
+    enabled: Boolean(triggerToken),
+  });
 
   // Derive UI state from run with proper types
   const meta = run?.metadata as UploadTaskMetadata | undefined;
@@ -85,22 +75,13 @@ export default function UploadCard({ onUploadComplete }: UploadCardProps) {
       const buffer = Buffer.from(bytes);
       const base64 = buffer.toString("base64");
 
-      const result = await triggerUploadTask({
+      submit({
         imageBuffer: base64,
         fileName: file.name,
         contentType: file.type,
       });
-
-      if (result.success) {
-        setRunId(result.runId);
-        setPublicAccessToken(result.publicAccessToken);
-      } else {
-        console.error("Upload failed:", result.error);
-        setIsUploading(false);
-      }
     } catch (err) {
       console.error("Upload failed:", err);
-      setIsUploading(false);
     }
   };
 
@@ -144,7 +125,7 @@ export default function UploadCard({ onUploadComplete }: UploadCardProps) {
           ? "border-primary bg-primary/5"
           : "border-primary/30 bg-card hover:border-primary/50"
       } ${
-        isUploading || run?.status === "EXECUTING" || run?.status === "QUEUED"
+        isLoading || run?.status === "EXECUTING" || run?.status === "QUEUED"
           ? "opacity-50 pointer-events-none"
           : ""
       }`}
@@ -165,7 +146,7 @@ export default function UploadCard({ onUploadComplete }: UploadCardProps) {
               transition: "opacity 0.3s ease-in-out",
             }}
           />
-          {(isUploading ||
+          {(isLoading ||
             run?.status === "EXECUTING" ||
             run?.status === "QUEUED") && (
             <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
@@ -185,7 +166,7 @@ export default function UploadCard({ onUploadComplete }: UploadCardProps) {
             </Button>
           </div>
         </div>
-      ) : isUploading || run?.id ? (
+      ) : isLoading || run?.id ? (
         // Show progress state when loading or run exists
         <div className="h-full flex flex-col items-center justify-center p-6 text-center">
           <div className="w-12 h-12 rounded-full flex items-center justify-center mb-4 transition-colors bg-yellow-300/20">
