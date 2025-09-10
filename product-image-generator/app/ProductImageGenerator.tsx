@@ -71,7 +71,7 @@ export default function ProductImageGenerator({
     uploadedImageUrl && productAnalysis ? true : false;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-gray-100/10">
       {/* Fixed Header */}
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto px-4">
@@ -113,6 +113,7 @@ export default function ProductImageGenerator({
             </h2>
             <p className="text-muted-foreground">
               Upload a product image and generate professional marketing shots
+              for your online store.
             </p>
           </div>
 
@@ -146,62 +147,16 @@ export default function ProductImageGenerator({
           {/* Bottom Row - Sequential Custom Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {Array.from({ length: 4 }).map((_, index) => {
-              // If there's a completed custom generation for this slot, show it
-              const runId = customGenerations.runIds[index];
-              const customPrompt = customGenerations.prompts[index];
-
-              if (runId && customPrompt) {
-                return (
-                  <Card
-                    key={`custom-result-${index}`}
-                    className="aspect-[3/4] border transition-colors relative overflow-hidden group bg-card p-0"
-                  >
-                    <div className="h-full flex flex-col items-center justify-center p-4 text-center">
-                      <ImageIcon className="h-8 w-8 text-muted-foreground mb-2" />
-                      <h3 className="font-medium text-sm mb-2">Custom Scene</h3>
-                      <p className="text-xs text-muted-foreground line-clamp-3">
-                        {customPrompt}
-                      </p>
-                    </div>
-                  </Card>
-                );
-              }
-
-              // If this is the next available slot and top row is complete, show custom prompt card
-              if (index === nextCustomCardIndex && topRowGenerationsComplete) {
-                return (
-                  <CustomPromptCard
-                    key={`custom-prompt-${index}`}
-                    baseImageUrl={uploadedImageUrl}
-                    productAnalysis={productAnalysis}
-                    onGenerationComplete={(runId, prompt) =>
-                      handleCustomGenerationComplete(runId, prompt, index)
-                    }
-                  />
-                );
-              }
-
-              // Otherwise show placeholder
+              // Always show CustomPromptCard, let it handle its own states
               return (
-                <Card
-                  key={`placeholder-${index}`}
-                  className="aspect-[3/4] border-2 border-dashed border-muted bg-muted/20"
-                >
-                  <div className="h-full flex flex-col items-center justify-center p-4 text-center">
-                    <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-3">
-                      <span className="text-lg font-semibold text-muted-foreground">
-                        {index + 1}
-                      </span>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      {!topRowGenerationsComplete
-                        ? "Complete upload and generation first"
-                        : index === 0
-                        ? "Ready for custom prompt"
-                        : `Slot ${index + 1}`}
-                    </p>
-                  </div>
-                </Card>
+                <CustomPromptCard
+                  key={`custom-prompt-${index}`}
+                  baseImageUrl={uploadedImageUrl}
+                  productAnalysis={productAnalysis}
+                  onGenerationComplete={(runId, prompt) =>
+                    handleCustomGenerationComplete(runId, prompt, index)
+                  }
+                />
               );
             })}
           </div>

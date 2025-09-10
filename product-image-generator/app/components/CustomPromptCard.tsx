@@ -1,7 +1,14 @@
 "use client";
 
 import { useRealtimeRun } from "@trigger.dev/react-hooks";
-import { RefreshCw, Send } from "lucide-react";
+import {
+  RefreshCw,
+  Send,
+  Expand,
+  Download,
+  ImageIcon,
+  Sparkles,
+} from "lucide-react";
 import { useState, useEffect } from "react";
 import { triggerGenerationTask } from "../actions";
 import type { generateAndUploadImage } from "../../src/trigger/generate-and-upload-image";
@@ -26,6 +33,10 @@ export default function CustomPromptCard({
   const [publicAccessToken, setPublicAccessToken] = useState<string | null>(
     null
   );
+  const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(
+    null
+  );
+  const [showForm, setShowForm] = useState(false);
 
   // Subscribe to the run if we have a runId and token
   const { run, error } = useRealtimeRun<typeof generateAndUploadImage>(
@@ -36,12 +47,37 @@ export default function CustomPromptCard({
     }
   );
 
-  // Notify parent when generation completes
+  // Handle run completion
   useEffect(() => {
-    if (run?.status === "COMPLETED" && run?.id && onGenerationComplete) {
-      onGenerationComplete(run.id, customPrompt);
+    if (run?.status === "COMPLETED") {
+      // Extract generated image URL
+      let publicUrl = run.output?.publicUrl;
+      if (!publicUrl && run.metadata?.result) {
+        const result = run.metadata.result as any;
+        publicUrl = result.publicUrl;
+      }
+
+      if (publicUrl && publicUrl !== generatedImageUrl) {
+        setGeneratedImageUrl(publicUrl);
+        setIsGenerating(false);
+      }
+
+      // Notify parent
+      if (run?.id && onGenerationComplete) {
+        onGenerationComplete(run.id, customPrompt);
+      }
+    } else if (run?.status === "FAILED") {
+      setIsGenerating(false);
     }
-  }, [run?.status, run?.id, onGenerationComplete, customPrompt]);
+  }, [
+    run?.status,
+    run?.output,
+    run?.metadata,
+    run?.id,
+    onGenerationComplete,
+    customPrompt,
+    generatedImageUrl,
+  ]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -110,70 +146,172 @@ export default function CustomPromptCard({
   const isDisabled =
     !baseImageUrl || !productAnalysis || !customPrompt.trim() || isGenerating;
 
+  const handleDownload = () => {
+    if (generatedImageUrl) {
+      const link = document.createElement("a");
+      link.href = generatedImageUrl;
+      link.download = `custom-generated-${Date.now()}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
+
+  const handleExpand = () => {
+    if (generatedImageUrl) {
+      window.open(generatedImageUrl, "_blank");
+    }
+  };
+
+  const handleReset = () => {
+    setGeneratedImageUrl(null);
+    setCustomPrompt("");
+    setRunId(null);
+    setPublicAccessToken(null);
+    setIsGenerating(false);
+    setShowForm(false);
+  };
+
   return (
-    <Card className="aspect-[3/4] border-2 border-dashed border-primary/30 bg-card">
-      <div className="h-full flex flex-col p-4">
-        <div className="flex-1 flex flex-col justify-center">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label
-                htmlFor="custom-prompt"
-                className="block text-sm font-medium text-foreground mb-2"
-              >
-                Create a scenario with this product
-              </label>
-              <textarea
-                id="custom-prompt"
-                placeholder="Describe a scene or setting for this product (e.g., 'product on a wooden table with natural lighting in a modern kitchen', 'product being used by someone outdoors', 'product in a luxury bathroom setting')"
-                value={customPrompt}
-                onChange={(e) => setCustomPrompt(e.target.value)}
-                disabled={isGenerating}
-                className="w-full h-20 px-3 py-2 text-sm border border-input bg-transparent rounded-md shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
-                rows={3}
-              />
-            </div>
+    <Card
+      className={`aspect-[3/4] ${
+        generatedImageUrl
+          ? "border transition-colors relative overflow-hidden group bg-card p-0"
+          : "border transition-colors relative overflow-hidden group bg-card p-0"
+      }`}
+    >
+      {generatedImageUrl ? (
+        // Show generated image
+        <div className="h-full w-full relative overflow-hidden rounded-lg">
+          <img
+            src={generatedImageUrl}
+            alt="Custom generated image"
+            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+          />
+          {/* Action buttons */}
+          <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <Button
+              size="sm"
+              variant="secondary"
+              className="w-8 h-8 rounded-full p-0 backdrop-blur-sm bg-white/90 hover:bg-white"
+              onClick={handleReset}
+              title="Create new image"
+            >
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              className="w-8 h-8 rounded-full p-0 backdrop-blur-sm bg-white/90 hover:bg-white"
+              onClick={handleExpand}
+              title="View full size"
+            >
+              <Expand className="h-4 w-4" />
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              className="w-8 h-8 rounded-full p-0 backdrop-blur-sm bg-white/90 hover:bg-white"
+              onClick={handleDownload}
+              title="Download image"
+            >
+              <Download className="h-4 w-4" />
+            </Button>
+          </div>
+          {/* Title overlay */}
+          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-3">
+            <p className="text-white text-sm font-medium drop-shadow-sm line-clamp-2">
+              {customPrompt}
+            </p>
+          </div>
+        </div>
+      ) : showForm ? (
+        // Show form
+        <div className="h-full flex flex-col p-4">
+          <div className="flex-1 flex flex-col justify-center">
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label
+                  htmlFor="custom-prompt"
+                  className="block text-sm font-medium text-foreground mb-2"
+                >
+                  Add another product shot
+                </label>
+                <textarea
+                  id="custom-prompt"
+                  placeholder="e.g. 'product being used by someone outdoors'"
+                  value={customPrompt}
+                  onChange={(e) => setCustomPrompt(e.target.value)}
+                  disabled={isGenerating}
+                  className="w-full h-20 px-3 py-2 text-sm border border-input bg-transparent rounded-md shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
+                  rows={3}
+                  autoFocus
+                />
+              </div>
 
-            <div className="flex gap-2">
-              <Button
-                type="submit"
-                disabled={isDisabled || isGenerating}
-                className="flex-1 gap-2"
-              >
-                {isGenerating ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 animate-spin" />
-                    Generating...
-                  </>
-                ) : (
-                  <>
-                    <Send className="h-4 w-4" />
-                    Generate
-                  </>
-                )}
-              </Button>
-
-              {run?.id && (
+              <div className="flex gap-2">
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={handleRegenerate}
-                  disabled={isDisabled || isGenerating}
-                  className="gap-2"
+                  onClick={() => setShowForm(false)}
+                  className="flex-1"
                 >
-                  <RefreshCw className="h-4 w-4" />
-                  Regenerate
+                  Cancel
                 </Button>
-              )}
-            </div>
-          </form>
-        </div>
-
-        {!baseImageUrl && (
-          <div className="text-center text-sm text-muted-foreground">
-            Upload an image first to enable custom prompts
+                <Button
+                  type="submit"
+                  disabled={isDisabled || isGenerating}
+                  className="flex-1 gap-2"
+                >
+                  {isGenerating ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="h-4 w-4" />
+                      Generate
+                    </>
+                  )}
+                </Button>
+              </div>
+            </form>
           </div>
-        )}
-      </div>
+
+          {!baseImageUrl && (
+            <div className="text-center text-sm text-muted-foreground">
+              Upload an image first to enable custom prompts
+            </div>
+          )}
+        </div>
+      ) : (
+        // Show blank state (same as GeneratedCard but no text)
+        <div className="h-full flex flex-col items-center justify-center p-6 text-center">
+          <div className="w-12 h-12 rounded-lg bg-gray-300/20 flex items-center justify-center mb-4">
+            {isGenerating ? (
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+            ) : baseImageUrl && productAnalysis ? (
+              <Button
+                size="sm"
+                onClick={() => setShowForm(true)}
+                className="w-8 h-8 rounded-full p-0"
+              >
+                <Sparkles className="h-4 w-4" />
+              </Button>
+            ) : (
+              <ImageIcon className="h-6 w-6 text-muted-foreground" />
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground mb-2">
+            {isGenerating
+              ? "Generating..."
+              : baseImageUrl && productAnalysis
+              ? "Click to add custom scene"
+              : ""}
+          </p>
+        </div>
+      )}
     </Card>
   );
 }

@@ -135,8 +135,8 @@ export default function UploadCard({
     <Card
       className={`aspect-[3/4] border-2 border-dashed transition-colors cursor-pointer group relative overflow-hidden ${
         isDragOver
-          ? "border-primary bg-primary/5"
-          : "border-primary/30 bg-card hover:border-primary/50"
+          ? "border-blue-500 bg-blue-500/5"
+          : "border-blue-500 bg-card hover:border-blue-500/80"
       } ${
         isUploading ||
         isLoading ||
@@ -225,8 +225,8 @@ export default function UploadCard({
           <div
             className={`w-12 h-12 rounded-full flex items-center justify-center mb-4 transition-colors ${
               isDragOver
-                ? "bg-yellow-300/20"
-                : "bg-yellow-300/20 group-hover:bg-yellow-300/30 transition duration-200"
+                ? "bg-blue-500/10"
+                : "bg-blue-500/10 group-hover:bg-blue-300/20 transition duration-200"
             }`}
           >
             <Upload className="h-6 w-6 text-primary" />
@@ -234,7 +234,7 @@ export default function UploadCard({
           <p className="text-sm font-medium text-card-foreground mb-1">
             Drag and drop an image here
           </p>
-          <p className="text-xs text-muted-foreground">or click to browse</p>
+          <p className="text-xs text-muted-foreground">or click to upload</p>
         </div>
       )}
       <input

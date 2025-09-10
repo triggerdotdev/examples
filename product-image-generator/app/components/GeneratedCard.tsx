@@ -256,7 +256,7 @@ export default function GeneratedCard({
               (generationProgress === "generating"
                 ? "Generating..."
                 : generationProgress === "idle"
-                ? "Waiting to start..."
+                ? ""
                 : baseImageUrl && productAnalysis && !hasTriggered
                 ? "Click to generate"
                 : "Waiting for upload...")}
