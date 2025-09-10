@@ -3,6 +3,7 @@
 Transform product photos into professional marketing materials using AI-powered image generation.
 
 Upload a product image and automatically generate three marketing variations: isolated table shots, lifestyle scenes, and hero presentations. Built with Next.js, Trigger.dev, and OpenAI's DALL-E 3.
+Upload a product image and automatically generate three marketing variations: isolated table shots, lifestyle scenes, and hero presentations. Built with Next.js, Trigger.dev, and the AI SDK (Replicate Flux for image generation, OpenAI for analysis).
 
 ## Features
 
@@ -20,36 +21,37 @@ Upload a product image and automatically generate three marketing variations: is
 
 ```
 uploadImageToR2
-├── Handles user image uploads to R2 storage
-├── 4-step progress tracking
+├── Handles user image uploads to Cloudflare R2 storage
+├── Analyzes the product with OpenAI (structured JSON)
+├── 5-step progress tracking via metadata
 
 generateAndUploadImage
-├── Generates AI image using DALL-E 3
+├── Generates an image using Replicate Flux (img2img)
 ├── Uploads result to R2 storage
-├── 5-step progress tracking
-
-batchGenerateAndUploadImages
-├── Triggers 3x generateAndUploadImage tasks in parallel
-├── Returns individual run IDs for UI subscription
+├── 4-step progress tracking via metadata
 ```
 
 ### Component Architecture
 
 ```
-UploadCard (aspect-square)
+UploadCard (aspect-[3/4])
 ├── Drag & drop image upload
 ├── Progress tracking via run subscription
-├── Triggers batch generation on completion
+├── On completion, parent triggers 3 individual generations
 
 GeneratedCard (aspect-[3/4])
 ├── Individual task progress tracking
 ├── Real-time image display via subscription
 ├── Download and retry functionality
 
+CustomPromptCard (aspect-[3/4])
+├── Lets user enter a freeform scene prompt
+├── Triggers a single generation reusing the product analysis
+
 Main Page
-├── Grid layout: 1 upload + 3 generated cards
-├── State management for run IDs and access tokens
-├── Individual generation triggering and retry handling
+├── Grid layout: 1 upload + 3 generated cards (top) + 4 custom slots (bottom)
+├── State for run IDs/access tokens for each card
+├── Triggers generations and handles retries
 ```
 
 ## Getting Started
@@ -58,7 +60,8 @@ Main Page
 
 - Node.js 18+ and pnpm
 - Trigger.dev account and project
-- OpenAI API key with DALL-E 3 access
+- OpenAI API key (for product analysis)
+- Replicate API token (for Flux image generation)
 - Cloudflare R2 bucket for image storage
 
 ### Environment Variables
@@ -69,6 +72,9 @@ TRIGGER_SECRET_KEY=tr_dev_your_secret_key_here
 
 # OpenAI
 OPENAI_API_KEY=sk-your_openai_api_key_here
+
+# Replicate
+REPLICATE_API_TOKEN=your_replicate_api_token
 
 # Cloudflare R2 Storage
 R2_ENDPOINT=https://your-account-id.r2.cloudflarestorage.com
@@ -91,114 +97,101 @@ pnpm dev
 pnpm dlx trigger.dev@latest dev
 ```
 
+### Quickstart (happy path)
+
+```bash
+cp .env.example .env # if provided, otherwise create .env with the vars above
+pnpm install
+pnpm dev &
+pnpm dlx trigger.dev@latest dev
+```
+
 ## Usage
 
 1. Upload a product image via drag & drop or file selection
-2. Upload task runs with 4-step progress tracking
-3. On completion, batch task triggers 3 parallel generation tasks
-4. Each GeneratedCard subscribes to its individual task progress
-5. Generated images display with download functionality
-6. Failed generations can be retried individually
+2. The upload task runs with 5-step progress and returns a public URL + analysis
+3. The page triggers three `generateAndUploadImage` tasks (table, lifestyle, hero)
+4. Each `GeneratedCard` subscribes to its run and shows progress
+5. When a run completes, the image auto-appears, with expand/download actions
+6. You can retry any failed generation individually
+7. After the top row completes, use custom cards to generate extra scenes
 
 ## Technical Implementation
 
 ### AI Prompt Engineering
 
-Each generation uses prompts that emphasize:
+Each generation builds an enhanced prompt from the structured product analysis. It enforces:
 
-- Product consistency: "EXACT same product from reference image"
-- Material preservation: "Identical colors, textures, materials, and design details"
-- Context adaptation: Only backgrounds and lighting change
+- Product consistency: EXACT same product as the reference (brand, model, colors, text)
+- Preservation: shape/proportions/materials/logos must be unchanged
+- Variation: only background, lighting, and camera angle may change
 
 ### Progress Tracking Implementation
 
-- Upload Task: 4 steps (prepare → process → upload → complete)
-- Generation Tasks: 5 steps (prepare → generate → prepare upload → upload → complete)
-- Real-time updates via `runs.subscribeToRun()` with public access tokens
+- Upload Task: 5 steps (prepare → process → upload → analyze → complete)
+- Generation Task: 4 steps (prepare → prompt → generate → upload/complete)
+- Real-time updates via `useRealtimeRun()` or `runs.subscribeToRun()` using public access tokens
 
 ### Image Processing
 
-- Format: Portrait 1024x1792 for optimal display in 3:4 aspect ratio cards
-- Display: `object-contain` CSS to prevent cropping
+- Size: Defaults to 1024x1024 (configurable)
+- Display: `object-cover` in generated cards
 - Storage: Cloudflare R2 with automatic public URL generation
-- Fallback: Base64 blob URLs if storage unavailable
 
 ## Project Structure
 
 ```
 src/
 ├── trigger/
-│   ├── image-upload.ts              # User image upload to R2
-│   ├── generate-and-upload-image.ts # AI generation + upload (single task)
-│   └── batch-generate-and-upload.ts # Batch processing coordinator
+│   ├── image-upload.ts              # Upload to R2 + structured product analysis (OpenAI)
+│   └── generate-and-upload-image.ts # Flux generation (Replicate) + R2 upload
 ├── app/
-│   ├── actions.ts                   # Server actions for task triggering
+│   ├── actions.ts                   # Server actions: trigger tasks + public tokens
 │   ├── components/
-│   │   ├── UploadCard.tsx          # Image upload with progress
-│   │   ├── GeneratedCard.tsx       # Generated image display with subscription
-│   │   └── ui/                     # shadcn/ui components
-│   └── page.tsx                    # Main application interface
-└── trigger.config.ts               # Trigger.dev configuration
+│   │   ├── UploadCard.tsx           # Upload with realtime progress
+│   │   ├── GeneratedCard.tsx        # Generated image display + progress
+│   │   └── CustomPromptCard.tsx     # Freeform prompt generation (post-upload)
+│   └── page.tsx                     # Main application interface
+└── trigger.config.ts                # Trigger.dev configuration
 ```
 
 ## Task Flow Details
 
 ### Upload Flow
 
-1. `UploadCard` triggers `uploadImageToR2` task
-2. Task converts file to base64, uploads to R2, returns public URL
-3. `UploadCard` subscribes to run progress, displays completion
-4. On completion, triggers `batchGenerateAndUploadImages`
+1. `UploadCard` calls `uploadImageToR2Action` (server action)
+2. Server action triggers `uploadImageToR2` task and creates a public token
+3. Client subscribes to the run using the token; task uploads to R2
+4. Task performs structured product analysis (OpenAI GPT-4o)
+5. On completion, the page receives `publicUrl` and `productAnalysis`
 
 ### Generation Flow
 
-1. `batchGenerateAndUploadImages` triggers 3x `generateAndUploadImage` tasks
-2. Each task: generates image → uploads to R2 → returns public URL
-3. `GeneratedCard` components subscribe to individual task progress
-4. Images display automatically when tasks complete
+1. The page calls `generateSingleImageAction` three times (table/lifestyle/hero)
+2. Each task builds an enhanced prompt from `productAnalysis`
+3. Flux (Replicate) generates an img2img output referencing the base image URL
+4. The task uploads the result to R2 and sets `metadata.result.publicUrl`
+5. `GeneratedCard` subscribes and renders the image on completion
 
 ### Error Handling
 
 - Individual task failures don't affect other generations
-- Retry functionality re-triggers specific failed tasks
-- Comprehensive error logging and user feedback
+- Retry triggers only that specific style
+- Errors are surfaced via run metadata and UI messages
 
 ## Customization
 
 ### Adding Generation Styles
 
-Edit prompts in `src/trigger/batch-generate-and-upload.ts`:
-
-```typescript
-const prompts = [
-  {
-    id: "your-style-id",
-    prompt: "Your detailed prompt here...",
-  },
-];
-```
+Add a new style key in `generate-and-upload-image.ts` inside `stylePrompts` and wire a corresponding button/card in `app/page.tsx`.
 
 ### Modifying Image Dimensions
 
-Change size parameter in actions:
-
-```typescript
-size: "1024x1792", // Portrait
-size: "1792x1024", // Landscape
-size: "1024x1024", // Square
-```
+Pass a different `size` when triggering `generateAndUploadImage` via the server action (e.g., `"1792x1024"` or `"1024x1792"`).
 
 ### Custom Progress Messages
 
-Update metadata in task files:
-
-```typescript
-metadata.set("progress", {
-  step: 2,
-  total: 5,
-  message: "Custom progress message",
-});
-```
+Update `metadata.set("progress", ...)` in the respective task to change UX copy.
 
 ## Deployment
 
@@ -208,7 +201,7 @@ metadata.set("progress", {
 # Deploy tasks to Trigger.dev
 pnpm dlx trigger.dev@latest deploy
 
-# Deploy frontend (Vercel recommended)
+# Deploy frontend (e.g., Vercel)
 vercel deploy
 ```
 
@@ -223,17 +216,15 @@ vercel deploy
 
 ### Key Implementation Details
 
-- Uses `triggerAndWait()` for sequential task dependencies
-- Public access tokens enable client-side run subscriptions
+- Uses public access tokens to enable client-side run subscriptions
 - `aspect-[3/4]` Tailwind class for portrait card layout
-- Error boundaries and timeout handling for stuck tasks
+- Metadata carries progress + final result for robust UI updates
 
 ### Performance Considerations
 
 - Parallel task execution for multiple image generations
-- Efficient base64 to blob conversion for image display
-- Proper cleanup of blob URLs and timeouts
-- Rate limiting considerations for OpenAI API calls
+- Cloud storage with aggressive cache headers for assets
+- Consider API quotas for Replicate/OpenAI
 
 ## License
 

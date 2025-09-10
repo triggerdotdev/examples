@@ -204,12 +204,12 @@ export default function UploadCard({ onUploadComplete }: UploadCardProps) {
           <div
             className={`w-12 h-12 rounded-full flex items-center justify-center mb-4 transition-colors ${
               isDragOver
-                ? "bg-primary/20"
-                : "bg-primary/10 group-hover:bg-primary/20"
+                ? "bg-yellow-300/20"
+                : "bg-yellow-300/20 group-hover:bg-yellow-300/30 transition duration-200"
             }`}
           >
             {isLoading ? (
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+              <div className="animate-spin  rounded-full h-6 w-6 border-b-2 border-primary"></div>
             ) : (
               <Upload className="h-6 w-6 text-primary" />
             )}

@@ -1,11 +1,10 @@
 "use client";
 
-import { Button } from "./ui/button";
-import { Card } from "./ui/card";
-import { Input } from "./ui/input";
-import { Send, RefreshCw } from "lucide-react";
+import { RefreshCw, Send } from "lucide-react";
 import { useState } from "react";
 import { generateCustomImageAction } from "../actions";
+import { Button } from "./ui/button";
+import { Card } from "./ui/card";
 
 interface CustomPromptCardProps {
   baseImageUrl: string | null;

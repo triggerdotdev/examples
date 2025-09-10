@@ -148,7 +148,7 @@ export default function GeneratedCard({
       ) : (
         // Show loading/waiting state
         <div className="h-full flex flex-col items-center justify-center p-6 text-center">
-          <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center mb-4">
+          <div className="w-12 h-12 rounded-lg bg-gray-300/20 flex items-center justify-center mb-4">
             {isLoading && generationProgress === "generating" ? (
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
             ) : (
