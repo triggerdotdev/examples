@@ -150,7 +150,7 @@ export default function UploadCard({
         isLoading ||
         run?.status === "EXECUTING" ||
         run?.status === "QUEUED"
-          ? "opacity-50 pointer-events-none"
+          ? "pointer-events-none"
           : ""
       }`}
       onDragOver={handleDragOver}

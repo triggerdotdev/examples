@@ -104,10 +104,10 @@ export default function ProductImageGenerator({
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
-        <div className="max-w-7xl mx-auto">
+      <main className="container mx-auto px-4 py-16">
+        <div className="max-w-7xl">
           {/* Page Title */}
-          <div className="mb-8 text-center">
+          <div className="mb-8">
             <h2 className="text-3xl font-bold text-foreground mb-2">
               Product Image Generator
             </h2>
