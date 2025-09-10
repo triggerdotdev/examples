@@ -1,119 +1,106 @@
 "use client";
 
-import { Button } from "./ui/button";
-import { Card } from "./ui/card";
 import { Upload } from "lucide-react";
 import { useRef, useState, useEffect } from "react";
-import { uploadImageToR2Action } from "../actions";
-import { runs, configure } from "@trigger.dev/sdk";
+import type {
+  ProductAnalysis,
+  UploadTaskMetadata,
+  UploadTaskOutput,
+} from "../types/trigger";
+import { Button } from "./ui/button";
+import { Card } from "./ui/card";
+import { useRealtimeRun } from "@trigger.dev/react-hooks";
+import { triggerUploadTask } from "../actions";
+import type { uploadImageToR2 } from "../../src/trigger/image-upload";
+
+type TaskRun = {
+  id?: string;
+  status?: string;
+  output?: unknown;
+  metadata?: unknown;
+};
 
 interface UploadCardProps {
-  onUploadComplete?: (imageUrl: string, productAnalysis?: any) => void;
+  onUploadComplete?: (
+    imageUrl: string,
+    productAnalysis?: ProductAnalysis
+  ) => void;
 }
 
 export default function UploadCard({ onUploadComplete }: UploadCardProps) {
   const [isDragOver, setIsDragOver] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [hasNotifiedComplete, setHasNotifiedComplete] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [runId, setRunId] = useState<string | null>(null);
-  const [accessToken, setAccessToken] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null);
-  const [uploadProgress, setUploadProgress] = useState<string>("idle");
-  const [progressMessage, setProgressMessage] = useState<string>("");
-  const [progressStep, setProgressStep] = useState<{
-    step: number;
-    total: number;
-  } | null>(null);
+  const [publicAccessToken, setPublicAccessToken] = useState<string | null>(
+    null
+  );
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Subscribe to run updates when runId and accessToken are available
+  // Subscribe to the run if we have a runId and token
+  const { run, error } = useRealtimeRun<typeof uploadImageToR2>(
+    runId ?? undefined,
+    {
+      accessToken: publicAccessToken ?? "",
+      enabled: Boolean(runId && publicAccessToken),
+    }
+  );
+
+  // Derive UI state from run with proper types
+  const meta = run?.metadata as UploadTaskMetadata | undefined;
+  const progress = meta?.progress;
+  const output = run?.output as UploadTaskOutput | undefined;
+  const metadataResult = meta?.result;
+  const publicUrl = output?.publicUrl ?? metadataResult?.publicUrl;
+  const productAnalysis =
+    output?.productAnalysis ?? metadataResult?.productAnalysis;
+
+  // Notify parent when completed (only once)
   useEffect(() => {
-    if (!runId || !accessToken) return;
+    if (
+      run?.status === "COMPLETED" &&
+      publicUrl &&
+      onUploadComplete &&
+      !hasNotifiedComplete
+    ) {
+      onUploadComplete(publicUrl, productAnalysis);
+      setHasNotifiedComplete(true);
+    }
+  }, [
+    run?.status,
+    publicUrl,
+    productAnalysis,
+    onUploadComplete,
+    hasNotifiedComplete,
+    output,
+    metadataResult,
+    run,
+  ]);
 
-    const subscribeToRun = async () => {
-      try {
-        // Configure the SDK with the public access token for client-side authentication
-        configure({
-          accessToken: accessToken,
-        });
-
-        for await (const run of runs.subscribeToRun(runId)) {
-          // Update progress from metadata
-          if (run.metadata?.progress) {
-            const progress = run.metadata.progress as {
-              step: number;
-              total: number;
-              message: string;
-            };
-            setProgressMessage(progress.message);
-            setProgressStep({ step: progress.step, total: progress.total });
-          }
-
-          // Handle completion
-          if (run.status === "COMPLETED" && run.output) {
-            setUploadedImageUrl(run.output.publicUrl);
-            setUploadProgress("completed");
-            setProgressMessage("Upload completed!");
-            setIsLoading(false);
-
-            // Notify parent component with URL and analysis
-            if (onUploadComplete && run.output.publicUrl) {
-              const output = run.output as any;
-              const metadataResult = run.metadata?.result as any;
-              const productAnalysis =
-                output.productAnalysis || metadataResult?.productAnalysis;
-              onUploadComplete(run.output.publicUrl, productAnalysis);
-            }
-            break;
-          } else if (run.status === "FAILED") {
-            const errorMsg = run.metadata?.error || "Upload failed";
-            setError(typeof errorMsg === "string" ? errorMsg : "Upload failed");
-            setUploadProgress("idle");
-            setProgressMessage("");
-            setIsLoading(false);
-            break;
-          }
-        }
-      } catch (err) {
-        setError("Failed to get task updates");
-        setUploadProgress("idle");
-        setIsLoading(false);
-      }
-    };
-
-    subscribeToRun();
-  }, [runId, accessToken]);
-
-  // Upload image with realtime subscription
+  // Upload image
   const uploadImage = async (file: File) => {
-    setIsLoading(true);
-    setError(null);
-    setUploadProgress("uploading");
-    setUploadedImageUrl(null);
-    setProgressMessage("");
-    setProgressStep(null);
-
     try {
-      // Create FormData and upload
-      const formData = new FormData();
-      formData.append("image", file);
+      // Convert file to base64
+      const bytes = await file.arrayBuffer();
+      const buffer = Buffer.from(bytes);
+      const base64 = buffer.toString("base64");
 
-      const result = await uploadImageToR2Action(formData);
+      const result = await triggerUploadTask({
+        imageBuffer: base64,
+        fileName: file.name,
+        contentType: file.type,
+      });
 
-      if (result.success && result.runId && result.accessToken) {
+      if (result.success) {
         setRunId(result.runId);
-        setAccessToken(result.accessToken);
-        setUploadProgress("processing");
-        // The useEffect will handle the subscription
+        setPublicAccessToken(result.publicAccessToken);
       } else {
-        setError(result.error || "Failed to upload image");
-        setUploadProgress("idle");
-        setIsLoading(false);
+        console.error("Upload failed:", result.error);
+        setIsUploading(false);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to upload image");
-      setUploadProgress("idle");
-      setIsLoading(false);
+      console.error("Upload failed:", err);
+      setIsUploading(false);
     }
   };
 
@@ -147,13 +134,7 @@ export default function UploadCard({ onUploadComplete }: UploadCardProps) {
   };
 
   const handleReset = () => {
-    setUploadedImageUrl(null);
-    setUploadProgress("idle");
-    setRunId(null);
-    setAccessToken(null);
-    setError(null);
-    setProgressMessage("");
-    setProgressStep(null);
+    setHasNotifiedComplete(false);
   };
 
   return (
@@ -162,25 +143,31 @@ export default function UploadCard({ onUploadComplete }: UploadCardProps) {
         isDragOver
           ? "border-primary bg-primary/5"
           : "border-primary/30 bg-card hover:border-primary/50"
-      } ${isLoading ? "opacity-50 pointer-events-none" : ""}`}
+      } ${
+        isUploading || run?.status === "EXECUTING" || run?.status === "QUEUED"
+          ? "opacity-50 pointer-events-none"
+          : ""
+      }`}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      onClick={() => !uploadedImageUrl && fileInputRef.current?.click()}
+      onClick={() => !publicUrl && fileInputRef.current?.click()}
     >
-      {uploadedImageUrl ? (
+      {publicUrl ? (
         // Show uploaded image
         <div className="h-full w-full relative group">
           <img
-            src={uploadedImageUrl}
+            src={publicUrl}
             alt="Uploaded image"
             className="h-full w-full object-contain rounded-lg bg-gray-50"
             style={{
-              opacity: uploadProgress === "completed" ? 1 : 0.7,
+              opacity: run?.status === "COMPLETED" ? 1 : 0.7,
               transition: "opacity 0.3s ease-in-out",
             }}
           />
-          {uploadProgress === "processing" && (
+          {(isUploading ||
+            run?.status === "EXECUTING" ||
+            run?.status === "QUEUED") && (
             <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
             </div>
@@ -198,6 +185,37 @@ export default function UploadCard({ onUploadComplete }: UploadCardProps) {
             </Button>
           </div>
         </div>
+      ) : isUploading || run?.id ? (
+        // Show progress state when loading or run exists
+        <div className="h-full flex flex-col items-center justify-center p-6 text-center">
+          <div className="w-12 h-12 rounded-full flex items-center justify-center mb-4 transition-colors bg-yellow-300/20">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+          </div>
+          <p className="text-sm font-medium text-card-foreground mb-1">
+            {progress?.message || "Processing..."}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {progress
+              ? `Step ${progress.step} of ${progress.total}`
+              : "Please wait"}
+          </p>
+          {progress && (
+            <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+              <div
+                className="bg-primary h-2 rounded-full transition-all duration-300"
+                style={{
+                  width: `${(progress.step / progress.total) * 100}%`,
+                }}
+              ></div>
+            </div>
+          )}
+          {run?.id && (
+            <p className="text-xs text-blue-600 mt-2">Run ID: {run.id}</p>
+          )}
+          {error && (
+            <p className="text-xs text-red-600 mt-2">Error: {error.message}</p>
+          )}
+        </div>
       ) : (
         // Show upload area
         <div className="h-full flex flex-col items-center justify-center p-6 text-center">
@@ -208,40 +226,12 @@ export default function UploadCard({ onUploadComplete }: UploadCardProps) {
                 : "bg-yellow-300/20 group-hover:bg-yellow-300/30 transition duration-200"
             }`}
           >
-            {isLoading ? (
-              <div className="animate-spin  rounded-full h-6 w-6 border-b-2 border-primary"></div>
-            ) : (
-              <Upload className="h-6 w-6 text-primary" />
-            )}
+            <Upload className="h-6 w-6 text-primary" />
           </div>
           <p className="text-sm font-medium text-card-foreground mb-1">
-            {uploadProgress === "uploading"
-              ? "Uploading..."
-              : uploadProgress === "processing"
-              ? progressMessage || "Processing..."
-              : "Drag and drop an image here"}
+            Drag and drop an image here
           </p>
-          <p className="text-xs text-muted-foreground">
-            {isLoading
-              ? progressStep
-                ? `Step ${progressStep.step} of ${progressStep.total}`
-                : "Please wait"
-              : "or click to browse"}
-          </p>
-          {progressStep && uploadProgress === "processing" && (
-            <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-              <div
-                className="bg-primary h-2 rounded-full transition-all duration-300"
-                style={{
-                  width: `${(progressStep.step / progressStep.total) * 100}%`,
-                }}
-              ></div>
-            </div>
-          )}
-          {runId && uploadProgress !== "idle" && (
-            <p className="text-xs text-blue-600 mt-2">Run ID: {runId}</p>
-          )}
-          {error && <p className="text-xs text-red-600 mt-2">Error: {error}</p>}
+          <p className="text-xs text-muted-foreground">or click to browse</p>
         </div>
       )}
       <input

@@ -1,14 +1,24 @@
 "use client";
 
+import { useTaskTrigger, useRealtimeRun } from "@trigger.dev/react-hooks";
 import { RefreshCw, Send } from "lucide-react";
-import { useState } from "react";
-import { generateCustomImageAction } from "../actions";
+import { useState, useEffect } from "react";
+import type { generateAndUploadImage } from "../../src/trigger/generate-and-upload-image";
+import type { ProductAnalysis } from "../types/trigger";
+
+type TaskRun = {
+  id?: string;
+  status?: string;
+  output?: unknown;
+  metadata?: unknown;
+};
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 
 interface CustomPromptCardProps {
+  triggerToken: string;
   baseImageUrl: string | null;
-  productAnalysis: any | null;
+  productAnalysis: ProductAnalysis | null;
   onGenerationComplete?: (
     runId: string,
     accessToken: string,
@@ -17,14 +27,32 @@ interface CustomPromptCardProps {
 }
 
 export default function CustomPromptCard({
+  triggerToken,
   baseImageUrl,
   productAnalysis,
   onGenerationComplete,
 }: CustomPromptCardProps) {
   const [customPrompt, setCustomPrompt] = useState("");
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [runId, setRunId] = useState<string | null>(null);
-  const [accessToken, setAccessToken] = useState<string | null>(null);
+
+  // Use task trigger hook for generation
+  const { submit, handle, error, isLoading } = useTaskTrigger<
+    typeof generateAndUploadImage
+  >("generate-and-upload-image", {
+    accessToken: triggerToken,
+  });
+
+  // Subscribe to the run using the handle's public access token
+  const { run, error: realtimeError } = useRealtimeRun<
+    typeof generateAndUploadImage
+  >(handle?.id, {
+    accessToken: handle?.publicAccessToken,
+    enabled: !!handle,
+  });
+
+  // Notify parent when generation completes
+  if (run?.status === "COMPLETED" && run.id && onGenerationComplete) {
+    onGenerationComplete(run.id, triggerToken ?? "", customPrompt);
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,28 +61,22 @@ export default function CustomPromptCard({
       return;
     }
 
-    setIsGenerating(true);
+    if (!triggerToken) {
+      console.error("Access token not available");
+      return;
+    }
 
     try {
-      const result = await generateCustomImageAction(
+      submit({
+        promptStyle: "custom",
         baseImageUrl,
         productAnalysis,
-        customPrompt.trim()
-      );
-
-      if (result.success) {
-        setRunId(result.runId);
-        setAccessToken(result.accessToken);
-        onGenerationComplete?.(
-          result.runId,
-          result.accessToken,
-          customPrompt.trim()
-        );
-      }
+        customPrompt: customPrompt.trim(),
+        model: "flux",
+        size: "1024x1024",
+      });
     } catch (error) {
       console.error("Failed to generate custom image:", error);
-    } finally {
-      setIsGenerating(false);
     }
   };
 
@@ -63,28 +85,22 @@ export default function CustomPromptCard({
       return;
     }
 
-    setIsGenerating(true);
+    if (!triggerToken) {
+      console.error("Access token not available");
+      return;
+    }
 
     try {
-      const result = await generateCustomImageAction(
+      submit({
+        promptStyle: "custom",
         baseImageUrl,
         productAnalysis,
-        customPrompt.trim()
-      );
-
-      if (result.success) {
-        setRunId(result.runId);
-        setAccessToken(result.accessToken);
-        onGenerationComplete?.(
-          result.runId,
-          result.accessToken,
-          customPrompt.trim()
-        );
-      }
+        customPrompt: customPrompt.trim(),
+        model: "flux",
+        size: "1024x1024",
+      });
     } catch (error) {
       console.error("Failed to regenerate custom image:", error);
-    } finally {
-      setIsGenerating(false);
     }
   };
 
@@ -107,7 +123,7 @@ export default function CustomPromptCard({
                 placeholder="Describe a scene or setting for this product (e.g., 'product on a wooden table with natural lighting in a modern kitchen', 'product being used by someone outdoors', 'product in a luxury bathroom setting')"
                 value={customPrompt}
                 onChange={(e) => setCustomPrompt(e.target.value)}
-                disabled={isGenerating}
+                disabled={isLoading}
                 className="w-full h-20 px-3 py-2 text-sm border border-input bg-transparent rounded-md shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
                 rows={3}
               />
@@ -116,10 +132,10 @@ export default function CustomPromptCard({
             <div className="flex gap-2">
               <Button
                 type="submit"
-                disabled={isDisabled || isGenerating}
+                disabled={isDisabled || isLoading}
                 className="flex-1 gap-2"
               >
-                {isGenerating ? (
+                {isLoading ? (
                   <>
                     <RefreshCw className="h-4 w-4 animate-spin" />
                     Generating...
@@ -132,12 +148,12 @@ export default function CustomPromptCard({
                 )}
               </Button>
 
-              {runId && (
+              {run?.id && (
                 <Button
                   type="button"
                   variant="outline"
                   onClick={handleRegenerate}
-                  disabled={isDisabled || isGenerating}
+                  disabled={isDisabled || isLoading}
                   className="gap-2"
                 >
                   <RefreshCw className="h-4 w-4" />

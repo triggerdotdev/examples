@@ -2,34 +2,93 @@
 
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
-import { Download, RefreshCw, Expand, ImageIcon } from "lucide-react";
-import { useState } from "react";
+import { Download, RefreshCw, Expand, ImageIcon, Sparkles } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
 import { useRealtimeRun } from "@trigger.dev/react-hooks";
+import { triggerGenerationTask } from "../actions";
+import type { generateAndUploadImage } from "../../src/trigger/generate-and-upload-image";
+import type { ProductAnalysis } from "../types/trigger";
+
+type TaskRun = {
+  id?: string;
+  status?: string;
+  output?: unknown;
+  metadata?: unknown;
+};
 
 interface GeneratedCardProps {
-  runId: string | null;
-  accessToken: string | null;
+  triggerToken: string;
+  baseImageUrl: string | null;
+  productAnalysis: ProductAnalysis | null;
   promptId: string;
   promptTitle: string;
-  onRetry?: () => void;
 }
 
 export default function GeneratedCard({
-  runId,
-  accessToken,
+  triggerToken,
+  baseImageUrl,
+  productAnalysis,
   promptId,
   promptTitle,
-  onRetry,
 }: GeneratedCardProps) {
   const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(
     null
   );
+  const [hasTriggered, setHasTriggered] = useState(false);
 
-  // Use the React hook for realtime run subscription
-  const { run, error } = useRealtimeRun(runId || undefined, {
-    accessToken: accessToken || undefined,
-    enabled: !!(runId && accessToken), // Only subscribe if we have both
-  });
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [runId, setRunId] = useState<string | null>(null);
+  const [publicAccessToken, setPublicAccessToken] = useState<string | null>(
+    null
+  );
+
+  // Subscribe to the run if we have a runId and token
+  const { run, error } = useRealtimeRun<typeof generateAndUploadImage>(
+    runId ?? undefined,
+    {
+      accessToken: publicAccessToken ?? "",
+      enabled: Boolean(runId && publicAccessToken),
+    }
+  );
+
+  const handleGenerate = useCallback(async () => {
+    if (!baseImageUrl || !productAnalysis || hasTriggered) {
+      return;
+    }
+
+    try {
+      setHasTriggered(true);
+      setIsGenerating(true);
+
+      const result = await triggerGenerationTask({
+        promptStyle: promptId,
+        baseImageUrl,
+        productAnalysis,
+        model: "flux",
+        size: "1024x1792",
+      });
+
+      if (result.success) {
+        setRunId(result.runId);
+        setPublicAccessToken(result.publicAccessToken);
+      } else {
+        console.error("Generation failed:", result.error);
+        setHasTriggered(false);
+        setIsGenerating(false);
+      }
+    } catch (error) {
+      console.error("Failed to generate image:", error);
+      setHasTriggered(false);
+      setIsGenerating(false);
+    }
+  }, [baseImageUrl, productAnalysis, hasTriggered, promptId]);
+
+  // Auto-trigger when data is available
+  useEffect(() => {
+    if (!hasTriggered && baseImageUrl && productAnalysis) {
+      handleGenerate();
+    }
+  }, [hasTriggered, baseImageUrl, productAnalysis, handleGenerate]);
 
   // Extract progress information from run metadata
   const progressData = run?.metadata?.progress as
@@ -40,11 +99,12 @@ export default function GeneratedCard({
       }
     | undefined;
 
-  const isLoading = run?.status === "EXECUTING" || run?.status === "QUEUED";
+  const isTaskRunning =
+    isGenerating || run?.status === "EXECUTING" || run?.status === "QUEUED";
   const generationProgress =
     run?.status === "COMPLETED"
       ? "completed"
-      : run?.status === "FAILED"
+      : run?.status === "FAILED" || error
       ? "failed"
       : run?.status === "EXECUTING"
       ? "generating"
@@ -84,10 +144,12 @@ export default function GeneratedCard({
   };
 
   const handleRetry = () => {
-    if (onRetry) {
-      setGeneratedImageUrl(null);
-      onRetry();
-    }
+    setGeneratedImageUrl(null);
+    setHasTriggered(false);
+    setIsGenerating(false);
+    setRunId(null);
+    setPublicAccessToken(null);
+    handleGenerate();
   };
 
   return (
@@ -138,19 +200,25 @@ export default function GeneratedCard({
           <p className="text-xs text-red-600 mb-3">
             {error?.message || "Generation failed"}
           </p>
-          {onRetry && (
-            <Button size="sm" variant="outline" onClick={handleRetry}>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Retry
-            </Button>
-          )}
+          <Button size="sm" variant="outline" onClick={handleRetry}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Retry
+          </Button>
         </div>
       ) : (
         // Show loading/waiting state
         <div className="h-full flex flex-col items-center justify-center p-6 text-center">
           <div className="w-12 h-12 rounded-lg bg-gray-300/20 flex items-center justify-center mb-4">
-            {isLoading && generationProgress === "generating" ? (
+            {isTaskRunning && generationProgress === "generating" ? (
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+            ) : baseImageUrl && productAnalysis && !hasTriggered ? (
+              <Button
+                size="sm"
+                onClick={handleGenerate}
+                className="w-8 h-8 rounded-full p-0"
+              >
+                <Sparkles className="h-4 w-4" />
+              </Button>
             ) : (
               <ImageIcon className="h-6 w-6 text-muted-foreground" />
             )}
@@ -164,7 +232,9 @@ export default function GeneratedCard({
                 ? "Generating..."
                 : generationProgress === "idle"
                 ? "Waiting to start..."
-                : "Ready")}
+                : baseImageUrl && productAnalysis && !hasTriggered
+                ? "Click to generate"
+                : "Waiting for upload...")}
           </p>
           {progressData && generationProgress === "generating" && (
             <>
