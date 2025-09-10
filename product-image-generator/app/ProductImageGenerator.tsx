@@ -9,13 +9,7 @@ import GeneratedCard from "./components/GeneratedCard";
 import CustomPromptCard from "./components/CustomPromptCard";
 import type { ProductAnalysis } from "./types/trigger";
 
-interface ProductImageGeneratorProps {
-  triggerToken: string;
-}
-
-export default function ProductImageGenerator({
-  triggerToken: accessToken,
-}: ProductImageGeneratorProps) {
+export default function ProductImageGenerator() {
   const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null);
   const [productAnalysis, setProductAnalysis] =
     useState<ProductAnalysis | null>(null);
@@ -23,11 +17,9 @@ export default function ProductImageGenerator({
   // Track custom generations for bottom row
   const [customGenerations, setCustomGenerations] = useState<{
     runIds: (string | null)[];
-    accessTokens: (string | null)[];
     prompts: (string | null)[];
   }>({
     runIds: [null, null, null, null],
-    accessTokens: [null, null, null, null],
     prompts: [null, null, null, null],
   });
 
@@ -43,15 +35,11 @@ export default function ProductImageGenerator({
 
   const handleCustomGenerationComplete = (
     runId: string,
-    accessToken: string,
     prompt: string,
     index: number
   ) => {
     setCustomGenerations((prev) => ({
       runIds: prev.runIds.map((id, i) => (i === index ? runId : id)),
-      accessTokens: prev.accessTokens.map((token, i) =>
-        i === index ? accessToken : token
-      ),
       prompts: prev.prompts.map((p, i) => (i === index ? prompt : p)),
     }));
   };
@@ -120,21 +108,18 @@ export default function ProductImageGenerator({
             {/* Upload card stays square */}
             <UploadCard onUploadComplete={handleUploadComplete} />
             <GeneratedCard
-              triggerToken={accessToken}
               baseImageUrl={uploadedImageUrl}
               productAnalysis={productAnalysis}
               promptId="isolated-table"
               promptTitle={promptTitles["isolated-table"]}
             />
             <GeneratedCard
-              triggerToken={accessToken}
               baseImageUrl={uploadedImageUrl}
               productAnalysis={productAnalysis}
               promptId="lifestyle-scene"
               promptTitle={promptTitles["lifestyle-scene"]}
             />
             <GeneratedCard
-              triggerToken={accessToken}
               baseImageUrl={uploadedImageUrl}
               productAnalysis={productAnalysis}
               promptId="hero-shot"
@@ -147,10 +132,9 @@ export default function ProductImageGenerator({
             {Array.from({ length: 4 }).map((_, index) => {
               // If there's a completed custom generation for this slot, show it
               const runId = customGenerations.runIds[index];
-              const customAccessToken = customGenerations.accessTokens[index];
               const customPrompt = customGenerations.prompts[index];
 
-              if (runId && customAccessToken && customPrompt) {
+              if (runId && customPrompt) {
                 return (
                   <Card
                     key={`custom-result-${index}`}
@@ -172,16 +156,10 @@ export default function ProductImageGenerator({
                 return (
                   <CustomPromptCard
                     key={`custom-prompt-${index}`}
-                    triggerToken={accessToken}
                     baseImageUrl={uploadedImageUrl}
                     productAnalysis={productAnalysis}
-                    onGenerationComplete={(runId, accessToken, prompt) =>
-                      handleCustomGenerationComplete(
-                        runId,
-                        accessToken,
-                        prompt,
-                        index
-                      )
+                    onGenerationComplete={(runId, prompt) =>
+                      handleCustomGenerationComplete(runId, prompt, index)
                     }
                   />
                 );

@@ -17,7 +17,6 @@ type TaskRun = {
 };
 
 interface GeneratedCardProps {
-  triggerToken: string;
   baseImageUrl: string | null;
   productAnalysis: ProductAnalysis | null;
   promptId: string;
@@ -25,7 +24,6 @@ interface GeneratedCardProps {
 }
 
 export default function GeneratedCard({
-  triggerToken,
   baseImageUrl,
   productAnalysis,
   promptId,
