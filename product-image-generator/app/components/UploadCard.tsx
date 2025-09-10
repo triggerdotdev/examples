@@ -26,6 +26,7 @@ export default function UploadCard({
 }: UploadCardProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [hasNotifiedComplete, setHasNotifiedComplete] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Use realtime task trigger hook for immediate triggering
@@ -44,6 +45,13 @@ export default function UploadCard({
   const publicUrl = output?.publicUrl ?? metadataResult?.publicUrl;
   const productAnalysis =
     output?.productAnalysis ?? metadataResult?.productAnalysis;
+
+  // Clear local uploading state when run starts
+  useEffect(() => {
+    if (run?.id && isUploading) {
+      setIsUploading(false);
+    }
+  }, [run?.id, isUploading]);
 
   // Notify parent when completed (only once)
   useEffect(() => {
@@ -70,6 +78,10 @@ export default function UploadCard({
   // Upload image
   const uploadImage = async (file: File) => {
     try {
+      // Set loading state immediately
+      setIsUploading(true);
+      setHasNotifiedComplete(false);
+
       // Convert file to base64
       const bytes = await file.arrayBuffer();
       const buffer = Buffer.from(bytes);
@@ -82,6 +94,7 @@ export default function UploadCard({
       });
     } catch (err) {
       console.error("Upload failed:", err);
+      setIsUploading(false);
     }
   };
 
@@ -125,7 +138,10 @@ export default function UploadCard({
           ? "border-primary bg-primary/5"
           : "border-primary/30 bg-card hover:border-primary/50"
       } ${
-        isLoading || run?.status === "EXECUTING" || run?.status === "QUEUED"
+        isUploading ||
+        isLoading ||
+        run?.status === "EXECUTING" ||
+        run?.status === "QUEUED"
           ? "opacity-50 pointer-events-none"
           : ""
       }`}
@@ -146,7 +162,8 @@ export default function UploadCard({
               transition: "opacity 0.3s ease-in-out",
             }}
           />
-          {(isLoading ||
+          {(isUploading ||
+            isLoading ||
             run?.status === "EXECUTING" ||
             run?.status === "QUEUED") && (
             <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
@@ -166,26 +183,31 @@ export default function UploadCard({
             </Button>
           </div>
         </div>
-      ) : isLoading || run?.id ? (
+      ) : isUploading || isLoading || run?.id ? (
         // Show progress state when loading or run exists
         <div className="h-full flex flex-col items-center justify-center p-6 text-center">
           <div className="w-12 h-12 rounded-full flex items-center justify-center mb-4 transition-colors bg-yellow-300/20">
             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
           </div>
           <p className="text-sm font-medium text-card-foreground mb-1">
-            {progress?.message || "Processing..."}
+            {progress?.message ||
+              (isUploading ? "Starting upload..." : "Processing...")}
           </p>
           <p className="text-xs text-muted-foreground">
             {progress
               ? `Step ${progress.step} of ${progress.total}`
+              : isUploading
+              ? "Preparing..."
               : "Please wait"}
           </p>
-          {progress && (
+          {(progress || isUploading) && (
             <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
               <div
                 className="bg-primary h-2 rounded-full transition-all duration-300"
                 style={{
-                  width: `${(progress.step / progress.total) * 100}%`,
+                  width: progress
+                    ? `${(progress.step / progress.total) * 100}%`
+                    : "0%",
                 }}
               ></div>
             </div>
