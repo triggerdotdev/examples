@@ -233,7 +233,7 @@ export default function CustomPromptCard({
               <div>
                 <label
                   htmlFor="custom-prompt"
-                  className="block text-sm font-medium text-foreground mb-2"
+                  className="block text-sm font-medium text-foreground mb-4"
                 >
                   Add another product shot
                 </label>
@@ -243,21 +243,13 @@ export default function CustomPromptCard({
                   value={customPrompt}
                   onChange={(e) => setCustomPrompt(e.target.value)}
                   disabled={isGenerating}
-                  className="w-full h-20 px-3 py-2 text-sm border border-input bg-transparent rounded-md shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
+                  className="w-full h-20 px-3 text-sm border border-input bg-transparent rounded-md shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
                   rows={3}
                   autoFocus
                 />
               </div>
 
               <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setShowForm(false)}
-                  className="flex-1"
-                >
-                  Cancel
-                </Button>
                 <Button
                   type="submit"
                   disabled={isDisabled || isGenerating}
@@ -307,7 +299,7 @@ export default function CustomPromptCard({
             {isGenerating
               ? "Generating..."
               : baseImageUrl && productAnalysis
-              ? "Click to add custom scene"
+              ? "Click to add custom shot"
               : ""}
           </p>
         </div>

@@ -1,15 +1,9 @@
 "use client";
 
-import {
-  Loader2,
-  LoaderCircleIcon,
-  LoaderIcon,
-  LoaderPinwheelIcon,
-  LucideLoader,
-  LucideSparkles,
-  Upload,
-} from "lucide-react";
-import { useRef, useState, useEffect } from "react";
+import { useRealtimeTaskTrigger } from "@trigger.dev/react-hooks";
+import { LucideLoader, Upload } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import type { uploadImageToR2 } from "../../src/trigger/image-upload";
 import type {
   ProductAnalysis,
   UploadTaskMetadata,
@@ -17,8 +11,6 @@ import type {
 } from "../types/trigger";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
-import { useRealtimeTaskTrigger } from "@trigger.dev/react-hooks";
-import type { uploadImageToR2 } from "../../src/trigger/image-upload";
 
 interface UploadCardProps {
   triggerToken: string;
