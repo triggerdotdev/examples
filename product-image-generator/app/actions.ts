@@ -1,6 +1,6 @@
 "use server";
 
-import { auth, tasks } from "@trigger.dev/sdk/v3";
+import { auth, tasks } from "@trigger.dev/sdk";
 import type { uploadImageToR2 } from "../src/trigger/image-upload";
 import type { generateAndUploadImage } from "../src/trigger/generate-and-upload-image";
 

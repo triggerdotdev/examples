@@ -5,7 +5,7 @@ import { Card } from "./ui/card";
 import { Upload } from "lucide-react";
 import { useRef, useState, useEffect } from "react";
 import { uploadImageToR2Action } from "../actions";
-import { runs, configure } from "@trigger.dev/sdk/v3";
+import { runs, configure } from "@trigger.dev/sdk";
 
 interface UploadCardProps {
   onUploadComplete?: (imageUrl: string, productAnalysis?: any) => void;
