@@ -36,7 +36,7 @@ export const generateAndUploadImage = task({
     };
     customPrompt?: string; // User's custom prompt for "custom" style
     model?: "flux";
-    size?: "1024x1024" | "1792x1024" | "1024x1792";
+    size?: "1024x1792";
     strength?: number;
     guidance?: number;
     steps?: number;
@@ -48,7 +48,7 @@ export const generateAndUploadImage = task({
       productAnalysis,
       customPrompt,
       model = "flux",
-      size = "1024x1024",
+      size = "1024x1792",
       strength = 0.2,
       guidance = 7, // From your settings
       steps = 20, // From your settings
@@ -104,7 +104,7 @@ export const generateAndUploadImage = task({
         "isolated-table":
           `Professional product photography on clean white table with studio lighting, minimalist background, commercial style`,
         "lifestyle-scene":
-          `Lifestyle product photography of fashionable person of any gender or ethnicity in the sunshine holding the product in their hand with a big smile on their face - they should be pointing to the product. This should be a very sophisticated lifestyle shot`,
+          `Lifestyle product photography of a person of any gender or ethnicity in the sunshine holding the product in their hand with a big smile on their face - they should be pointing to the product. This should be a cool lifestyle shot`,
         "hero-shot":
           `Professional lifestyle shot of elegant hands holding and presenting the product, dramatic lighting, luxury commercial photography style, perfect for marketing materials, human interaction with product`,
         "custom": customPrompt || "Professional product photography",

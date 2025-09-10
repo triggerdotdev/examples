@@ -78,25 +78,23 @@ export default function ProductImageGenerator({
           <div className="flex h-14 items-center justify-between">
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
-                <div className="p-1.5 bg-primary/10 rounded-md">
-                  <ImageIcon className="h-5 w-5 text-primary" />
-                </div>
+                <ImageIcon className="h-5 w-5 text-purple-500" />
                 <h1 className="text-xl font-bold text-foreground">ImageFlow</h1>
               </div>
             </div>
 
             <nav className="flex items-center space-x-1">
               <Button variant="ghost" size="sm">
-                <Home className="h-4 w-4 mr-2" />
+                <Home className="h-4 w-4 mr-1 text-gray-500" />
                 Home
               </Button>
               <Button variant="ghost" size="sm">
-                <Settings className="h-4 w-4 mr-2" />
-                Settings
+                <User className="h-4 w-4 mr-1 text-gray-500" />
+                Account
               </Button>
               <Button variant="ghost" size="sm">
-                <User className="h-4 w-4 mr-2" />
-                Account
+                <Settings className="h-4 w-4 mr-1 text-gray-500" />
+                Settings
               </Button>
             </nav>
           </div>
