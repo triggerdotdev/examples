@@ -33,6 +33,7 @@ export default function GeneratedCard({
     null
   );
   const [hasTriggered, setHasTriggered] = useState(false);
+  const [isRegenerating, setIsRegenerating] = useState(false);
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [runId, setRunId] = useState<string | null>(null);
@@ -109,7 +110,7 @@ export default function GeneratedCard({
       : "idle";
 
   // Update generated image URL when run completes
-  if (run?.status === "COMPLETED" && !generatedImageUrl) {
+  if (run?.status === "COMPLETED") {
     // First try to get publicUrl from output
     let publicUrl = run.output?.publicUrl;
 
@@ -119,8 +120,9 @@ export default function GeneratedCard({
       publicUrl = result.publicUrl;
     }
 
-    if (publicUrl) {
+    if (publicUrl && publicUrl !== generatedImageUrl) {
       setGeneratedImageUrl(publicUrl);
+      setIsRegenerating(false); // Clear regenerating state when new image loads
     }
   }
 
@@ -142,7 +144,7 @@ export default function GeneratedCard({
   };
 
   const handleRetry = () => {
-    setGeneratedImageUrl(null);
+    setIsRegenerating(true);
     setHasTriggered(false);
     setIsGenerating(false);
     setRunId(null);
@@ -160,13 +162,36 @@ export default function GeneratedCard({
             alt={`Generated ${promptTitle}`}
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
           />
+          {/* Regenerating overlay */}
+          {isRegenerating && isTaskRunning && (
+            <div className="absolute inset-0 bg-black/50 flex items-center justify-center backdrop-blur-sm">
+              <div className="flex flex-col items-center gap-2">
+                <div className="animate-spin rounded-full h-8 w-8 border-2 border-white border-b-transparent"></div>
+                <p className="text-white text-sm font-medium">
+                  Regenerating...
+                </p>
+              </div>
+            </div>
+          )}
           {/* Action buttons */}
           <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
             <Button
               size="sm"
               variant="secondary"
               className="w-8 h-8 rounded-full p-0 backdrop-blur-sm bg-white/90 hover:bg-white"
+              onClick={handleRetry}
+              disabled={isRegenerating && isTaskRunning}
+              title="Regenerate image"
+            >
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              className="w-8 h-8 rounded-full p-0 backdrop-blur-sm bg-white/90 hover:bg-white"
               onClick={handleExpand}
+              disabled={isRegenerating && isTaskRunning}
+              title="View full size"
             >
               <Expand className="h-4 w-4" />
             </Button>
@@ -175,6 +200,8 @@ export default function GeneratedCard({
               variant="secondary"
               className="w-8 h-8 rounded-full p-0 backdrop-blur-sm bg-white/90 hover:bg-white"
               onClick={handleDownload}
+              disabled={isRegenerating && isTaskRunning}
+              title="Download image"
             >
               <Download className="h-4 w-4" />
             </Button>
