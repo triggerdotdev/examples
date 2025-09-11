@@ -223,7 +223,7 @@ export default function ProductImageGenerator({
     uploadedImageUrl && productAnalysis ? true : false;
 
   return (
-    <div className="min-h-screen bg-gray-100/20">
+    <div className="min-h-screen bg-gray-100/20 ">
       {/* Fixed Header */}
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto px-4">
@@ -254,8 +254,8 @@ export default function ProductImageGenerator({
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-16">
-        <div className="max-w-7xl">
+      <main className="container px-4 py-16 w-full mx-auto ">
+        <div className="max-w-7xl mx-auto w">
           {/* Page Title */}
           <div className="mb-8 flex justify-between items-end">
             <div>
