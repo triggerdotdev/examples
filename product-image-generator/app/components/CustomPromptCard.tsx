@@ -103,7 +103,6 @@ export default function CustomPromptCard({
         baseImageUrl,
         productAnalysis,
         customPrompt: customPrompt.trim(),
-        size: "1024x1792",
       });
 
       if (result.success) {
@@ -135,7 +134,6 @@ export default function CustomPromptCard({
         baseImageUrl,
         productAnalysis,
         customPrompt: customPrompt.trim(),
-        size: "1024x1792",
       });
 
       if (result.success) {
@@ -245,16 +243,6 @@ export default function CustomPromptCard({
             >
               <Download className="h-4 w-4" />
             </Button>
-            <Button
-              size="sm"
-              variant="secondary"
-              className="w-8 h-8 rounded-full p-0 backdrop-blur-sm bg-white/90 hover:bg-white"
-              onClick={handleReset}
-              disabled={isRegenerating && isGenerating}
-              title="Create new image"
-            >
-              <RotateCcw className="h-4 w-4" />
-            </Button>
           </div>
           {/* Title overlay */}
           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-3">
@@ -268,10 +256,10 @@ export default function CustomPromptCard({
         <div className="h-full flex flex-col p-4">
           <div className="flex-1 flex flex-col justify-center">
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
+              <div className="flex flex-col gap-2 items-center">
                 <label
                   htmlFor="custom-prompt"
-                  className="block text-sm font-medium text-foreground mb-4"
+                  className="block text-sm font-medium text-foreground mb-2"
                 >
                   Add another product shot
                 </label>
@@ -281,7 +269,7 @@ export default function CustomPromptCard({
                   value={customPrompt}
                   onChange={(e) => setCustomPrompt(e.target.value)}
                   disabled={isGenerating}
-                  className="w-full h-20 px-3 text-sm border border-input bg-transparent rounded-md shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
+                  className="w-full h-48 p-3 text-sm border border-input bg-transparent rounded-md shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
                   rows={3}
                   autoFocus
                 />

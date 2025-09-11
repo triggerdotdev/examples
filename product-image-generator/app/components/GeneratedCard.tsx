@@ -248,9 +248,11 @@ export default function GeneratedCard({
       ) : (
         // Show loading/waiting state
         <div className="h-full flex flex-col items-center justify-center p-6 text-center">
-          <div className="w-12 h-12 rounded-lg bg-gray-300/20 flex items-center justify-center mb-4">
+          <div className="w-12 h-12 rounded-lg  flex items-center justify-center mb-4">
             {isTaskRunning && generationProgress === "generating" ? (
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary">
+                <Loader2 className="h-6 w-6 text-gray-500" />
+              </div>
             ) : baseImageUrl && productAnalysis && !hasTriggered ? (
               <Button
                 size="sm"
@@ -276,18 +278,25 @@ export default function GeneratedCard({
                 ? "Click to generate"
                 : "Waiting for upload...")}
           </p>
-          {progressData && generationProgress === "generating" && (
+
+          {(isTaskRunning || progressData) && (
             <>
               <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
                 <div
                   className="bg-primary h-2 rounded-full transition-all duration-300"
                   style={{
-                    width: `${(progressData.step / progressData.total) * 100}%`,
+                    width: `${
+                      progressData
+                        ? (progressData.step / progressData.total) * 100
+                        : 0
+                    }%`,
                   }}
                 ></div>
               </div>
               <p className="text-xs text-muted-foreground">
-                Step {progressData.step} of {progressData.total}
+                {progressData
+                  ? `Step ${progressData.step} of ${progressData.total}`
+                  : "Starting..."}
               </p>
             </>
           )}
