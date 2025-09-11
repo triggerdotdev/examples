@@ -15,6 +15,8 @@ const s3Client = new S3Client({
   },
 });
 
+const aiModel = "black-forest-labs/flux-dev";
+
 export const generateAndUploadImage = task({
   id: "generate-and-upload-image",
   maxDuration: 600, // 10 minutes max
@@ -47,7 +49,7 @@ export const generateAndUploadImage = task({
       baseImageUrl,
       productAnalysis,
       customPrompt,
-      model = "flux",
+      model = aiModel,
       size = "1024x1792",
       strength = 0.2,
       guidance = 7, // From your settings
@@ -127,7 +129,7 @@ export const generateAndUploadImage = task({
 
       // Use Flux with structured prompt
       const generateParams: any = {
-        model: replicate.image("black-forest-labs/flux-dev"),
+        model: replicate.image(aiModel),
         prompt: enhancedPrompt,
         image: baseImageUrl, // Reference image for img2img
         width: parseInt(size.split("x")[0]),

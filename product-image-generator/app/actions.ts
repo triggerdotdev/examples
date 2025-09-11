@@ -41,8 +41,6 @@ export async function triggerGenerationTask(payload: {
   baseImageUrl: string;
   productAnalysis: ProductAnalysis;
   customPrompt?: string;
-  model?: "flux";
-  size?: "1024x1792";
 }) {
   try {
     const handle = await tasks.trigger<typeof generateAndUploadImage>(

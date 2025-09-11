@@ -345,7 +345,7 @@ export default function ProductImageGenerator({
             {/* <p className="text-sm text-muted-foreground">
               Powered by{" "}
               <span className="font-medium text-primary">Trigger.dev</span> and{" "}
-              <span className="font-medium text-primary">Flux AI</span>
+              
             </p> */}
           </div>
         </div>

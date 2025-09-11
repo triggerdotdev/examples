@@ -17,13 +17,6 @@ import { triggerGenerationTask } from "../actions";
 import type { generateAndUploadImage } from "../../src/trigger/generate-and-upload-image";
 import type { ProductAnalysis } from "../types/trigger";
 
-type TaskRun = {
-  id?: string;
-  status?: string;
-  output?: unknown;
-  metadata?: unknown;
-};
-
 interface GeneratedCardProps {
   baseImageUrl: string | null;
   productAnalysis: ProductAnalysis | null;
@@ -78,7 +71,6 @@ export default function GeneratedCard({
         promptStyle: promptId,
         baseImageUrl,
         productAnalysis,
-        size: "1024x1792",
       });
 
       if (result.success) {
@@ -186,7 +178,7 @@ export default function GeneratedCard({
             <div className="absolute inset-0 bg-black/50 flex items-center justify-center backdrop-blur-sm">
               <div className="flex flex-col items-center gap-2">
                 <div className="w-8 h-8 rounded-full flex items-center justify-center mb-4 transition-colors ">
-                  <div className="animate-spin rounded-full h-6 w-6">
+                  <div className="animate-spin h-6 w-6">
                     <Loader2 className="h-6 w-6 text-gray-500" />
                   </div>
                 </div>
