@@ -183,7 +183,7 @@ export default function UploadCard({
             </Button>
           </div>
         </div>
-      ) : isUploading || isLoading || run?.id ? (
+      ) : isUploading || isLoading || run?.id || progress ? (
         // Show progress state when loading or run exists
         <div className="h-full flex flex-col items-center justify-center p-6 text-center">
           <div className="w-8 h-8 rounded-full flex items-center justify-center mb-4 transition-colors ">
@@ -202,23 +202,23 @@ export default function UploadCard({
               ? "Preparing..."
               : "Please wait"}
           </p>
-          {(progress || isUploading) && (
-            <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-              <div
-                className="bg-primary h-2 rounded-full transition-all duration-300"
-                style={{
-                  width: progress
-                    ? `${(progress.step / progress.total) * 100}%`
-                    : "0%",
-                }}
-              ></div>
-            </div>
-          )}
+
+          <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+            <div
+              className="bg-primary h-2 rounded-full transition-all duration-300"
+              style={{
+                width: progress
+                  ? `${(progress.step / progress.total) * 100}%`
+                  : "0%",
+              }}
+            ></div>
+          </div>
+
           {run?.id && (
-            <p className="text-xxs text-gray-600 mt-2">Run ID: {run.id}</p>
+            <p className="text-xs text-gray-600 mt-2">Run ID: {run.id}</p>
           )}
           {error && (
-            <p className="text-xxs text-red-600 mt-2">Error: {error.message}</p>
+            <p className="text-xs text-red-600 mt-2">Error: {error.message}</p>
           )}
         </div>
       ) : (
