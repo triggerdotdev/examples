@@ -2,7 +2,15 @@
 
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
-import { Download, RefreshCw, Expand, ImageIcon, Sparkles } from "lucide-react";
+import {
+  Download,
+  RefreshCw,
+  Expand,
+  ImageIcon,
+  Sparkles,
+  LucideLoader,
+  Loader2,
+} from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { useRealtimeRun } from "@trigger.dev/react-hooks";
 import { triggerGenerationTask } from "../actions";
@@ -21,6 +29,12 @@ interface GeneratedCardProps {
   productAnalysis: ProductAnalysis | null;
   promptId: string;
   promptTitle: string;
+  onGenerationComplete?: (
+    runId: string,
+    promptId: string,
+    promptTitle: string,
+    imageUrl?: string
+  ) => void;
 }
 
 export default function GeneratedCard({
@@ -28,6 +42,7 @@ export default function GeneratedCard({
   productAnalysis,
   promptId,
   promptTitle,
+  onGenerationComplete,
 }: GeneratedCardProps) {
   const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(
     null
@@ -63,7 +78,6 @@ export default function GeneratedCard({
         promptStyle: promptId,
         baseImageUrl,
         productAnalysis,
-        model: "flux",
         size: "1024x1792",
       });
 
@@ -123,6 +137,11 @@ export default function GeneratedCard({
     if (publicUrl && publicUrl !== generatedImageUrl) {
       setGeneratedImageUrl(publicUrl);
       setIsRegenerating(false); // Clear regenerating state when new image loads
+
+      // Notify parent of generation completion
+      if (run?.id && onGenerationComplete) {
+        onGenerationComplete(run.id, promptId, promptTitle, publicUrl);
+      }
     }
   }
 
@@ -166,7 +185,11 @@ export default function GeneratedCard({
           {isRegenerating && isTaskRunning && (
             <div className="absolute inset-0 bg-black/50 flex items-center justify-center backdrop-blur-sm">
               <div className="flex flex-col items-center gap-2">
-                <div className="animate-spin rounded-full h-8 w-8 border-2 border-white border-b-transparent"></div>
+                <div className="w-8 h-8 rounded-full flex items-center justify-center mb-4 transition-colors ">
+                  <div className="animate-spin rounded-full h-6 w-6">
+                    <Loader2 className="h-6 w-6 text-gray-500" />
+                  </div>
+                </div>
                 <p className="text-white text-sm font-medium">
                   Regenerating...
                 </p>

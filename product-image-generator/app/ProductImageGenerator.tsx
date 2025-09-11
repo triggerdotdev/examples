@@ -1,6 +1,13 @@
 "use client";
 
-import { Home, ImageIcon, Settings, User } from "lucide-react";
+import {
+  Download,
+  Home,
+  ImageIcon,
+  Settings,
+  User,
+  WandSparklesIcon,
+} from "lucide-react";
 import { useState } from "react";
 import CustomPromptCard from "./components/CustomPromptCard";
 import GeneratedCard from "./components/GeneratedCard";
@@ -19,6 +26,11 @@ export default function ProductImageGenerator({
   const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null);
   const [productAnalysis, setProductAnalysis] =
     useState<ProductAnalysis | null>(null);
+
+  // Track all generated images
+  const [generatedImages, setGeneratedImages] = useState<{
+    [key: string]: { runId: string; prompt: string; imageUrl?: string };
+  }>({});
 
   // Track custom generations for bottom row
   const [customGenerations, setCustomGenerations] = useState<{
@@ -39,15 +51,151 @@ export default function ProductImageGenerator({
     }
   };
 
+  const handleGenerationComplete = (
+    runId: string,
+    prompt: string,
+    imageUrl?: string,
+    key?: string
+  ) => {
+    console.log("Generation completed:", { runId, prompt, imageUrl, key });
+    setGeneratedImages((prev) => {
+      const updated = {
+        ...prev,
+        [key || runId]: { runId, prompt, imageUrl },
+      };
+      console.log("Updated generated images:", updated);
+      return updated;
+    });
+  };
+
   const handleCustomGenerationComplete = (
     runId: string,
     prompt: string,
-    index: number
+    index: number,
+    imageUrl?: string
   ) => {
     setCustomGenerations((prev) => ({
       runIds: prev.runIds.map((id, i) => (i === index ? runId : id)),
       prompts: prev.prompts.map((p, i) => (i === index ? prompt : p)),
     }));
+    handleGenerationComplete(runId, prompt, imageUrl, `custom-${index}`);
+  };
+
+  const handlePresetGenerationComplete = (
+    runId: string,
+    promptId: string,
+    promptTitle: string,
+    imageUrl?: string
+  ) => {
+    handleGenerationComplete(runId, promptTitle, imageUrl, promptId);
+  };
+
+  const handleDownloadAll = async () => {
+    console.log("Download button clicked!");
+    console.log("Generated images:", generatedImages);
+    console.log("Total generated images:", totalGeneratedImages);
+
+    if (totalGeneratedImages === 0) {
+      console.log("No images to download");
+      return;
+    }
+
+    try {
+      // For a single image, download directly
+      if (totalGeneratedImages === 1) {
+        const imageData = Object.values(generatedImages)[0];
+        console.log("Single image data:", imageData);
+
+        if (imageData.imageUrl) {
+          console.log("Downloading single image:", imageData.imageUrl);
+
+          // Try to fetch the image first to handle CORS
+          try {
+            const response = await fetch(imageData.imageUrl);
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = `${imageData.prompt
+              .replace(/\s+/g, "-")
+              .toLowerCase()}-${Date.now()}.png`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            // Clean up the blob URL
+            window.URL.revokeObjectURL(url);
+          } catch (fetchError) {
+            console.log("Fetch failed, trying direct download:", fetchError);
+            // Fallback to direct download
+            const link = document.createElement("a");
+            link.href = imageData.imageUrl;
+            link.download = `${imageData.prompt
+              .replace(/\s+/g, "-")
+              .toLowerCase()}-${Date.now()}.png`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+          }
+        } else {
+          console.log("No image URL found for single image");
+        }
+        return;
+      }
+
+      // For multiple images, download each individually
+      console.log("Downloading multiple images...");
+      Object.entries(generatedImages).forEach(([key, imageData], index) => {
+        console.log(`Image ${index + 1}:`, key, imageData);
+
+        if (imageData.imageUrl) {
+          setTimeout(async () => {
+            try {
+              console.log(
+                `Downloading image ${index + 1}:`,
+                imageData.imageUrl
+              );
+
+              // Try to fetch the image first to handle CORS
+              const response = await fetch(imageData.imageUrl!);
+              const blob = await response.blob();
+              const url = window.URL.createObjectURL(blob);
+
+              const link = document.createElement("a");
+              link.href = url;
+              link.download = `${imageData.prompt
+                .replace(/\s+/g, "-")
+                .toLowerCase()}-${Date.now()}-${index + 1}.png`;
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+
+              // Clean up the blob URL
+              window.URL.revokeObjectURL(url);
+            } catch (fetchError) {
+              console.log(
+                `Fetch failed for image ${index + 1}, trying direct download:`,
+                fetchError
+              );
+              // Fallback to direct download
+              const link = document.createElement("a");
+              link.href = imageData.imageUrl!;
+              link.download = `${imageData.prompt
+                .replace(/\s+/g, "-")
+                .toLowerCase()}-${Date.now()}-${index + 1}.png`;
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+            }
+          }, index * 1000); // Stagger downloads by 1 second
+        } else {
+          console.log(`No image URL found for image ${index + 1}`);
+        }
+      });
+    } catch (error) {
+      console.error("Failed to download images:", error);
+    }
   };
 
   const promptTitles = {
@@ -55,6 +203,10 @@ export default function ProductImageGenerator({
     "lifestyle-scene": "Lifestyle Scene",
     "hero-shot": "Hero Shot",
   };
+
+  // Calculate total generated images
+  const totalGeneratedImages = Object.keys(generatedImages).length;
+  const hasGeneratedImages = totalGeneratedImages > 0;
 
   // Determine which custom cards have completed generations
   const completedCustomCards = customGenerations.runIds.filter(
@@ -71,14 +223,14 @@ export default function ProductImageGenerator({
     uploadedImageUrl && productAnalysis ? true : false;
 
   return (
-    <div className="min-h-screen bg-gray-100/10">
+    <div className="min-h-screen bg-gray-100/20">
       {/* Fixed Header */}
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto px-4">
           <div className="flex h-14 items-center justify-between">
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
-                <ImageIcon className="h-5 w-5 text-purple-500" />
+                <WandSparklesIcon className="h-5 w-5 text-purple-500" />
                 <h1 className="text-xl font-bold text-foreground">ImageFlow</h1>
               </div>
             </div>
@@ -105,14 +257,35 @@ export default function ProductImageGenerator({
       <main className="container mx-auto px-4 py-16">
         <div className="max-w-7xl">
           {/* Page Title */}
-          <div className="mb-8">
-            <h2 className="text-3xl font-bold text-foreground mb-2">
-              Product Image Generator
-            </h2>
-            <p className="text-muted-foreground">
-              Upload a product image and generate professional marketing shots
-              for your online store.
-            </p>
+          <div className="mb-8 flex justify-between items-end">
+            <div>
+              <h2 className="text-3xl font-bold text-foreground mb-2">
+                Product Image Generator
+              </h2>
+              <p className="text-muted-foreground">
+                Upload a product image and generate professional marketing shots
+                for your online store.
+              </p>
+            </div>
+            <div>
+              <Button
+                variant={hasGeneratedImages ? "default" : "outline"}
+                disabled={!hasGeneratedImages}
+                onClick={handleDownloadAll}
+                className={
+                  !hasGeneratedImages
+                    ? "opacity-50 cursor-not-allowed"
+                    : "cursor-pointer"
+                }
+              >
+                <Download className="h-4 w-4 mr-1" />
+                {hasGeneratedImages
+                  ? `Download ${totalGeneratedImages} image${
+                      totalGeneratedImages === 1 ? "" : "s"
+                    } `
+                  : "Download images"}
+              </Button>
+            </div>
           </div>
 
           {/* Top Row - Upload + 3 Generated Images */}
@@ -127,18 +300,21 @@ export default function ProductImageGenerator({
               productAnalysis={productAnalysis}
               promptId="isolated-table"
               promptTitle={promptTitles["isolated-table"]}
+              onGenerationComplete={handlePresetGenerationComplete}
             />
             <GeneratedCard
               baseImageUrl={uploadedImageUrl}
               productAnalysis={productAnalysis}
               promptId="lifestyle-scene"
               promptTitle={promptTitles["lifestyle-scene"]}
+              onGenerationComplete={handlePresetGenerationComplete}
             />
             <GeneratedCard
               baseImageUrl={uploadedImageUrl}
               productAnalysis={productAnalysis}
               promptId="hero-shot"
               promptTitle={promptTitles["hero-shot"]}
+              onGenerationComplete={handlePresetGenerationComplete}
             />
           </div>
 
@@ -151,8 +327,13 @@ export default function ProductImageGenerator({
                   key={`custom-prompt-${index}`}
                   baseImageUrl={uploadedImageUrl}
                   productAnalysis={productAnalysis}
-                  onGenerationComplete={(runId, prompt) =>
-                    handleCustomGenerationComplete(runId, prompt, index)
+                  onGenerationComplete={(runId, prompt, imageUrl) =>
+                    handleCustomGenerationComplete(
+                      runId,
+                      prompt,
+                      index,
+                      imageUrl
+                    )
                   }
                 />
               );

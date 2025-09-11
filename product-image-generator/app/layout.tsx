@@ -15,8 +15,8 @@ const playfairDisplay = Roboto({
 });
 
 export const metadata: Metadata = {
-  title: "ImageFlow - Modern Image Management",
-  description: "Professional image management and organization tool",
+  title: "ImageFlow - Product Image Generator",
+  description: "Professional product image generator",
 };
 
 export default function RootLayout({

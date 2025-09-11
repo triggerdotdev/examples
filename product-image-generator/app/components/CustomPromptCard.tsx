@@ -8,6 +8,8 @@ import {
   Download,
   ImageIcon,
   Sparkles,
+  RotateCcw,
+  Loader2,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { triggerGenerationTask } from "../actions";
@@ -19,7 +21,11 @@ import { Card } from "./ui/card";
 interface CustomPromptCardProps {
   baseImageUrl: string | null;
   productAnalysis: ProductAnalysis | null;
-  onGenerationComplete?: (runId: string, prompt: string) => void;
+  onGenerationComplete?: (
+    runId: string,
+    prompt: string,
+    imageUrl?: string
+  ) => void;
 }
 
 export default function CustomPromptCard({
@@ -37,6 +43,7 @@ export default function CustomPromptCard({
     null
   );
   const [showForm, setShowForm] = useState(false);
+  const [isRegenerating, setIsRegenerating] = useState(false);
 
   // Subscribe to the run if we have a runId and token
   const { run, error } = useRealtimeRun<typeof generateAndUploadImage>(
@@ -60,14 +67,16 @@ export default function CustomPromptCard({
       if (publicUrl && publicUrl !== generatedImageUrl) {
         setGeneratedImageUrl(publicUrl);
         setIsGenerating(false);
+        setIsRegenerating(false);
       }
 
       // Notify parent
       if (run?.id && onGenerationComplete) {
-        onGenerationComplete(run.id, customPrompt);
+        onGenerationComplete(run.id, customPrompt, publicUrl);
       }
     } else if (run?.status === "FAILED") {
       setIsGenerating(false);
+      setIsRegenerating(false);
     }
   }, [
     run?.status,
@@ -116,6 +125,7 @@ export default function CustomPromptCard({
     }
 
     try {
+      setIsRegenerating(true);
       setIsGenerating(true);
       setRunId(null);
       setPublicAccessToken(null);
@@ -134,10 +144,12 @@ export default function CustomPromptCard({
       } else {
         console.error("Generation failed:", result.error);
         setIsGenerating(false);
+        setIsRegenerating(false);
       }
     } catch (error) {
       console.error("Failed to regenerate custom image:", error);
       setIsGenerating(false);
+      setIsRegenerating(false);
     }
   };
 
@@ -186,14 +198,30 @@ export default function CustomPromptCard({
             alt="Custom generated image"
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
           />
+          {/* Regenerating overlay */}
+          {isRegenerating && isGenerating && (
+            <div className="absolute inset-0 bg-black/50 flex items-center justify-center backdrop-blur-sm">
+              <div className="flex flex-col items-center gap-2">
+                <div className="w-8 h-8 rounded-full flex items-center justify-center mb-4 transition-colors ">
+                  <div className="animate-spin rounded-full h-6 w-6">
+                    <Loader2 className="h-6 w-6 text-gray-500" />
+                  </div>
+                </div>
+                <p className="text-white text-sm font-medium">
+                  Regenerating...
+                </p>
+              </div>
+            </div>
+          )}
           {/* Action buttons */}
           <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
             <Button
               size="sm"
               variant="secondary"
               className="w-8 h-8 rounded-full p-0 backdrop-blur-sm bg-white/90 hover:bg-white"
-              onClick={handleReset}
-              title="Create new image"
+              onClick={handleRegenerate}
+              disabled={isRegenerating && isGenerating}
+              title="Regenerate image"
             >
               <RefreshCw className="h-4 w-4" />
             </Button>
@@ -202,6 +230,7 @@ export default function CustomPromptCard({
               variant="secondary"
               className="w-8 h-8 rounded-full p-0 backdrop-blur-sm bg-white/90 hover:bg-white"
               onClick={handleExpand}
+              disabled={isRegenerating && isGenerating}
               title="View full size"
             >
               <Expand className="h-4 w-4" />
@@ -211,9 +240,20 @@ export default function CustomPromptCard({
               variant="secondary"
               className="w-8 h-8 rounded-full p-0 backdrop-blur-sm bg-white/90 hover:bg-white"
               onClick={handleDownload}
+              disabled={isRegenerating && isGenerating}
               title="Download image"
             >
               <Download className="h-4 w-4" />
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              className="w-8 h-8 rounded-full p-0 backdrop-blur-sm bg-white/90 hover:bg-white"
+              onClick={handleReset}
+              disabled={isRegenerating && isGenerating}
+              title="Create new image"
+            >
+              <RotateCcw className="h-4 w-4" />
             </Button>
           </div>
           {/* Title overlay */}

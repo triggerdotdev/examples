@@ -135,8 +135,8 @@ export default function UploadCard({
     <Card
       className={`aspect-[3/4] border-2 border-dashed transition-colors cursor-pointer group relative overflow-hidden ${
         isDragOver
-          ? "border-blue-500 bg-blue-500/5"
-          : "border-blue-500 bg-card hover:border-blue-500/80"
+          ? "border-gray-500 bg-gray-500/5"
+          : "border-gray-500 bg-card hover:border-gray-500/80"
       } ${
         isUploading ||
         isLoading ||
@@ -188,7 +188,7 @@ export default function UploadCard({
         <div className="h-full flex flex-col items-center justify-center p-6 text-center">
           <div className="w-8 h-8 rounded-full flex items-center justify-center mb-4 transition-colors ">
             <div className="animate-spin rounded-full h-6 w-6">
-              <LucideLoader className="h-6 w-6 text-blue-500" />
+              <LucideLoader className="h-6 w-6 text-gray-500" />
             </div>
           </div>
           <p className="text-sm font-medium text-card-foreground mb-1">
@@ -215,20 +215,20 @@ export default function UploadCard({
             </div>
           )}
           {run?.id && (
-            <p className="text-xs text-blue-600 mt-2">Run ID: {run.id}</p>
+            <p className="text-xxs text-gray-600 mt-2">Run ID: {run.id}</p>
           )}
           {error && (
-            <p className="text-xs text-red-600 mt-2">Error: {error.message}</p>
+            <p className="text-xxs text-red-600 mt-2">Error: {error.message}</p>
           )}
         </div>
       ) : (
         // Show upload area
-        <div className="h-full flex flex-col items-center justify-center p-6 text-center">
+        <div className="h-full flex flex-col items-center justify-center p-3 text-center">
           <div
             className={`w-12 h-12 rounded-full flex items-center justify-center mb-4 transition-colors ${
               isDragOver
-                ? "bg-blue-500/10"
-                : "bg-blue-500/10 group-hover:bg-blue-300/20 transition duration-200"
+                ? "bg-gray-500/10"
+                : "bg-gray-500/10 group-hover:bg-gray-500/20 transition duration-200"
             }`}
           >
             <Upload className="h-6 w-6 text-primary" />
