@@ -1,7 +1,10 @@
 "use server";
 
 import { auth, tasks } from "@trigger.dev/sdk";
-import type { generateAndUploadImage } from "../src/trigger/generate-image-and-upload";
+import type {
+  generateAndUploadImage,
+  StylePrompt,
+} from "../src/trigger/generate-image-and-upload";
 import type { uploadImageToR2 } from "../src/trigger/upload-image-and-analyze";
 import type { ProductAnalysis } from "./types/trigger";
 
@@ -13,7 +16,7 @@ export async function triggerUploadTask(payload: {
   try {
     const handle = await tasks.trigger<typeof uploadImageToR2>(
       "upload-image-and-analyze",
-      payload,
+      payload
     );
 
     // Create a public access token for this specific run
@@ -37,7 +40,7 @@ export async function triggerUploadTask(payload: {
 }
 
 export async function triggerGenerationTask(payload: {
-  promptStyle: string;
+  promptStyle: StylePrompt;
   baseImageUrl: string;
   productAnalysis: ProductAnalysis;
   customPrompt?: string;
@@ -45,7 +48,7 @@ export async function triggerGenerationTask(payload: {
   try {
     const handle = await tasks.trigger<typeof generateAndUploadImage>(
       "generate-image-and-upload",
-      payload,
+      payload
     );
 
     // Create a public access token for this specific run

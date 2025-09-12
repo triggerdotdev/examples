@@ -14,17 +14,20 @@ import {
 import { useState, useEffect, useCallback } from "react";
 import { useRealtimeRun } from "@trigger.dev/react-hooks";
 import { triggerGenerationTask } from "../actions";
-import type { generateAndUploadImage } from "../../src/trigger/generate-image-and-upload";
+import type {
+  generateAndUploadImage,
+  StylePrompt,
+} from "../../src/trigger/generate-image-and-upload";
 import type { ProductAnalysis } from "../types/trigger";
 
 interface GeneratedCardProps {
   baseImageUrl: string | null;
   productAnalysis: ProductAnalysis | null;
-  promptId: string;
+  promptId: StylePrompt;
   promptTitle: string;
   onGenerationComplete?: (
     runId: string,
-    promptId: string,
+    promptId: StylePrompt,
     promptTitle: string,
     imageUrl?: string
   ) => void;

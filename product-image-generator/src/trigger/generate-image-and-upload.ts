@@ -45,10 +45,6 @@ type GeneratePayload = {
   customPrompt?: string; // User's custom prompt for "custom" style
   model?: "flux";
   size?: "1024x1792";
-  strength?: number;
-  guidance?: number;
-  steps?: number;
-  seed?: number;
 };
 
 export const generateAndUploadImage = task({
@@ -62,10 +58,6 @@ export const generateAndUploadImage = task({
       customPrompt,
       model = aiModel,
       size = "1024x1792",
-      strength = 0.2,
-      guidance = 7, // From your settings
-      steps = 20, // From your settings
-      seed = Math.floor(Math.random() * 1000000), // Random seed for variety
     } = payload;
 
     // Set initial metadata with 4 steps (no analysis needed)
@@ -81,7 +73,6 @@ export const generateAndUploadImage = task({
       baseImageUrl,
       productAnalysis,
       model,
-      size,
     });
 
     try {
@@ -93,24 +84,24 @@ export const generateAndUploadImage = task({
       });
 
       // Build detailed product description from analysis with fallbacks
-      const productDetails = [
-        `Exact product: ${
-          productAnalysis?.exact_product_name || "unknown product"
-        }`,
-        `Model number: ${productAnalysis?.model_number || "unknown model"}`,
-        `Material: ${productAnalysis?.material || "unknown"}`,
-        `Colors: ${productAnalysis?.colors?.join(", ") || "unknown"}`,
-        `Shape: ${productAnalysis?.shape || "unknown"}`,
-        `Proportions: ${productAnalysis?.size_proportions || "standard"}`,
-        `Functional elements: ${
-          productAnalysis?.functional_elements?.join(", ") || "standard"
-        }`,
-        `Surface finish: ${productAnalysis?.surface_finish || "standard"}`,
-        `Text/branding: ${productAnalysis?.text_branding || "none"}`,
-        `Unique features: ${
-          productAnalysis?.unique_features?.join(", ") || "standard"
-        }`,
-      ].join(". ");
+      // const productDetails = [
+      //   `Exact product: ${
+      //     productAnalysis?.exact_product_name || "unknown product"
+      //   }`,
+      //   `Model number: ${productAnalysis?.model_number || "unknown model"}`,
+      //   `Material: ${productAnalysis?.material || "unknown"}`,
+      //   `Colors: ${productAnalysis?.colors?.join(", ") || "unknown"}`,
+      //   `Shape: ${productAnalysis?.shape || "unknown"}`,
+      //   `Proportions: ${productAnalysis?.size_proportions || "standard"}`,
+      //   `Functional elements: ${
+      //     productAnalysis?.functional_elements?.join(", ") || "standard"
+      //   }`,
+      //   `Surface finish: ${productAnalysis?.surface_finish || "standard"}`,
+      //   `Text/branding: ${productAnalysis?.text_branding || "none"}`,
+      //   `Unique features: ${
+      //     productAnalysis?.unique_features?.join(", ") || "standard"
+      //   }`,
+      // ].join(". ");
 
       // Style-specific prompts
       const baseStylePrompt =
@@ -119,7 +110,7 @@ export const generateAndUploadImage = task({
         stylePrompts["isolated-table"];
 
       // Combine everything into one unambiguous prompt
-      const enhancedPrompt = `${baseStylePrompt}. MANDATORY PRODUCT PRESERVATION: You MUST recreate the EXACT product from the reference image. Product specifications that are ABSOLUTELY REQUIRED: ${productDetails}. The product must be IDENTICAL to the reference image - same brand name, same exact model number, same exact colors and color combinations, same shape, same proportions, same text, same logos, same design elements, same materials, same finish. DO NOT change any colors, DO NOT substitute different models or color variants, DO NOT modify the product itself in any way. The product must be pixel-perfect identical. Only change the background, lighting, and camera angle. If you cannot preserve the exact product, do not generate the image.`;
+      const enhancedPrompt = `${baseStylePrompt}. MANDATORY PRODUCT PRESERVATION: You MUST recreate the EXACT product from the reference image. The product must be IDENTICAL to the reference image - same brand name, same exact model number, same exact colors and color combinations, same shape, same proportions, same text, same logos, same design elements, same materials, same finish. DO NOT change any colors, DO NOT substitute different models or color variants, DO NOT modify the product itself in any way. The product must be pixel-perfect identical. Only change the background, lighting, and camera angle. If you cannot preserve the exact product, do not generate the image.`;
 
       logger.log("Enhanced prompt created", {
         enhancedPrompt,
@@ -134,7 +125,7 @@ export const generateAndUploadImage = task({
       });
 
       // Use Flux with structured prompt
-      const output = await replicate.predictions.create({
+      await replicate.predictions.create({
         model: "google/nano-banana",
         input: { prompt: enhancedPrompt, image_input: [baseImageUrl] },
         // pass the provided URL to Replicate's webhook, so they can "callback"
@@ -143,7 +134,6 @@ export const generateAndUploadImage = task({
       });
 
       const prediction = await wait.forToken<Prediction>(token);
-
       if (!prediction.ok) {
         throw new Error("Failed to create prediction");
       }
@@ -152,21 +142,6 @@ export const generateAndUploadImage = task({
 
       const imageUrl = prediction.output.output;
 
-      // const { image } = await experimental_generateImage({
-      //   model: replicate.image(aiModel),
-      //   prompt: enhancedPrompt,
-      //   image: baseImageUrl, // Reference image for img2img
-      //   width: parseInt(size.split("x")[0]),
-      //   height: parseInt(size.split("x")[1]),
-      //   guidance_scale: guidance,
-      //   num_inference_steps: steps,
-      //   strength: strength,
-      //   seed: seed,
-      //   num_outputs: 1,
-      //   // Add negative prompt to prevent unwanted changes
-      //   negative_prompt:
-      //     "different product, wrong brand, different model, different colors, color variants, different shape, modified product, altered design, wrong text, different logo, fake product, generic product",
-      // });
       logger.log("Image generated successfully");
 
       // Step 4: Upload to storage
@@ -179,14 +154,14 @@ export const generateAndUploadImage = task({
       const image = await fetch(imageUrl);
       const imageBuffer = Buffer.from(await image.arrayBuffer());
 
-      const base64Image = Buffer.from(imageBuffer).toString("base64");
-
       const timestamp = Date.now();
-      const filename = `generated-${timestamp}.png`;
+      const filename = `generated-${timestamp}.png`.replace(
+        /[^a-zA-Z0-9.-]/g,
+        "_"
+      );
 
       // Generate unique key for R2
-      const sanitizedFileName = filename.replace(/[^a-zA-Z0-9.-]/g, "_");
-      const r2Key = `uploaded-images/${timestamp}-${sanitizedFileName}`;
+      const r2Key = `uploaded-images/${timestamp}-${filename}`;
 
       const uploadParams = {
         Bucket: process.env.R2_BUCKET,
@@ -218,7 +193,7 @@ export const generateAndUploadImage = task({
         publicUrl,
         r2Key,
         fileSize: imageBuffer.length,
-        fileName: sanitizedFileName,
+        filename,
       };
 
       // Complete
