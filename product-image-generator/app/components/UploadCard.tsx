@@ -186,7 +186,7 @@ export default function UploadCard({
       ) : isUploading || isLoading || run?.id || progress ? (
         // Show progress state when loading or run exists
         <div className="h-full flex flex-col items-center justify-center p-6 text-center">
-          <div className="w-8 h-8 rounded-full flex items-center justify-center mb-4 transition-colors ">
+          <div className="w-8 h-8 rounded-full flex items-center justify-center mb-4">
             <div className="animate-spin rounded-full h-6 w-6">
               <LucideLoader className="h-6 w-6 text-gray-500" />
             </div>
