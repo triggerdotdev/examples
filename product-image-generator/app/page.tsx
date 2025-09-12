@@ -3,7 +3,7 @@ import ProductImageGenerator from "./ProductImageGenerator";
 
 export default async function Page() {
   const triggerToken = await auth.createTriggerPublicToken([
-    "upload-image-to-r2",
+    "upload-image-and-analyze",
   ]);
   return <ProductImageGenerator triggerToken={triggerToken} />;
 }

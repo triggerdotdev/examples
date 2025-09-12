@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { triggerGenerationTask } from "../actions";
-import type { generateAndUploadImage } from "../../src/trigger/generate-and-upload-image";
+import type { generateAndUploadImage } from "../../src/trigger/generate-image-and-upload";
 import type { ProductAnalysis } from "../types/trigger";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";

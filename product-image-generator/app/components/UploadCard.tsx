@@ -3,7 +3,7 @@
 import { useRealtimeTaskTrigger } from "@trigger.dev/react-hooks";
 import { LucideLoader, Upload } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import type { uploadImageToR2 } from "../../src/trigger/image-upload";
+import type { uploadImageToR2 } from "../../src/trigger/upload-image-and-analyze";
 import type {
   ProductAnalysis,
   UploadTaskMetadata,
@@ -32,7 +32,7 @@ export default function UploadCard({
   // Use realtime task trigger hook for immediate triggering
   const { submit, run, error, isLoading } = useRealtimeTaskTrigger<
     typeof uploadImageToR2
-  >("upload-image-to-r2", {
+  >("upload-image-and-analyze", {
     accessToken: triggerToken,
     enabled: Boolean(triggerToken),
   });
@@ -133,7 +133,7 @@ export default function UploadCard({
 
   return (
     <Card
-      className={`aspect-[3/4] border-2 border-dashed transition-colors cursor-pointer group relative overflow-hidden ${
+      className={`aspect-[3/4] border-2 border-dashed transition-colors cursor-pointer group relative overflow-hidden  ${
         isDragOver
           ? "border-gray-500 bg-gray-500/5"
           : "border-gray-500 bg-card hover:border-gray-500/80"

@@ -144,7 +144,7 @@ Each generation builds an enhanced prompt from the structured product analysis. 
 src/
 ├── trigger/
 │   ├── image-upload.ts              # Upload to R2 + structured product analysis (OpenAI)
-│   └── generate-and-upload-image.ts # Flux generation (Replicate) + R2 upload
+│   └── generate-image-and-upload.ts # Flux generation (Replicate) + R2 upload
 ├── app/
 │   ├── actions.ts                   # Server actions: trigger tasks + public tokens
 │   ├── components/
@@ -183,7 +183,7 @@ src/
 
 ### Adding Generation Styles
 
-Add a new style key in `generate-and-upload-image.ts` inside `stylePrompts` and wire a corresponding button/card in `app/page.tsx`.
+Add a new style key in `generate-image-and-upload.ts` inside `stylePrompts` and wire a corresponding button/card in `app/page.tsx`.
 
 ### Modifying Image Dimensions
 

@@ -18,7 +18,7 @@ const s3Client = new S3Client({
 const aiModel = "black-forest-labs/flux-dev";
 
 export const generateAndUploadImage = task({
-  id: "generate-and-upload-image",
+  id: "generate-image-and-upload",
   maxDuration: 600, // 10 minutes max
   run: async (payload: {
     promptStyle: string; // Style prompt (table-shot, lifestyle, hero, custom)

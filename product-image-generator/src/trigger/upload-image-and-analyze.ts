@@ -90,8 +90,8 @@ async function analyzeProductStructured(imageUrl: string) {
 }
 
 export const uploadImageToR2 = task({
-  id: "upload-image-to-r2",
-  maxDuration: 300, // 5 minutes max
+  id: "upload-image-and-analyze",
+  maxDuration: 300, // 5 mins
   run: async (payload: {
     imageBuffer: string; // base64 encoded image
     fileName: string;
@@ -99,35 +99,29 @@ export const uploadImageToR2 = task({
   }) => {
     const { imageBuffer, fileName, contentType } = payload;
 
-    // Set initial metadata with 5 steps (added analysis)
+    // Step 1: Start the upload and analysis
     metadata.set("status", "starting");
     metadata.set("progress", {
       step: 1,
-      total: 5,
+      total: 4,
       message: "Preparing upload and analysis...",
     });
 
     logger.log("Starting image upload and analysis", { fileName, contentType });
 
-    // Convert base64 to buffer
-    metadata.set("progress", {
-      step: 2,
-      total: 5,
-      message: "Processing image data...",
-    });
     const buffer = Buffer.from(imageBuffer, "base64");
     const fileSize = buffer.length;
 
     logger.log(`Image size: ${fileSize} bytes`);
 
-    // Generate unique key for R2
+    // Step 2: Generate unique key for R2
     const timestamp = Date.now();
     const sanitizedFileName = fileName.replace(/[^a-zA-Z0-9.-]/g, "_");
     const r2Key = `uploaded-images/${timestamp}-${sanitizedFileName}`;
 
     metadata.set("progress", {
-      step: 3,
-      total: 5,
+      step: 2,
+      total: 4,
       message: "Uploading to storage...",
     });
 
@@ -158,20 +152,20 @@ export const uploadImageToR2 = task({
       // Construct the public URL using the R2_PUBLIC_URL env var
       const publicUrl = `${process.env.R2_PUBLIC_URL}/${r2Key}`;
 
-      // Step 4: Analyze product properties
+      // Step 3: Analyze product properties
       metadata.set("progress", {
-        step: 4,
-        total: 5,
+        step: 3,
+        total: 4,
         message: "Analyzing product properties...",
       });
 
       const productAnalysis = await analyzeProductStructured(publicUrl);
       logger.log("Product analysis completed", { productAnalysis });
 
-      // Step 5: Complete
+      // Step 4: Complete
       metadata.set("progress", {
-        step: 5,
-        total: 5,
+        step: 4,
+        total: 4,
         message: "Upload and analysis completed!",
       });
       metadata.set("status", "completed");
@@ -200,7 +194,7 @@ export const uploadImageToR2 = task({
       metadata.set("status", "failed");
       metadata.set("progress", {
         step: 0,
-        total: 5,
+        total: 4,
         message: "Upload and analysis failed",
       });
       metadata.set(

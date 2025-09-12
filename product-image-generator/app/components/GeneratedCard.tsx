@@ -14,7 +14,7 @@ import {
 import { useState, useEffect, useCallback } from "react";
 import { useRealtimeRun } from "@trigger.dev/react-hooks";
 import { triggerGenerationTask } from "../actions";
-import type { generateAndUploadImage } from "../../src/trigger/generate-and-upload-image";
+import type { generateAndUploadImage } from "../../src/trigger/generate-image-and-upload";
 import type { ProductAnalysis } from "../types/trigger";
 
 interface GeneratedCardProps {
