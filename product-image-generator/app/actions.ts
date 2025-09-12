@@ -1,11 +1,8 @@
 "use server";
 
 import { auth, tasks } from "@trigger.dev/sdk";
-import type {
-  generateAndUploadImage,
-  StylePrompt,
-} from "../src/trigger/generate-image-and-upload";
-import type { uploadImageToR2 } from "../src/trigger/upload-image-and-analyze";
+import type { generateImage, StylePrompt } from "./trigger/generate-images";
+import type { uploadImageToR2 } from "./trigger/upload-image-and-analyze";
 import type { ProductAnalysis } from "./types/trigger";
 
 export async function triggerUploadTask(payload: {
@@ -46,7 +43,7 @@ export async function triggerGenerationTask(payload: {
   customPrompt?: string;
 }) {
   try {
-    const handle = await tasks.trigger<typeof generateAndUploadImage>(
+    const handle = await tasks.trigger<typeof generateImage>(
       "generate-image-and-upload",
       payload
     );

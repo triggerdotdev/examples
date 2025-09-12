@@ -5,6 +5,9 @@ import type { Metadata } from "next";
 import { Roboto } from "next/font/google";
 import type React from "react";
 import { Suspense } from "react";
+import { extractRouterConfig } from "uploadthing/server";
+import { ourFileRouter } from "@/api/uploadthing/core";
+import { NextSSRPlugin } from "@uploadthing/react/next-ssr-plugin";
 import "./globals.css";
 
 const playfairDisplay = Roboto({
@@ -29,6 +32,7 @@ export default function RootLayout({
       <body
         className={`font-sans ${GeistSans.variable} ${GeistMono.variable} ${playfairDisplay.variable}`}
       >
+        <NextSSRPlugin routerConfig={extractRouterConfig(ourFileRouter)} />
         <Suspense fallback={null}>{children}</Suspense>
         <Analytics />
       </body>
