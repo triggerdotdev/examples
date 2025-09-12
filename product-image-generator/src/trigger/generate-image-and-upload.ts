@@ -1,9 +1,9 @@
-import { experimental_generateImage } from "ai";
-import { logger, metadata, task } from "@trigger.dev/sdk";
-import { openai } from "@ai-sdk/openai";
-import { replicate } from "@ai-sdk/replicate";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { logger, metadata, task, wait } from "@trigger.dev/sdk";
 import { Buffer } from "buffer";
+
+import Replicate, { Prediction } from "replicate";
+const replicate = new Replicate();
 
 // Initialize S3 client for R2
 const s3Client = new S3Client({
@@ -17,33 +17,44 @@ const s3Client = new S3Client({
 
 const aiModel = "black-forest-labs/flux-dev";
 
+const stylePrompts = {
+  "isolated-table": `Professional product photography on clean white table with studio lighting, minimalist background, commercial style`,
+  "lifestyle-scene": `Lifestyle product photography of a person of any gender or ethnicity in the sunshine holding the product in their hand with a big smile on their face - they should be pointing to the product. This should be a cool lifestyle shot`,
+  "hero-shot": `Professional lifestyle shot of elegant hands holding and presenting the product, dramatic lighting, luxury commercial photography style, perfect for marketing materials, human interaction with product`,
+  custom: "Professional product photography",
+};
+
+export type StylePrompt = keyof typeof stylePrompts;
+
+type GeneratePayload = {
+  promptStyle: StylePrompt;
+  baseImageUrl: string;
+  productAnalysis: {
+    exact_product_name: string;
+    model_number: string;
+    material: string;
+    colors: string[];
+    shape: string;
+    size_proportions: string;
+    functional_elements: string[];
+    surface_finish: string;
+    text_branding: string;
+    unique_features: string[];
+    product_category: string;
+  };
+  customPrompt?: string; // User's custom prompt for "custom" style
+  model?: "flux";
+  size?: "1024x1792";
+  strength?: number;
+  guidance?: number;
+  steps?: number;
+  seed?: number;
+};
+
 export const generateAndUploadImage = task({
   id: "generate-image-and-upload",
   maxDuration: 600, // 10 minutes max
-  run: async (payload: {
-    promptStyle: string; // Style prompt (table-shot, lifestyle, hero, custom)
-    baseImageUrl: string;
-    productAnalysis: {
-      exact_product_name: string;
-      model_number: string;
-      material: string;
-      colors: string[];
-      shape: string;
-      size_proportions: string;
-      functional_elements: string[];
-      surface_finish: string;
-      text_branding: string;
-      unique_features: string[];
-      product_category: string;
-    };
-    customPrompt?: string; // User's custom prompt for "custom" style
-    model?: "flux";
-    size?: "1024x1792";
-    strength?: number;
-    guidance?: number;
-    steps?: number;
-    seed?: number;
-  }) => {
+  run: async (payload: GeneratePayload) => {
     const {
       promptStyle,
       baseImageUrl,
@@ -102,23 +113,13 @@ export const generateAndUploadImage = task({
       ].join(". ");
 
       // Style-specific prompts
-      const stylePrompts = {
-        "isolated-table":
-          `Professional product photography on clean white table with studio lighting, minimalist background, commercial style`,
-        "lifestyle-scene":
-          `Lifestyle product photography of a person of any gender or ethnicity in the sunshine holding the product in their hand with a big smile on their face - they should be pointing to the product. This should be a cool lifestyle shot`,
-        "hero-shot":
-          `Professional lifestyle shot of elegant hands holding and presenting the product, dramatic lighting, luxury commercial photography style, perfect for marketing materials, human interaction with product`,
-        "custom": customPrompt || "Professional product photography",
-      };
-
       const baseStylePrompt =
-        stylePrompts[promptStyle as keyof typeof stylePrompts] ||
+        customPrompt ||
+        stylePrompts[promptStyle] ||
         stylePrompts["isolated-table"];
 
       // Combine everything into one unambiguous prompt
-      const enhancedPrompt =
-        `${baseStylePrompt}. MANDATORY PRODUCT PRESERVATION: You MUST recreate the EXACT product from the reference image. Product specifications that are ABSOLUTELY REQUIRED: ${productDetails}. The product must be IDENTICAL to the reference image - same brand name, same exact model number, same exact colors and color combinations, same shape, same proportions, same text, same logos, same design elements, same materials, same finish. DO NOT change any colors, DO NOT substitute different models or color variants, DO NOT modify the product itself in any way. The product must be pixel-perfect identical. Only change the background, lighting, and camera angle. If you cannot preserve the exact product, do not generate the image.`;
+      const enhancedPrompt = `${baseStylePrompt}. MANDATORY PRODUCT PRESERVATION: You MUST recreate the EXACT product from the reference image. Product specifications that are ABSOLUTELY REQUIRED: ${productDetails}. The product must be IDENTICAL to the reference image - same brand name, same exact model number, same exact colors and color combinations, same shape, same proportions, same text, same logos, same design elements, same materials, same finish. DO NOT change any colors, DO NOT substitute different models or color variants, DO NOT modify the product itself in any way. The product must be pixel-perfect identical. Only change the background, lighting, and camera angle. If you cannot preserve the exact product, do not generate the image.`;
 
       logger.log("Enhanced prompt created", {
         enhancedPrompt,
@@ -127,24 +128,45 @@ export const generateAndUploadImage = task({
         baseStylePrompt,
       });
 
-      // Use Flux with structured prompt
-      const generateParams: any = {
-        model: replicate.image(aiModel),
-        prompt: enhancedPrompt,
-        image: baseImageUrl, // Reference image for img2img
-        width: parseInt(size.split("x")[0]),
-        height: parseInt(size.split("x")[1]),
-        guidance_scale: guidance,
-        num_inference_steps: steps,
-        strength: strength,
-        seed: seed,
-        num_outputs: 1,
-        // Add negative prompt to prevent unwanted changes
-        negative_prompt:
-          "different product, wrong brand, different model, different colors, color variants, different shape, modified product, altered design, wrong text, different logo, fake product, generic product",
-      };
+      const token = await wait.createToken({
+        timeout: "10m",
+        tags: ["replicate"],
+      });
 
-      const { image } = await experimental_generateImage(generateParams);
+      // Use Flux with structured prompt
+      const output = await replicate.predictions.create({
+        model: "google/nano-banana",
+        input: { prompt: enhancedPrompt, image_input: [baseImageUrl] },
+        // pass the provided URL to Replicate's webhook, so they can "callback"
+        webhook: token.url,
+        webhook_events_filter: ["completed"],
+      });
+
+      const prediction = await wait.forToken<Prediction>(token);
+
+      if (!prediction.ok) {
+        throw new Error("Failed to create prediction");
+      }
+
+      logger.log("Prediction", prediction);
+
+      const imageUrl = prediction.output.output;
+
+      // const { image } = await experimental_generateImage({
+      //   model: replicate.image(aiModel),
+      //   prompt: enhancedPrompt,
+      //   image: baseImageUrl, // Reference image for img2img
+      //   width: parseInt(size.split("x")[0]),
+      //   height: parseInt(size.split("x")[1]),
+      //   guidance_scale: guidance,
+      //   num_inference_steps: steps,
+      //   strength: strength,
+      //   seed: seed,
+      //   num_outputs: 1,
+      //   // Add negative prompt to prevent unwanted changes
+      //   negative_prompt:
+      //     "different product, wrong brand, different model, different colors, color variants, different shape, modified product, altered design, wrong text, different logo, fake product, generic product",
+      // });
       logger.log("Image generated successfully");
 
       // Step 4: Upload to storage
@@ -154,8 +176,10 @@ export const generateAndUploadImage = task({
         message: "Uploading to storage...",
       });
 
-      const imageBuffer = Buffer.from(image.uint8Array);
-      const base64Image = imageBuffer.toString("base64");
+      const image = await fetch(imageUrl);
+      const imageBuffer = Buffer.from(await image.arrayBuffer());
+
+      const base64Image = Buffer.from(imageBuffer).toString("base64");
 
       const timestamp = Date.now();
       const filename = `generated-${timestamp}.png`;
@@ -178,7 +202,7 @@ export const generateAndUploadImage = task({
         bucket: process.env.R2_BUCKET,
         endpoint: process.env.R2_ENDPOINT,
         r2Key,
-        fileSize: imageBuffer.length,
+        fileSize: imageBuffer.byteLength,
         hasAccessKey: !!process.env.R2_ACCESS_KEY_ID,
         hasSecretKey: !!process.env.R2_SECRET_ACCESS_KEY,
       });
@@ -239,7 +263,7 @@ export const generateAndUploadImage = task({
       });
       metadata.set(
         "error",
-        error instanceof Error ? error.message : "Unknown error",
+        error instanceof Error ? error.message : "Unknown error"
       );
 
       logger.error("Failed to generate and upload image", {
