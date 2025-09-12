@@ -224,7 +224,6 @@ export default function ProductImageGenerator({
 
   return (
     <div className="min-h-screen bg-gray-100/20 ">
-      {/* Fixed Header */}
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto px-4">
           <div className="flex h-14 items-center justify-between">
@@ -253,11 +252,9 @@ export default function ProductImageGenerator({
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="container px-4 py-16 w-full mx-auto ">
         <div className="max-w-7xl mx-auto w">
-          {/* Page Title */}
-          <div className="mb-8 flex justify-between items-end">
+          <div className="mb-8 flex justify-between items-end gap-8">
             <div>
               <h2 className="text-3xl font-bold text-foreground mb-2">
                 Product Image Generator
@@ -288,9 +285,7 @@ export default function ProductImageGenerator({
             </div>
           </div>
 
-          {/* Top Row - Upload + 3 Generated Images */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            {/* Upload card stays square */}
             <UploadCard
               triggerToken={triggerToken}
               onUploadComplete={handleUploadComplete}
@@ -318,10 +313,8 @@ export default function ProductImageGenerator({
             />
           </div>
 
-          {/* Bottom Row - Sequential Custom Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {Array.from({ length: 4 }).map((_, index) => {
-              // Always show CustomPromptCard, let it handle its own states
               return (
                 <CustomPromptCard
                   key={`custom-prompt-${index}`}
@@ -338,15 +331,6 @@ export default function ProductImageGenerator({
                 />
               );
             })}
-          </div>
-
-          {/* Footer */}
-          <div className="mt-12 text-center">
-            {/* <p className="text-sm text-muted-foreground">
-              Powered by{" "}
-              <span className="font-medium text-primary">Trigger.dev</span> and{" "}
-              
-            </p> */}
           </div>
         </div>
       </main>
