@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { triggerGenerationTask } from "../actions";
-import type { generateAndUploadImage } from "../../src/trigger/generate-image-and-upload";
+import type { generateImage } from "../trigger/generate-image-and-upload";
 import type { ProductAnalysis } from "../types/trigger";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
@@ -46,7 +46,7 @@ export default function CustomPromptCard({
   const [isRegenerating, setIsRegenerating] = useState(false);
 
   // Subscribe to the run if we have a runId and token
-  const { run, error } = useRealtimeRun<typeof generateAndUploadImage>(
+  const { run, error } = useRealtimeRun<typeof generateImage>(
     runId ?? undefined,
     {
       accessToken: publicAccessToken ?? "",

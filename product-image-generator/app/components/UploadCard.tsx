@@ -3,7 +3,7 @@
 import { useRealtimeTaskTrigger } from "@trigger.dev/react-hooks";
 import { LucideLoader, Upload } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import type { uploadImageToR2 } from "../../src/trigger/upload-image-and-analyze";
+import type { uploadImageToR2 } from "../trigger/upload-image-and-analyze";
 import type {
   ProductAnalysis,
   UploadTaskMetadata,
@@ -11,146 +11,13 @@ import type {
 } from "../types/trigger";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
+import { ImageUploadDropzone } from "./ImageUploadButton";
 
-interface UploadCardProps {
-  triggerToken: string;
-  onUploadComplete?: (
-    imageUrl: string,
-    productAnalysis?: ProductAnalysis
-  ) => void;
-}
-
-export default function UploadCard({
-  triggerToken,
-  onUploadComplete,
-}: UploadCardProps) {
-  const [isDragOver, setIsDragOver] = useState(false);
-  const [hasNotifiedComplete, setHasNotifiedComplete] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Use realtime task trigger hook for immediate triggering
-  const { submit, run, error, isLoading } = useRealtimeTaskTrigger<
-    typeof uploadImageToR2
-  >("upload-image-and-analyze", {
-    accessToken: triggerToken,
-    enabled: Boolean(triggerToken),
-  });
-
-  // Derive UI state from run with proper types
-  const meta = run?.metadata as UploadTaskMetadata | undefined;
-  const progress = meta?.progress;
-  const output = run?.output as UploadTaskOutput | undefined;
-  const metadataResult = meta?.result;
-  const publicUrl = output?.publicUrl ?? metadataResult?.publicUrl;
-  const productAnalysis =
-    output?.productAnalysis ?? metadataResult?.productAnalysis;
-
-  // Clear local uploading state when run starts
-  useEffect(() => {
-    if (run?.id && isUploading) {
-      setIsUploading(false);
-    }
-  }, [run?.id, isUploading]);
-
-  // Notify parent when completed (only once)
-  useEffect(() => {
-    if (
-      run?.status === "COMPLETED" &&
-      publicUrl &&
-      onUploadComplete &&
-      !hasNotifiedComplete
-    ) {
-      onUploadComplete(publicUrl, productAnalysis);
-      setHasNotifiedComplete(true);
-    }
-  }, [
-    run?.status,
-    publicUrl,
-    productAnalysis,
-    onUploadComplete,
-    hasNotifiedComplete,
-    output,
-    metadataResult,
-    run,
-  ]);
-
-  // Upload image
-  const uploadImage = async (file: File) => {
-    try {
-      // Set loading state immediately
-      setIsUploading(true);
-      setHasNotifiedComplete(false);
-
-      // Convert file to base64
-      const bytes = await file.arrayBuffer();
-      const buffer = Buffer.from(bytes);
-      const base64 = buffer.toString("base64");
-
-      submit({
-        imageBuffer: base64,
-        fileName: file.name,
-        contentType: file.type,
-      });
-    } catch (err) {
-      console.error("Upload failed:", err);
-      setIsUploading(false);
-    }
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(true);
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(false);
-  };
-
-  const handleDrop = async (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(false);
-
-    const files = Array.from(e.dataTransfer.files);
-    const imageFile = files.find((file) => file.type.startsWith("image/"));
-
-    if (imageFile) {
-      await uploadImage(imageFile);
-    }
-  };
-
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file && file.type.startsWith("image/")) {
-      await uploadImage(file);
-    }
-  };
-
-  const handleReset = () => {
-    setHasNotifiedComplete(false);
-  };
-
+export default function UploadCard() {
   return (
-    <Card
-      className={`aspect-[3/4] border-2 border-dashed transition-colors cursor-pointer group relative overflow-hidden  ${
-        isDragOver
-          ? "border-gray-500 bg-gray-500/5"
-          : "border-gray-500 bg-card hover:border-gray-500/80"
-      } ${
-        isUploading ||
-        isLoading ||
-        run?.status === "EXECUTING" ||
-        run?.status === "QUEUED"
-          ? "pointer-events-none"
-          : ""
-      }`}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
-      onClick={() => !publicUrl && fileInputRef.current?.click()}
-    >
-      {publicUrl ? (
+    <div className="aspect-[3/4] w-full">
+      <ImageUploadDropzone />
+      {/* {publicUrl ? (
         // Show uploaded image
         <div className="h-full w-full relative group">
           <img
@@ -245,7 +112,7 @@ export default function UploadCard({
         accept="image/*"
         onChange={handleFileSelect}
         className="hidden"
-      />
-    </Card>
+      /> */}
+    </div>
   );
 }

@@ -15,9 +15,9 @@ import { useState, useEffect, useCallback } from "react";
 import { useRealtimeRun } from "@trigger.dev/react-hooks";
 import { triggerGenerationTask } from "../actions";
 import type {
-  generateAndUploadImage,
+  generateImage,
   StylePrompt,
-} from "../../src/trigger/generate-image-and-upload";
+} from "../trigger/generate-image-and-upload";
 import type { ProductAnalysis } from "../types/trigger";
 
 interface GeneratedCardProps {
@@ -53,7 +53,7 @@ export default function GeneratedCard({
   );
 
   // Subscribe to the run if we have a runId and token
-  const { run, error } = useRealtimeRun<typeof generateAndUploadImage>(
+  const { run, error } = useRealtimeRun<typeof generateImage>(
     runId ?? undefined,
     {
       accessToken: publicAccessToken ?? "",

@@ -1,208 +1,24 @@
 "use client";
 
-import {
-  Download,
-  Home,
-  ImageIcon,
-  Settings,
-  User,
-  WandSparklesIcon,
-} from "lucide-react";
+import { Download, Home, Settings, User, WandSparklesIcon } from "lucide-react";
 import { useState } from "react";
 import CustomPromptCard from "./components/CustomPromptCard";
 import GeneratedCard from "./components/GeneratedCard";
 import { Button } from "./components/ui/button";
-import { Card } from "./components/ui/card";
 import UploadCard from "./components/UploadCard";
 import type { ProductAnalysis } from "./types/trigger";
+import { useSearchParams } from "next/navigation";
 
-interface ProductImageGeneratorProps {
-  triggerToken: string;
-}
+const promptTitles = {
+  "isolated-table": "Clean Product Shot",
+  "lifestyle-scene": "Lifestyle Scene",
+  "hero-shot": "Hero Shot",
+};
 
-export default function ProductImageGenerator({
-  triggerToken,
-}: ProductImageGeneratorProps) {
-  const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null);
-  const [productAnalysis, setProductAnalysis] =
-    useState<ProductAnalysis | null>(null);
-
-  // Track all generated images
-  const [generatedImages, setGeneratedImages] = useState<{
-    [key: string]: { runId: string; prompt: string; imageUrl?: string };
-  }>({});
-
-  // Track custom generations for bottom row
-  const [customGenerations, setCustomGenerations] = useState<{
-    runIds: (string | null)[];
-    prompts: (string | null)[];
-  }>({
-    runIds: [null, null, null, null],
-    prompts: [null, null, null, null],
-  });
-
-  const handleUploadComplete = (
-    imageUrl: string,
-    productAnalysis?: ProductAnalysis
-  ) => {
-    setUploadedImageUrl(imageUrl);
-    if (productAnalysis) {
-      setProductAnalysis(productAnalysis);
-    }
-  };
-
-  const handleGenerationComplete = (
-    runId: string,
-    prompt: string,
-    imageUrl?: string,
-    key?: string
-  ) => {
-    console.log("Generation completed:", { runId, prompt, imageUrl, key });
-    setGeneratedImages((prev) => {
-      const updated = {
-        ...prev,
-        [key || runId]: { runId, prompt, imageUrl },
-      };
-      console.log("Updated generated images:", updated);
-      return updated;
-    });
-  };
-
-  const handleCustomGenerationComplete = (
-    runId: string,
-    prompt: string,
-    index: number,
-    imageUrl?: string
-  ) => {
-    setCustomGenerations((prev) => ({
-      runIds: prev.runIds.map((id, i) => (i === index ? runId : id)),
-      prompts: prev.prompts.map((p, i) => (i === index ? prompt : p)),
-    }));
-    handleGenerationComplete(runId, prompt, imageUrl, `custom-${index}`);
-  };
-
-  const handlePresetGenerationComplete = (
-    runId: string,
-    promptId: string,
-    promptTitle: string,
-    imageUrl?: string
-  ) => {
-    handleGenerationComplete(runId, promptTitle, imageUrl, promptId);
-  };
-
-  const handleDownloadAll = async () => {
-    console.log("Download button clicked!");
-    console.log("Generated images:", generatedImages);
-    console.log("Total generated images:", totalGeneratedImages);
-
-    if (totalGeneratedImages === 0) {
-      console.log("No images to download");
-      return;
-    }
-
-    try {
-      // For a single image, download directly
-      if (totalGeneratedImages === 1) {
-        const imageData = Object.values(generatedImages)[0];
-        console.log("Single image data:", imageData);
-
-        if (imageData.imageUrl) {
-          console.log("Downloading single image:", imageData.imageUrl);
-
-          // Try to fetch the image first to handle CORS
-          try {
-            const response = await fetch(imageData.imageUrl);
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
-
-            const link = document.createElement("a");
-            link.href = url;
-            link.download = `${imageData.prompt
-              .replace(/\s+/g, "-")
-              .toLowerCase()}-${Date.now()}.png`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-
-            // Clean up the blob URL
-            window.URL.revokeObjectURL(url);
-          } catch (fetchError) {
-            console.log("Fetch failed, trying direct download:", fetchError);
-            // Fallback to direct download
-            const link = document.createElement("a");
-            link.href = imageData.imageUrl;
-            link.download = `${imageData.prompt
-              .replace(/\s+/g, "-")
-              .toLowerCase()}-${Date.now()}.png`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-          }
-        } else {
-          console.log("No image URL found for single image");
-        }
-        return;
-      }
-
-      // For multiple images, download each individually
-      console.log("Downloading multiple images...");
-      Object.entries(generatedImages).forEach(([key, imageData], index) => {
-        console.log(`Image ${index + 1}:`, key, imageData);
-
-        if (imageData.imageUrl) {
-          setTimeout(async () => {
-            try {
-              console.log(
-                `Downloading image ${index + 1}:`,
-                imageData.imageUrl
-              );
-
-              // Try to fetch the image first to handle CORS
-              const response = await fetch(imageData.imageUrl!);
-              const blob = await response.blob();
-              const url = window.URL.createObjectURL(blob);
-
-              const link = document.createElement("a");
-              link.href = url;
-              link.download = `${imageData.prompt
-                .replace(/\s+/g, "-")
-                .toLowerCase()}-${Date.now()}-${index + 1}.png`;
-              document.body.appendChild(link);
-              link.click();
-              document.body.removeChild(link);
-
-              // Clean up the blob URL
-              window.URL.revokeObjectURL(url);
-            } catch (fetchError) {
-              console.log(
-                `Fetch failed for image ${index + 1}, trying direct download:`,
-                fetchError
-              );
-              // Fallback to direct download
-              const link = document.createElement("a");
-              link.href = imageData.imageUrl!;
-              link.download = `${imageData.prompt
-                .replace(/\s+/g, "-")
-                .toLowerCase()}-${Date.now()}-${index + 1}.png`;
-              document.body.appendChild(link);
-              link.click();
-              document.body.removeChild(link);
-            }
-          }, index * 1000); // Stagger downloads by 1 second
-        } else {
-          console.log(`No image URL found for image ${index + 1}`);
-        }
-      });
-    } catch (error) {
-      console.error("Failed to download images:", error);
-    }
-  };
-
-  const promptTitles = {
-    "isolated-table": "Clean Product Shot",
-    "lifestyle-scene": "Lifestyle Scene",
-    "hero-shot": "Hero Shot",
-  };
+export default function ProductImageGenerator() {
+  const searchParams = useSearchParams();
+  const publicAccessToken = searchParams.get("publicAccessToken");
+  const fileUrl = searchParams.get("fileUrl");
 
   // Calculate total generated images
   const totalGeneratedImages = Object.keys(generatedImages).length;
@@ -286,10 +102,7 @@ export default function ProductImageGenerator({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <UploadCard
-              triggerToken={triggerToken}
-              onUploadComplete={handleUploadComplete}
-            />
+            <UploadCard />
             <GeneratedCard
               baseImageUrl={uploadedImageUrl}
               productAnalysis={productAnalysis}
