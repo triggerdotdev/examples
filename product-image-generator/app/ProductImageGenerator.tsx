@@ -1,13 +1,10 @@
 "use client";
 
 import { Download, Home, Settings, User, WandSparklesIcon } from "lucide-react";
-import { useState } from "react";
-import CustomPromptCard from "./components/CustomPromptCard";
+import { useSearchParams } from "next/navigation";
 import GeneratedCard from "./components/GeneratedCard";
 import { Button } from "./components/ui/button";
 import UploadCard from "./components/UploadCard";
-import type { ProductAnalysis } from "./types/trigger";
-import { useSearchParams } from "next/navigation";
 
 const promptTitles = {
   "isolated-table": "Clean Product Shot",
@@ -19,24 +16,7 @@ export default function ProductImageGenerator() {
   const searchParams = useSearchParams();
   const publicAccessToken = searchParams.get("publicAccessToken");
   const fileUrl = searchParams.get("fileUrl");
-
-  // Calculate total generated images
-  const totalGeneratedImages = Object.keys(generatedImages).length;
-  const hasGeneratedImages = totalGeneratedImages > 0;
-
-  // Determine which custom cards have completed generations
-  const completedCustomCards = customGenerations.runIds.filter(
-    (runId) => runId !== null
-  ).length;
-
-  // Find the next available custom card slot
-  const nextCustomCardIndex = customGenerations.runIds.findIndex(
-    (runId) => runId === null
-  );
-
-  // Check if top row is complete (upload + 3 generated images)
-  const topRowGenerationsComplete =
-    uploadedImageUrl && productAnalysis ? true : false;
+  const runId = searchParams.get("runId");
 
   return (
     <div className="min-h-screen bg-gray-100/20 ">
@@ -81,22 +61,9 @@ export default function ProductImageGenerator() {
               </p>
             </div>
             <div>
-              <Button
-                variant={hasGeneratedImages ? "default" : "outline"}
-                disabled={!hasGeneratedImages}
-                onClick={handleDownloadAll}
-                className={
-                  !hasGeneratedImages
-                    ? "opacity-50 cursor-not-allowed"
-                    : "cursor-pointer"
-                }
-              >
+              <Button variant={"default"} className={"cursor-pointer"}>
                 <Download className="h-4 w-4 mr-1" />
-                {hasGeneratedImages
-                  ? `Download ${totalGeneratedImages} image${
-                      totalGeneratedImages === 1 ? "" : "s"
-                    } `
-                  : "Download images"}
+                Download images
               </Button>
             </div>
           </div>
@@ -104,29 +71,26 @@ export default function ProductImageGenerator() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <UploadCard />
             <GeneratedCard
-              baseImageUrl={uploadedImageUrl}
-              productAnalysis={productAnalysis}
-              promptId="isolated-table"
+              id="isolated-table"
+              runId={runId ?? undefined}
+              accessToken={publicAccessToken ?? undefined}
               promptTitle={promptTitles["isolated-table"]}
-              onGenerationComplete={handlePresetGenerationComplete}
             />
             <GeneratedCard
-              baseImageUrl={uploadedImageUrl}
-              productAnalysis={productAnalysis}
-              promptId="lifestyle-scene"
+              id="lifestyle-scene"
+              runId={runId ?? undefined}
+              accessToken={publicAccessToken ?? undefined}
               promptTitle={promptTitles["lifestyle-scene"]}
-              onGenerationComplete={handlePresetGenerationComplete}
             />
             <GeneratedCard
-              baseImageUrl={uploadedImageUrl}
-              productAnalysis={productAnalysis}
-              promptId="hero-shot"
+              id="hero-shot"
+              runId={runId ?? undefined}
+              accessToken={publicAccessToken ?? undefined}
               promptTitle={promptTitles["hero-shot"]}
-              onGenerationComplete={handlePresetGenerationComplete}
             />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {/* <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {Array.from({ length: 4 }).map((_, index) => {
               return (
                 <CustomPromptCard
@@ -144,7 +108,7 @@ export default function ProductImageGenerator() {
                 />
               );
             })}
-          </div>
+          </div> */}
         </div>
       </main>
     </div>
