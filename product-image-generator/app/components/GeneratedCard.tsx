@@ -117,30 +117,6 @@ export function GeneratedCard({
               ? "Generating..."
               : "Waiting for upload..."}
           </p>
-
-          {/* {status === "generating" && (
-            <>
-              <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
-                <div
-                  className="bg-primary h-2 rounded-full transition-all duration-300"
-                  style={{
-                    width: run?.metadata
-                      ? `${
-                          (run?.metadata?.get(`${id}.progress`)?.step /
-                            run?.metadata?.get(`${id}.progress`)?.total) *
-                          100
-                        }%`
-                      : "0",
-                  }}
-                ></div>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {progress
-                  ? `Step ${progress.step} of ${progress.total}`
-                  : "Starting..."}
-              </p>
-            </>
-          )} */}
         </div>
       )}
     </Card>

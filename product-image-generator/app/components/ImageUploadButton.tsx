@@ -25,6 +25,7 @@ export function ImageUploadDropzone() {
             );
             searchParams.set("fileUrl", firstFile.serverData.fileUrl);
             searchParams.set("runId", firstFile.serverData.runId);
+            searchParams.set("triggerToken", firstFile.serverData.triggerToken);
 
             router.push(`?${searchParams.toString()}`);
           }

@@ -15,8 +15,6 @@ const s3Client = new S3Client({
   },
 });
 
-const aiModel = "black-forest-labs/flux-dev";
-
 const stylePrompts = {
   "isolated-table": `Professional product photography on clean white table with studio lighting, minimalist background, commercial style`,
   "lifestyle-scene": `Lifestyle product photography of a person of any gender or ethnicity in the sunshine holding the product in their hand with a big smile on their face - they should be pointing to the product. This should be a cool lifestyle shot`,
@@ -60,7 +58,7 @@ export const generateImages = task({
 });
 
 export const generateImage = task({
-  id: "generate-image-and-upload",
+  id: "generate-image",
   run: async (payload: GeneratePayload) => {
     const { promptStyle, baseImageUrl, customPrompt } = payload;
 

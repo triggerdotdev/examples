@@ -51,12 +51,17 @@ export const ourFileRouter = {
         ],
       });
 
+      const triggerToken = await auth.createTriggerPublicToken(
+        "generate-image"
+      );
+
       console.log("Generated access token:", publicAccessToken);
 
       // !!! Whatever is returned here is sent to the clientside `onClientUploadComplete` callback
       return {
         uploadedBy: metadata.userId,
         publicAccessToken,
+        triggerToken,
         runId: id,
         fileId: file.key,
         fileUrl: file.ufsUrl,
