@@ -1,10 +1,7 @@
 "use server";
 
 import { auth, tasks } from "@trigger.dev/sdk";
-import type {
-  generateImage,
-  StylePrompt,
-} from "./trigger/generate-image-and-upload";
+import type { generateImage, StylePrompt } from "./trigger/generate-images";
 import type { uploadImageToR2 } from "./trigger/upload-image-and-analyze";
 import type { ProductAnalysis } from "./types/trigger";
 

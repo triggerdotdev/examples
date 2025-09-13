@@ -2,9 +2,9 @@
 
 import { Download, Home, Settings, User, WandSparklesIcon } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import GeneratedCard from "./components/GeneratedCard";
+import { GeneratedCard } from "./components/GeneratedCard";
 import { Button } from "./components/ui/button";
-import UploadCard from "./components/UploadCard";
+import { UploadCard } from "./components/UploadCard";
 
 const promptTitles = {
   "isolated-table": "Clean Product Shot",
@@ -12,7 +12,7 @@ const promptTitles = {
   "hero-shot": "Hero Shot",
 };
 
-export default function ProductImageGenerator() {
+export function ProductImageGenerator() {
   const searchParams = useSearchParams();
   const publicAccessToken = searchParams.get("publicAccessToken");
   const fileUrl = searchParams.get("fileUrl");
@@ -69,7 +69,11 @@ export default function ProductImageGenerator() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <UploadCard />
+            <UploadCard
+              runId={runId ?? undefined}
+              accessToken={publicAccessToken ?? undefined}
+              fileUrl={fileUrl ?? undefined}
+            />
             <GeneratedCard
               id="isolated-table"
               runId={runId ?? undefined}

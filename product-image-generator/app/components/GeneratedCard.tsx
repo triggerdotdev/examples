@@ -1,25 +1,11 @@
 "use client";
 
+import { useRealtimeRun } from "@trigger.dev/react-hooks";
+import { Download, Expand, ImageIcon, Loader2, RefreshCw } from "lucide-react";
+import z from "zod";
+import type { generateImage } from "../trigger/generate-images";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
-import {
-  Download,
-  RefreshCw,
-  Expand,
-  ImageIcon,
-  Sparkles,
-  LucideLoader,
-  Loader2,
-} from "lucide-react";
-import { useState, useEffect, useCallback } from "react";
-import { useRealtimeRun } from "@trigger.dev/react-hooks";
-import { triggerGenerationTask } from "../actions";
-import type {
-  generateImage,
-  StylePrompt,
-} from "../trigger/generate-image-and-upload";
-import type { ProductAnalysis } from "../types/trigger";
-import z from "zod";
 
 interface GeneratedCardProps {
   id: string;
@@ -28,7 +14,7 @@ interface GeneratedCardProps {
   promptTitle: string;
 }
 
-export default function GeneratedCard({
+export function GeneratedCard({
   id,
   runId,
   accessToken,
@@ -161,7 +147,7 @@ export default function GeneratedCard({
   );
 }
 
-export const MetadataSchema = z.object({
+const MetadataSchema = z.object({
   status: z.union([
     z.literal("starting"),
     z.literal("generating"),

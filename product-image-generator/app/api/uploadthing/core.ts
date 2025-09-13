@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import { createUploadthing, type FileRouter } from "uploadthing/next";
 import { UploadThingError } from "uploadthing/server";
-import type { generateImages } from "@/trigger/generate-image-and-upload";
+import type { generateImages } from "@/trigger/generate-images";
 import { auth, tasks } from "@trigger.dev/sdk/v3";
 
 const f = createUploadthing();

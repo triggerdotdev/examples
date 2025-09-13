@@ -211,7 +211,6 @@ export const generateImage = task({
       r2Key: uploadOutput.r2Key,
       imageSize: imageBuffer.length,
       contentType: "image/png",
-
       promptStyle,
       baseImageUrl,
     };

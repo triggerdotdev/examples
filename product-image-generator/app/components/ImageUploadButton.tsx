@@ -1,13 +1,14 @@
 "use client";
 
 import { UploadButton } from "@/lib/uploadthing";
+import { Upload } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 export function ImageUploadDropzone() {
   const router = useRouter();
 
   return (
-    <div className="h-full w-full flex items-center justify-center">
+    <div className="aspect-[3/4] border transition-colors relative overflow-hidden group bg-card p-0 rounded-lg">
       <UploadButton
         endpoint="imageUploader"
         onClientUploadComplete={(res) => {
@@ -32,7 +33,18 @@ export function ImageUploadDropzone() {
           // Do something with the error.
           console.error(`ERROR! ${error.message}`);
         }}
-        className="bg-white border-2 border-dashed border-gray-300 hover:border-gray-400 rounded-lg px-8 py-12 text-center transition-colors cursor-pointer min-h-[200px] min-w-[300px] flex items-center justify-center"
+        className="h-full w-full flex flex-col items-center justify-center p-6 ut-button:bg-purple-500/60 ut-button:gap-1 ut-button:flex ut-button:items-center ut-button:justify-center ut-button:space-y-4 text-center bg-card hover:bg-card/80 transition-colors cursor-pointer"
+        content={{
+          button: (
+            <>
+              <Upload className="h-4 w-4 text-white m-0" />
+              <span className="block text-sm font-medium text-white mb-0">
+                Upload Image
+              </span>
+            </>
+          ),
+          allowedContent: "Images up to 4MB",
+        }}
       />
     </div>
   );
