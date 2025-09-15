@@ -96,7 +96,7 @@ Trigger.dev orchestrates the image generation workflow through two main tasks:
 ## Learn more
 
 - [**Trigger.dev waitpoints**](https://trigger.dev/docs/wait-for-token) – pause tasks for async webhook callbacks
-- [**Trigger.dev React hooks**](https://trigger.dev/docs/frontend/react-hooks) – real-time task updates and frontend integration
-- [**Trigger.dev batch operations**](https://trigger.dev/docs/tasks/batch-trigger) – parallel task execution patterns
+- [**Trigger.dev React hooks**](https://trigger.dev/docs/realtime/react-hooks/overview) – real-time task updates and frontend integration
+- [**Trigger.dev batch operations**](https://trigger.dev/docs//triggering#tasks-batchtrigger) – parallel task execution patterns
 - [**Replicate API**](https://replicate.com/docs/get-started/nextjs) – AI model integration and webhook handling
 - [**UploadThing**](https://docs.uploadthing.com/) – file upload handling and server callbacks
