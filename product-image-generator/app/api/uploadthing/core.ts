@@ -2,7 +2,7 @@ import { randomUUID } from "crypto";
 import { createUploadthing, type FileRouter } from "uploadthing/next";
 import { UploadThingError } from "uploadthing/server";
 import type { generateImages } from "@/trigger/generate-images";
-import { auth, tasks } from "@trigger.dev/sdk/v3";
+import { auth, tasks } from "@trigger.dev/sdk";
 
 const f = createUploadthing();
 
@@ -49,7 +49,11 @@ export const ourFileRouter = {
       });
 
       const triggerToken = await auth.createTriggerPublicToken(
-        "generate-image"
+        "generate-image",
+        {
+          expirationTime: "20m",
+          multipleUse: true, // not recommended without an expiration time
+        },
       );
 
       // !!! Whatever is returned here is sent to the clientside `onClientUploadComplete` callback
