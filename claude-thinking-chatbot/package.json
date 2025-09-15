@@ -43,7 +43,7 @@
     "@trigger.dev/sdk": "^3.3.16",
     "@types/react": "latest",
     "@types/react-dom": "latest",
-    "ai": "^4.1.46",
+    "ai": "^5.0.43",
     "autoprefixer": "^10.4.20",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
