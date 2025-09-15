@@ -33,11 +33,10 @@ AI-powered product image generator that transforms basic product photos into pro
 
    Fill in the required variables:
 
-   - `TRIGGER_SECRET_KEY` – Get from [Trigger.dev dashboard](https://trigger.dev/)
+   - `TRIGGER_SECRET_KEY` – Get from [Trigger.dev dashboard](https://cloud.trigger.dev/)
    - `REPLICATE_API_TOKEN` – Get from [Replicate](https://replicate.com/account/api-tokens)
    - `UPLOADTHING_TOKEN` – Get from [UploadThing](https://uploadthing.com/)
    - `R2_ACCOUNT_ID`, `R2_BUCKET`, `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_PUBLIC_URL` – Configure Cloudflare R2 storage
-   - `OPENAI_API_KEY` – Get from [OpenAI](https://platform.openai.com/api-keys) (optional, for future features)
 
 4. **Add Trigger.dev project reference**
 
