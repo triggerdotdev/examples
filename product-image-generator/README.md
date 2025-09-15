@@ -1,4 +1,4 @@
-# Product Image Generator using Trigger.dev and Replicate
+# Product image generator using Trigger.dev and Replicate
 
 AI-powered product image generator that transforms basic product photos into professional marketing shots using Replicate's image generation models and Trigger.dev for task orchestration.
 
@@ -9,6 +9,10 @@ AI-powered product image generator that transforms basic product photos into pro
 - [**Trigger.dev**](https://trigger.dev/docs) – background task orchestration
 - [**UploadThing**](https://uploadthing.com/) – file upload handling
 - [**Cloudflare R2**](https://developers.cloudflare.com/r2/) – image storage
+
+## Video 
+
+https://github.com/user-attachments/assets/53e0a8f4-98ee-4bf0-a5ac-f1ec0c5708e2
 
 ## Setup & Running locally
 
