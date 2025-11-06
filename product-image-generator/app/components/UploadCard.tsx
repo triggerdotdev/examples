@@ -30,7 +30,7 @@ export function UploadCard({ runId, accessToken, fileUrl }: UploadCardProps) {
           <img
             src={fileUrl}
             alt="Uploaded image"
-            className="h-full w-full object-contain rounded-lg bg-gray-50"
+            className="h-full w-full object-cover rounded-lg bg-gray-50"
           />
           {run?.isCompleted && (
             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
