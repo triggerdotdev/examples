@@ -53,20 +53,11 @@ export function GeneratedCard({
               size="sm"
               variant="secondary"
               className="w-8 h-8 rounded-full p-0 backdrop-blur-sm bg-white/90 hover:bg-white"
-              onClick={() => window.open(run?.output?.publicUrl, "_blank")}
-              disabled={isGenerating}
+              onClick={() => window.open(metadata?.result?.publicUrl, "_blank")}
+              disabled={!metadata?.result?.publicUrl}
               title="View full size"
             >
               <Expand className="h-4 w-4" />
-            </Button>
-            <Button
-              size="sm"
-              variant="secondary"
-              className="w-8 h-8 rounded-full p-0 backdrop-blur-sm bg-white/90 hover:bg-white"
-              disabled={isGenerating}
-              title="Download image"
-            >
-              <Download className="h-4 w-4" />
             </Button>
           </div>
           {/* Title overlay */}
