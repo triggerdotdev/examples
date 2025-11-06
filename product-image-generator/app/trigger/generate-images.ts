@@ -74,7 +74,11 @@ export const generateImage = task({
     // Generate image
     await replicate.predictions.create({
       model: "google/nano-banana",
-      input: { prompt: enhancedPrompt, image_input: [baseImageUrl] },
+      input: {
+        prompt: enhancedPrompt,
+        image_input: [baseImageUrl],
+        aspect_ratio: "3:4",
+      },
       // pass the provided URL to Replicate's webhook, so they can "callback"
       webhook: token.url,
       webhook_events_filter: ["completed"],
