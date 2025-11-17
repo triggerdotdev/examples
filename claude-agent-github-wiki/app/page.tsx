@@ -32,9 +32,26 @@ export default function Home() {
   const [url, setUrl] = useState("");
   const router = useRouter();
 
-  const handleSubmit = (repoUrl: string) => {
-    const runId = Math.random().toString(36).substring(7);
-    router.push(`/chat/${runId}?repo=${encodeURIComponent(repoUrl)}`);
+  const handleSubmit = async (repoUrl: string) => {
+    try {
+      const response = await fetch("/api/analyze-repo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ githubUrl: repoUrl }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        alert(error.error || "Failed to start cloning");
+        return;
+      }
+
+      const { cloneRunId } = await response.json();
+      router.push(`/cloning/${cloneRunId}`);
+    } catch (error) {
+      console.error("Failed to clone repo:", error);
+      alert("Failed to start cloning. Please try again.");
+    }
   };
 
   return (

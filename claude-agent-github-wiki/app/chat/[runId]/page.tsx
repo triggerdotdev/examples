@@ -10,6 +10,9 @@ import { Send, StopCircle, Github, MessageSquare } from "lucide-react";
 import { UserMessage } from "@/components/chat/user-message";
 import { AiMessage } from "@/components/chat/ai-message";
 import { ToolCard } from "@/components/chat/tool-card";
+import { useRealtimeStream } from "@trigger.dev/react-hooks";
+import { agentStream } from "@/trigger/chat-with-repo";
+import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 
 type Message = {
   id: string;
@@ -20,6 +23,31 @@ type Message = {
   toolResult?: string;
   timestamp: Date;
 };
+
+function transformSDKMessage(sdkMsg: SDKMessage, index: number): Message | null {
+  if (sdkMsg.type === 'assistant') {
+    for (const block of sdkMsg.message.content) {
+      if (block.type === 'text') {
+        return {
+          id: `ai-${index}`,
+          type: 'ai',
+          content: block.text,
+          timestamp: new Date(),
+        };
+      } else if (block.type === 'tool_use') {
+        return {
+          id: `tool-${index}`,
+          type: 'tool',
+          content: '',
+          toolName: block.name,
+          toolInput: block.input,
+          timestamp: new Date(),
+        };
+      }
+    }
+  }
+  return null;
+}
 
 const mockMessages: Message[] = [
   {
@@ -91,15 +119,36 @@ The codebase shows extensive server-side rendering capabilities and a robust bui
   },
 ];
 
-export default function ChatPage() {
-  const searchParams = useSearchParams();
-  const repo = searchParams.get("repo") || "";
-  const [messages, setMessages] = useState<Message[]>(mockMessages);
+export default function ChatPage({ params }: { params: { runId: string } }) {
+  const cloneRunId = params.runId;
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isRunning, setIsRunning] = useState(false);
+  const [repoName, setRepoName] = useState<string>("");
+  const [error, setError] = useState<string>("");
+  const [chatRunId, setChatRunId] = useState<string | null>(null);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const repoName = repo.split("/").slice(-2).join("/").replace(".git", "");
+  // Subscribe to realtime stream
+  const { parts, error: streamError } = useRealtimeStream(
+    agentStream,
+    chatRunId ?? '',
+    {
+      accessToken: accessToken ?? undefined,
+      enabled: !!chatRunId && !!accessToken,
+      timeoutInSeconds: 600,
+      throttleInMs: 50,
+    }
+  );
+
+  // Transform stream parts directly - NO useEffect
+  const streamMessages = parts
+    .map((msg, idx) => transformSDKMessage(msg, idx))
+    .filter((msg): msg is Message => msg !== null);
+
+  // Combine with user messages
+  const allMessages = [...messages, ...streamMessages];
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -107,30 +156,43 @@ export default function ChatPage() {
     }
   }, [messages]);
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!input.trim() || isRunning) return;
 
-    const newMessage: Message = {
+    const userMessage: Message = {
       id: Date.now().toString(),
       type: "user",
       content: input,
       timestamp: new Date(),
     };
 
-    setMessages((prev) => [...prev, newMessage]);
+    setMessages((prev) => [...prev, userMessage]);
+    const query = input;
     setInput("");
     setIsRunning(true);
 
-    setTimeout(() => {
-      const aiResponse: Message = {
-        id: (Date.now() + 1).toString(),
-        type: "ai",
-        content: "This is a demo. In a real implementation, the AI would analyze the repository and provide insights based on the codebase.",
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, aiResponse]);
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cloneRunId, query }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to send message");
+      }
+
+      const { chatRunId, accessToken, repoName: repo } = await response.json();
+      if (repo && !repoName) setRepoName(repo);
+
+      // Store for streaming
+      setChatRunId(chatRunId);
+      setAccessToken(accessToken);
+    } catch (err: any) {
+      setError(err.message || "Failed to send message");
       setIsRunning(false);
-    }, 2000);
+    }
   };
 
   const handleAbort = () => {
@@ -143,16 +205,9 @@ export default function ChatPage() {
         <Github className="w-5 h-5" />
         <div className="flex items-center gap-2 flex-1">
           <span className="font-semibold">{repoName || "Repository"}</span>
-          {repo && (
-            <Badge variant="secondary" className="font-normal">
-              <a
-                href={repo}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hover:underline"
-              >
-                {repo}
-              </a>
+          {cloneRunId && (
+            <Badge variant="secondary" className="font-normal text-xs">
+              Clone ID: {cloneRunId.substring(0, 8)}...
             </Badge>
           )}
         </div>
@@ -160,13 +215,13 @@ export default function ChatPage() {
 
       <ScrollArea className="flex-1 px-6" ref={scrollRef}>
         <div className="max-w-4xl mx-auto py-6 space-y-6">
-          {messages.length === 0 ? (
+          {allMessages.length === 0 ? (
             <div className="text-center text-muted-foreground py-12">
               <MessageSquare className="w-12 h-12 mx-auto mb-4 opacity-50" />
               <p className="text-lg">Ask a question about this repository</p>
             </div>
           ) : (
-            messages.map((message) => {
+            allMessages.map((message) => {
               if (message.type === "user") {
                 return <UserMessage key={message.id} content={message.content} />;
               } else if (message.type === "ai") {
