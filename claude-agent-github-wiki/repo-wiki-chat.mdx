@@ -1,0 +1,292 @@
+# Repo Wiki Chat
+
+**One-liner:** Production-ready demo showing Claude Agent SDK + Trigger.dev Realtime Streams v2 + Supabase Broadcast for chatting with GitHub repos
+
+---
+
+## Problem
+
+Developers need to understand how to build long-running AI agents that maintain state across multiple interactions, using Trigger.dev's advanced features like build extensions and Realtime Streams v2.
+
+## Solution
+
+Two-task architecture: Task 1 clones repo with git build extension → Task 2 maintains repo in memory for 60 minutes → Questions flow via Supabase Broadcast → Responses stream via Trigger.dev Streams v2.
+
+## Core Hypothesis
+
+Developers can learn advanced Trigger.dev patterns (build extensions, long-running tasks, hybrid streaming) through a practical demo that solves the "re-cloning problem" in repo chat applications.
+
+## Target Users
+
+Developers building production AI applications with Trigger.dev v4, especially those needing:
+- Long-running stateful tasks
+- Build extensions for system dependencies
+- Hybrid realtime architectures
+- Claude Agent SDK integration
+
+---
+
+## Architecture Overview
+
+### Two-Task System
+
+**Task 1: clone-repo**
+- Uses build extension to install git via apt-get
+- Performs shallow clone (depth=1)
+- Generates unique sessionId
+- Returns tempDir, sessionId, repoName
+
+**Task 2: repo-chat-session**
+- Long-running (60 minute timeout)
+- Maintains cloned repo in memory
+- Listens for questions via Supabase Broadcast (control plane)
+- Streams responses via Trigger.dev Streams v2 (data plane)
+- Cleans up on exit
+
+### Data Flow
+
+```
+Frontend → Supabase Broadcast → Task 2 (question)
+Task 2 → Trigger.dev Streams v2 → Frontend (response)
+```
+
+**Why this architecture?**
+- Repo stays in memory = no re-cloning
+- Supabase handles bidirectional communication
+- Trigger.dev Streams v2 handles main data flow
+- 90% of data flows through Trigger.dev (showcases Streams v2)
+
+---
+
+## Implementation Details
+
+### Build Extension (trigger.config.ts)
+
+```typescript
+import { defineConfig } from "@trigger.dev/sdk/v3";
+import { aptGet } from "@trigger.dev/build/extensions/core";
+
+export default defineConfig({
+  build: {
+    extensions: [aptGet({ packages: ["git"] })],
+  },
+  maxDuration: 3600, // 60 minutes
+});
+```
+
+### Task 1: Clone Repository
+
+```typescript
+export const cloneRepo = schemaTask({
+  id: "clone-repo",
+  schema: z.object({ githubUrl: z.string().url() }),
+  run: async ({ githubUrl }) => {
+    const tempDir = await mkdtemp(join(tmpdir(), "repo-"));
+    const sessionId = generateSessionId();
+
+    // Shallow clone with build extension git
+    await execAsync(`git clone --depth=1 --single-branch "${githubUrl}" "${tempDir}/repo"`);
+
+    return { tempDir: join(tempDir, "repo"), sessionId, repoName };
+  },
+});
+```
+
+### Task 2: Chat Session (Hybrid Streaming)
+
+```typescript
+export const repoChatSession = schemaTask({
+  id: "repo-chat-session",
+  schema: z.object({
+    tempDir: z.string(),
+    sessionId: z.string(),
+    repoName: z.string(),
+  }),
+  maxDuration: 3600,
+  run: async ({ tempDir, sessionId, repoName }, { signal }) => {
+    // Trigger Streams v2 for responses
+    const streamHandle = agentStream.pipe(sessionId);
+
+    // Supabase for receiving questions
+    const channel = supabase.channel(`session:${sessionId}`);
+
+    channel.on('broadcast', { event: 'question' }, async ({ payload }) => {
+      const result = query({
+        prompt: payload.question,
+        options: { cwd: tempDir, /* Claude options */ }
+      });
+
+      // Stream all responses via Trigger.dev
+      for await (const message of result) {
+        streamHandle.write(message);
+      }
+    }).subscribe();
+
+    // Keep alive until abort
+    await waitForAbort(signal);
+
+    // Cleanup
+    await rm(tempDir, { recursive: true });
+  },
+});
+```
+
+### API Route: Orchestration
+
+```typescript
+// POST /api/analyze-repo
+const cloneHandle = await tasks.trigger("clone-repo", { githubUrl });
+const cloneResult = await pollForCompletion(cloneHandle.id);
+
+const chatHandle = await tasks.trigger("repo-chat-session", {
+  tempDir: cloneResult.output.tempDir,
+  sessionId: cloneResult.output.sessionId,
+  repoName: cloneResult.output.repoName,
+});
+
+const accessToken = await createPublicToken({ runs: [chatHandle.id] });
+
+return { sessionId, chatRunId: chatHandle.id, accessToken, repoName };
+```
+
+### Frontend: Hybrid Consumption
+
+```typescript
+// Receive responses via Trigger.dev Streams v2
+const { parts } = useRealtimeStream(agentStream, chatRunId, { accessToken });
+
+// Send questions via Supabase
+const channel = supabase.channel(`session:${sessionId}`);
+channel.send({
+  type: 'broadcast',
+  event: 'question',
+  payload: { question, messageId }
+});
+```
+
+---
+
+## Key Features Demonstrated
+
+### Trigger.dev Features
+- **Build Extensions**: Install system dependencies (git) in containers
+- **Long-running Tasks**: 60-minute sessions with state persistence
+- **Realtime Streams v2**: Type-safe streaming with `streams.define<T>()`
+- **Task Composition**: Two-task pattern with data passing
+- **Abort Handling**: Graceful cleanup on cancellation
+
+### Claude Agent SDK Features
+- **Extended Thinking**: 8192 tokens for complex reasoning
+- **Full Tool Suite**: Task, Bash, Glob, Grep, Read, Edit, Write
+- **Working Directory**: Operates within cloned repo
+- **Streaming Results**: AsyncIterable interface
+
+### Architecture Patterns
+- **Control/Data Plane Separation**: Supabase for control, Trigger.dev for data
+- **No Re-cloning**: Repository persists in memory
+- **Session Management**: Unique IDs link tasks and channels
+- **Hybrid Streaming**: Best of both platforms
+
+---
+
+## Implementation Checklist
+
+- [x] **Phase 1: UI + Landing Page**
+  - Landing page with GitHub URL input
+  - Chat interface with message components
+  - Tool cards with collapsible results
+
+- [x] **Phase 2: Trigger.dev Setup**
+  - Initialize project with v4 SDK
+  - Configure build extension for git
+  - Define typed stream with SDKMessage
+
+- [x] **Phase 3: Two-Task Implementation**
+  - Clone task with sessionId generation
+  - Chat session task with 60-min timeout
+  - Supabase Broadcast subscription
+  - Trigger Streams v2 piping
+
+- [x] **Phase 4: API Routes**
+  - Orchestration route (trigger both tasks)
+  - Question sending via Supabase
+  - Public token generation
+
+- [x] **Phase 5: Frontend Integration**
+  - useRealtimeStream for responses
+  - Supabase client for questions
+  - Message transformation logic
+
+- [ ] **Phase 6: Deployment**
+  - Deploy to Trigger.dev Cloud
+  - Deploy Next.js to Vercel
+  - Configure environment variables
+  - Test with various repo sizes
+
+---
+
+## Environment Variables
+
+```env
+# Trigger.dev
+TRIGGER_PROJECT_REF=your_project_ref
+TRIGGER_SECRET_KEY=your_secret_key
+
+# Claude
+ANTHROPIC_API_KEY=your_anthropic_api_key
+
+# Supabase (new)
+SUPABASE_URL=your_supabase_url
+SUPABASE_ANON_KEY=your_supabase_anon_key
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
+
+---
+
+## Success Metrics
+
+**Primary:** Developers understand the two-task pattern and hybrid streaming architecture
+**Secondary:** No re-cloning demonstrates efficiency gains
+**Tertiary:** Build extensions showcase containerization benefits
+
+---
+
+## Limitations
+
+- Public repositories only (no GitHub auth)
+- 60-minute maximum session duration
+- One active question at a time
+- Shallow clone (no git history)
+
+---
+
+## Future Enhancements
+
+### V1.1: Optimization
+- Redis caching for frequently accessed repos
+- Multiple concurrent questions
+- Persistent query history
+
+### V1.2: Features
+- Private repo support (GitHub OAuth)
+- Full git history access
+- Repo comparison queries
+
+### V2: Advanced
+- File tree navigation UI
+- Code generation capabilities
+- PR creation from chat
+
+---
+
+## Technical Innovations
+
+This demo showcases several advanced patterns:
+
+1. **Build Extensions**: First-class system dependency management
+2. **Long-running Tasks**: Stateful tasks that survive multiple interactions
+3. **Hybrid Architecture**: Combining platforms for optimal performance
+4. **No Re-cloning**: Solving a real performance problem in AI-powered dev tools
+
+The architecture prioritizes Trigger.dev's strengths (task orchestration, streaming) while using Supabase minimally for coordination, making it an excellent showcase of Trigger.dev v4 capabilities.

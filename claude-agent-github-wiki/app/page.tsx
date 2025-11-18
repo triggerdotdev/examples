@@ -46,8 +46,14 @@ export default function Home() {
         return;
       }
 
-      const { cloneRunId } = await response.json();
-      router.push(`/cloning/${cloneRunId}`);
+      const { sessionId, chatRunId, accessToken, repoName } = await response.json();
+      // Skip cloning page and go directly to chat
+      const params = new URLSearchParams({
+        sessionId,
+        accessToken,
+        repoName
+      });
+      router.push(`/chat/${chatRunId}?${params.toString()}`);
     } catch (error) {
       console.error("Failed to clone repo:", error);
       alert("Failed to start cloning. Please try again.");

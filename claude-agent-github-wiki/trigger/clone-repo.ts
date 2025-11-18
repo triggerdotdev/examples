@@ -1,12 +1,18 @@
-import { schemaTask, tasks } from "@trigger.dev/sdk";
+import { schemaTask } from "@trigger.dev/sdk";
 import { z } from "zod";
 import { mkdtemp, rm } from "fs/promises";
 import { tmpdir } from "os";
 import { join } from "path";
 import { exec } from "child_process";
 import { promisify } from "util";
+import { randomBytes } from "crypto";
 
 const execAsync = promisify(exec);
+
+// Generate a unique session ID
+function generateSessionId(): string {
+  return `session_${randomBytes(8).toString("hex")}`;
+}
 
 export const cloneRepo = schemaTask({
   id: "clone-repo",
@@ -57,20 +63,15 @@ export const cloneRepo = schemaTask({
       }
 
       const clonedAt = new Date();
+      const sessionId = generateSessionId();
 
-      // Schedule cleanup task for 1 hour from now
-      await tasks.trigger("cleanup-repo", {
-        tempDir,
-        repoName,
-      }, {
-        delay: "1h",
-      });
-
-      console.log(`Scheduled cleanup for ${tempDir} in 1 hour`);
+      // No cleanup task - repo-chat-session will handle cleanup
+      console.log(`Cloned repo to ${tempDir} with session ${sessionId}`);
 
       return {
         tempDir: join(tempDir, "repo"),
         repoName,
+        sessionId,
         clonedAt: clonedAt.toISOString(),
       };
     } catch (error: any) {

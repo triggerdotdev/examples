@@ -54,7 +54,7 @@ export default function CloningPage() {
           <CardDescription>
             {isRunning && "Please wait while we clone the repository"}
             {isCompleted && `Redirecting to chat with ${repoName}...`}
-            {isFailed && errorMessage}
+            {isFailed && (typeof errorMessage === 'string' ? errorMessage : JSON.stringify(errorMessage))}
           </CardDescription>
         </CardHeader>
         <CardContent>

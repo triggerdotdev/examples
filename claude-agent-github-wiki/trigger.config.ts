@@ -1,10 +1,14 @@
 import { defineConfig } from "@trigger.dev/sdk/v3";
+import { aptGet } from "@trigger.dev/build/extensions/core";
 
 export default defineConfig({
   project: process.env.TRIGGER_PROJECT_REF!,
   runtime: "node",
   logLevel: "log",
-  maxDuration: 600, // 10 minute timeout for repo analysis
+  maxDuration: 3600, // 60 minute timeout for long-running chat sessions
+  build: {
+    extensions: [aptGet({ packages: ["git"] })],
+  },
   retries: {
     enabledInDev: true,
     default: {
