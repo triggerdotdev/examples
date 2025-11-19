@@ -1,5 +1,5 @@
 import { query, type SDKMessage } from "@anthropic-ai/claude-agent-sdk";
-import { logger, schemaTask } from "@trigger.dev/sdk";
+import { schemaTask } from "@trigger.dev/sdk";
 import { z } from "zod";
 import { rm } from "fs/promises";
 import { createClient } from "@supabase/supabase-js";
@@ -14,11 +14,8 @@ export const repoChatSession = schemaTask({
   }),
   maxDuration: 3600, // 60 minutes for extended chat sessions
   run: async ({ tempDir, sessionId, repoName }, { signal }) => {
-    // Supabase for receiving questions (control plane only)
-    logger.info("Initializing Supabase client", {
-      url: process.env.SUPABASE_URL,
-      hasKey: !!process.env.SUPABASE_PRIVATE_KEY,
-    });
+    // NOTE: Clean up console.logs after debugging
+    console.log("[repo-chat] Starting session:", { sessionId, repoName });
 
     const supabase = createClient(
       process.env.SUPABASE_URL!,
@@ -26,10 +23,10 @@ export const repoChatSession = schemaTask({
       {
         realtime: {
           params: {
-            apikey: process.env.SUPABASE_PRIVATE_KEY!, // Explicitly pass the API key
+            apikey: process.env.SUPABASE_PRIVATE_KEY!,
             eventsPerSecond: 10,
           },
-          timeout: 60000, // Increase timeout to 60 seconds
+          timeout: 60000,
         },
         auth: {
           persistSession: false,
@@ -42,15 +39,15 @@ export const repoChatSession = schemaTask({
 
     // Subscribe to questions via Supabase Broadcast
     const channelName = `session:${sessionId}`;
-    logger.info("Creating Supabase channel", { channelName });
+    console.log("[repo-chat] Creating channel:", channelName);
 
+    // NOTE: Clean up console.logs after debugging
     const channel = supabase.channel(channelName, {
       config: {
         broadcast: {
-          self: false, // Don't receive own broadcasts
-          ack: true, // Wait for acknowledgment
+          self: false,
+          ack: false, // Don't wait for ack to avoid timeouts
         },
-        private: false, // Use public channel (private channels may not work with this key type)
       },
     });
 
@@ -59,7 +56,7 @@ export const repoChatSession = schemaTask({
 
     // Setup abort handler
     const abortHandler = () => {
-      logger.info("Received abort signal, cleaning up...");
+      console.log("[repo-chat] Aborting session");
       shouldExit = true;
       abortController.abort();
       channel.unsubscribe();
@@ -77,8 +74,18 @@ export const repoChatSession = schemaTask({
             "Chat session ready! You can now ask questions about the repository.",
         } as unknown as SDKMessage);
 
+        // Add a debug listener for ALL broadcast events
+        channel.on("broadcast", { event: "*" }, (msg) => {
+          console.log("[repo-chat] Broadcast received (any event):", msg);
+        });
+
         channel
           .on("broadcast", { event: "question" }, async ({ payload }) => {
+            console.log(
+              "[repo-chat] Question event triggered with payload:",
+              payload,
+            );
+
             if (isProcessing) {
               write({
                 type: "text",
@@ -90,11 +97,7 @@ export const repoChatSession = schemaTask({
             isProcessing = true;
             const { question: userQuestion, messageId } = payload;
 
-            logger.info("Received question", {
-              question: userQuestion,
-              messageId,
-              sessionId,
-            });
+            console.log("[repo-chat] Question received:", userQuestion);
 
             // Echo question to stream for UI display
             write({
@@ -127,8 +130,7 @@ export const repoChatSession = schemaTask({
 
               // Stream all messages through Trigger Streams v2
               for await (const message of result) {
-                console.log("the streamed message should be: ", message);
-                // All AI responses flow through Trigger Streams v2
+                console.log("[repo-chat] Streaming message:", message.type);
                 write(message);
 
                 // Check if we should exit
@@ -137,12 +139,7 @@ export const repoChatSession = schemaTask({
                 }
               }
             } catch (error: any) {
-              logger.error("Error processing question", {
-                error: error.message,
-                sessionId,
-                messageId,
-              });
-
+              console.error("[repo-chat] Error:", error.message);
               write({
                 type: "text",
                 text: `Error: ${error.message}`,
@@ -152,61 +149,56 @@ export const repoChatSession = schemaTask({
             }
           })
           .on("broadcast", { event: "end_session" }, () => {
-            logger.info("Received end session signal", { sessionId });
+            console.log("[repo-chat] End session signal received");
             shouldExit = true;
             channel.unsubscribe();
           });
 
         // Subscribe with async/await for better error handling
-        logger.info("Attempting to subscribe to channel", { channelName });
+        console.log("[repo-chat] Subscribing to channel:", channelName);
+
+        // Add a small delay to let frontend establish channel first
+        console.log("[repo-chat] Waiting 2s for frontend to initialize...");
+        await new Promise((resolve) => setTimeout(resolve, 2000));
 
         const subscribeResult = await new Promise<
           { status: string; error?: any }
         >((resolve) => {
-          channel.subscribe((status, err) => {
-            logger.info("Supabase subscription status", {
-              status,
-              error: err,
-              sessionId,
-              channelName,
-            });
+          let timeoutId: NodeJS.Timeout;
 
-            if (status === "TIMED_OUT") {
-              logger.error(
-                "Supabase subscription timed out - this may indicate network issues or invalid credentials",
-                {
-                  sessionId,
-                  channelName,
-                  supabaseUrl: process.env.SUPABASE_URL,
-                },
-              );
-              resolve({
-                status,
-                error: err || new Error("Subscription timed out"),
-              });
-            } else if (status === "SUBSCRIBED") {
-              logger.info("Successfully subscribed to Supabase channel", {
-                sessionId,
-                channelName,
-              });
+          // Set a manual timeout of 10 seconds
+          timeoutId = setTimeout(() => {
+            console.error("[repo-chat] Manual timeout after 10s");
+            resolve({
+              status: "MANUAL_TIMEOUT",
+              error: new Error("Subscription timed out after 10 seconds"),
+            });
+          }, 10000);
+
+          channel.subscribe((status, err) => {
+            console.log(`[repo-chat] Subscription status: ${status}`);
+
+            if (status === "SUBSCRIBED") {
+              clearTimeout(timeoutId);
+              console.log("[repo-chat] ✅ Successfully subscribed");
               write({
                 type: "text",
                 text: "Connected to chat session. Ready for questions!",
               } as unknown as SDKMessage);
               resolve({ status });
-            } else if (status === "CHANNEL_ERROR") {
-              logger.error("Supabase channel error", {
-                error: err,
-                sessionId,
-                channelName,
+            } else if (
+              status === "TIMED_OUT" || status === "CHANNEL_ERROR" ||
+              status === "CLOSED"
+            ) {
+              clearTimeout(timeoutId);
+              console.error(
+                `[repo-chat] ❌ Subscription failed: ${status}`,
+                err,
+              );
+              resolve({
+                status,
+                error: err || new Error(`Subscription failed: ${status}`),
               });
-              resolve({ status, error: err || new Error("Channel error") });
-            } else if (status === "CLOSED") {
-              logger.error("Supabase channel closed unexpectedly", {
-                sessionId,
-                channelName,
-              });
-              resolve({ status, error: new Error("Channel closed") });
             }
           });
         });
@@ -214,7 +206,7 @@ export const repoChatSession = schemaTask({
         // Validate subscription succeeded
         if (subscribeResult.status !== "SUBSCRIBED") {
           throw new Error(
-            `Failed to subscribe to Supabase channel: ${
+            `Failed to subscribe: ${
               subscribeResult.error?.message || subscribeResult.status
             }`,
           );
@@ -236,26 +228,20 @@ export const repoChatSession = schemaTask({
     try {
       await waitUntilComplete();
     } catch (error) {
-      logger.error("Error in chat session", { error, sessionId });
+      console.error("[repo-chat] Session error:", error);
     } finally {
       // Cleanup
-      logger.info("Cleaning up chat session", { sessionId, tempDir });
+      console.log("[repo-chat] Cleaning up session");
 
-      // Unsubscribe from Supabase
       channel.unsubscribe();
-
-      // Remove abort handler
       signal.removeEventListener("abort", abortHandler);
 
       // Clean up the cloned repository
       try {
         await rm(tempDir, { recursive: true, force: true });
-        logger.info("Successfully cleaned up temp directory", { tempDir });
+        console.log("[repo-chat] Temp directory cleaned");
       } catch (cleanupError) {
-        logger.error("Failed to clean up temp directory", {
-          tempDir,
-          error: cleanupError,
-        });
+        console.error("[repo-chat] Failed to clean temp dir:", cleanupError);
       }
     }
 

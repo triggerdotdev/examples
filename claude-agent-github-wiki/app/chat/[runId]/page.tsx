@@ -1,23 +1,20 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
+import { AiMessage } from "@/components/chat/ai-message";
+import { ToolCard } from "@/components/chat/tool-card";
+import { UserMessage } from "@/components/chat/user-message";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Badge } from "@/components/ui/badge";
-import { Send, StopCircle, Github, MessageSquare } from "lucide-react";
-import { UserMessage } from "@/components/chat/user-message";
-import { AiMessage } from "@/components/chat/ai-message";
-import { ToolCard } from "@/components/chat/tool-card";
-import {
-  useRealtimeStream,
-  useTaskTrigger,
-  useRealtimeRun,
-} from "@trigger.dev/react-hooks";
+import { supabase } from "@/lib/supabase";
 import { agentStream } from "@/trigger/agent-stream";
 import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
-import type { repoChatSession } from "@/trigger/repo-chat-session";
+import { RealtimeChannel } from "@supabase/supabase-js";
+import { useRealtimeStream } from "@trigger.dev/react-hooks";
+import { Github, MessageSquare, Send, StopCircle } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 
 type Message = {
   id: string;
@@ -69,6 +66,7 @@ export default function ChatPage({ params }: { params: { runId: string } }) {
   const [isRunning, setIsRunning] = useState(false);
   const [error, setError] = useState<string>("");
   const scrollRef = useRef<HTMLDivElement>(null);
+  const channelRef = useRef<RealtimeChannel | null>(null);
 
   // Subscribe to realtime stream from Trigger.dev (main data pipeline)
   const { parts, error: streamError } = useRealtimeStream(
@@ -93,20 +91,51 @@ export default function ChatPage({ params }: { params: { runId: string } }) {
   // Combine with user messages
   const allMessages = [...messages, ...streamMessages];
 
-  // Log initial session details
+  // Initialize Supabase broadcast channel
   useEffect(() => {
-    console.log("🚀 Chat page loaded with:", {
-      chatRunId,
-      sessionId,
-      repoName: repoNameFromUrl,
-      hasAccessToken: !!accessToken,
-    });
-  }, []);
+    if (!sessionId) {
+      console.log("[Chat] No sessionId, skipping channel setup");
+      return;
+    }
 
-  // Note: Frontend doesn't need to subscribe to Supabase directly
-  // All communication happens through:
-  // - Questions: Frontend → /api/chat → Supabase → Backend task
-  // - Responses: Backend task → Trigger.dev Stream → useRealtimeStream hook
+    console.log("[Chat] Setting up Supabase channel for sessionId:", sessionId);
+
+    // Create channel for broadcasting questions
+    // NOTE: Clean up console.logs after debugging
+    const channel = supabase.channel(`session:${sessionId}`, {
+      config: {
+        broadcast: {
+          self: false,
+          ack: false, // Match backend configuration
+        },
+      },
+    });
+
+    // Subscribe to channel (no need to listen, just for sending)
+    channel.subscribe((status) => {
+      console.log(`[Chat] Channel subscription status: ${status}`, {
+        sessionId,
+        channelName: `session:${sessionId}`,
+      });
+
+      if (status === "SUBSCRIBED") {
+        console.log("[Chat] ✅ Successfully subscribed to channel");
+        channelRef.current = channel;
+      } else if (status === "CHANNEL_ERROR") {
+        console.error("[Chat] ❌ Channel subscription error");
+        setError("Failed to connect to chat channel");
+      }
+    });
+
+    // Cleanup on unmount
+    return () => {
+      console.log("[Chat] Cleaning up channel subscription");
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
+    };
+  }, [sessionId]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -115,7 +144,15 @@ export default function ChatPage({ params }: { params: { runId: string } }) {
   }, [messages]);
 
   const handleSend = async () => {
-    if (!input.trim() || isRunning || !sessionId) return;
+    if (!input.trim() || isRunning || !sessionId || !channelRef.current) {
+      console.log("[Chat] Cannot send:", {
+        hasInput: !!input.trim(),
+        isRunning,
+        hasSessionId: !!sessionId,
+        hasChannel: !!channelRef.current,
+      });
+      return;
+    }
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -130,27 +167,29 @@ export default function ChatPage({ params }: { params: { runId: string } }) {
     setIsRunning(true);
 
     try {
-      console.log("📤 Sending question to API:", { sessionId, question });
+      console.log("[Chat] 📤 Broadcasting question:", { sessionId, question });
 
-      // Send question via API (which uses Supabase)
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId, question }),
+      // Send question directly via Supabase broadcast
+      // NOTE: Clean up console.logs after debugging
+      const result = await channelRef.current.send({
+        type: "broadcast",
+        event: "question",
+        payload: {
+          question,
+          timestamp: new Date().toISOString(),
+          messageId: userMessage.id,
+        },
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error("❌ Failed to send question:", errorData);
-        throw new Error(errorData.error || "Failed to send message");
+      if (result === "ok") {
+        console.log("[Chat] ✅ Question broadcast successfully");
+        // The response will come through the Trigger.dev stream
+      } else {
+        console.error("[Chat] ❌ Failed to broadcast question:", result);
+        throw new Error("Failed to send message");
       }
-
-      const { messageId } = await response.json();
-      console.log("✅ Question sent with messageId:", messageId);
-
-      // The response will come through the Trigger.dev stream
-      // No need to update state here
     } catch (err: any) {
+      console.error("[Chat] Error sending message:", err);
       setError(err.message || "Failed to send message");
       setIsRunning(false);
     }
