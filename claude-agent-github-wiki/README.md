@@ -5,6 +5,7 @@ A production-ready Next.js application that enables real-time conversations with
 ## Architecture Overview
 
 This application uses a hybrid architecture combining:
+
 - **Trigger.dev Realtime Streams v2** for streaming AI responses (main data pipeline)
 - **Supabase Broadcast** for sending questions to the AI (lightweight control plane)
 - **Claude Agent SDK** for repository analysis with tool usage
@@ -40,11 +41,13 @@ This application uses a hybrid architecture combining:
 ### Environment Setup
 
 1. Copy the example environment file:
+
 ```bash
 cp .env.example .env.local
 ```
 
 2. Add your API keys to `.env.local`:
+
 ```env
 # Trigger.dev
 TRIGGER_PROJECT_REF=your_project_ref
@@ -83,11 +86,13 @@ Open [http://localhost:3000](http://localhost:3000)
 ### Deployment
 
 Deploy to Trigger.dev:
+
 ```bash
 npx trigger.dev@latest deploy
 ```
 
 Deploy Next.js to Vercel:
+
 ```bash
 vercel deploy
 ```
@@ -117,15 +122,18 @@ Responses stream via Trigger.dev Streams v2 → Frontend
 ### Key Components
 
 1. **Build Extension** (`trigger.config.ts`):
+
    - Installs git via apt-get in container
    - Enables shallow cloning without local git dependency
 
 2. **Clone Task** (`trigger/clone-repo.ts`):
+
    - Performs shallow clone (`--depth=1`)
    - Generates unique session ID
    - Returns temp directory path
 
 3. **Chat Session Task** (`trigger/repo-chat-session.ts`):
+
    - Maintains repo in memory for 60 minutes
    - Listens for questions via Supabase Broadcast
    - Streams responses via Trigger.dev Streams v2
@@ -177,12 +185,9 @@ components/
 ## Development Notes
 
 This demo showcases:
+
 - Trigger.dev Realtime Streams v2 for data streaming
 - Build extensions for containerized dependencies
 - Hybrid architecture pattern (control + data plane separation)
 - Long-running task management
 - Claude Agent SDK integration
-
-## License
-
-MIT

@@ -1,5 +1,5 @@
 import { query, type SDKMessage } from "@anthropic-ai/claude-agent-sdk";
-import { schemaTask, logger } from "@trigger.dev/sdk";
+import { logger, schemaTask } from "@trigger.dev/sdk";
 import { z } from "zod";
 import { rm } from "fs/promises";
 import { createClient } from "@supabase/supabase-js";
@@ -17,7 +17,7 @@ export const repoChatSession = schemaTask({
     // Supabase for receiving questions (control plane only)
     logger.info("Initializing Supabase client", {
       url: process.env.SUPABASE_URL,
-      hasKey: !!process.env.SUPABASE_PRIVATE_KEY
+      hasKey: !!process.env.SUPABASE_PRIVATE_KEY,
     });
 
     const supabase = createClient(
@@ -34,7 +34,7 @@ export const repoChatSession = schemaTask({
         auth: {
           persistSession: false,
         },
-      }
+      },
     );
 
     // Create abort controller for Claude
@@ -48,7 +48,7 @@ export const repoChatSession = schemaTask({
       config: {
         broadcast: {
           self: false, // Don't receive own broadcasts
-          ack: true,   // Wait for acknowledgment
+          ack: true, // Wait for acknowledgment
         },
         private: false, // Use public channel (private channels may not work with this key type)
       },
@@ -73,11 +73,12 @@ export const repoChatSession = schemaTask({
         // Write initial ready message
         write({
           type: "text",
-          text: "Chat session ready! You can now ask questions about the repository.",
+          text:
+            "Chat session ready! You can now ask questions about the repository.",
         } as unknown as SDKMessage);
 
         channel
-          .on('broadcast', { event: 'question' }, async ({ payload }) => {
+          .on("broadcast", { event: "question" }, async ({ payload }) => {
             if (isProcessing) {
               write({
                 type: "text",
@@ -89,7 +90,11 @@ export const repoChatSession = schemaTask({
             isProcessing = true;
             const { question: userQuestion, messageId } = payload;
 
-            logger.info("Received question", { question: userQuestion, messageId, sessionId });
+            logger.info("Received question", {
+              question: userQuestion,
+              messageId,
+              sessionId,
+            });
 
             // Echo question to stream for UI display
             write({
@@ -122,6 +127,7 @@ export const repoChatSession = schemaTask({
 
               // Stream all messages through Trigger Streams v2
               for await (const message of result) {
+                console.log("the streamed message should be: ", message);
                 // All AI responses flow through Trigger Streams v2
                 write(message);
 
@@ -130,12 +136,11 @@ export const repoChatSession = schemaTask({
                   break;
                 }
               }
-
             } catch (error: any) {
               logger.error("Error processing question", {
                 error: error.message,
                 sessionId,
-                messageId
+                messageId,
               });
 
               write({
@@ -146,7 +151,7 @@ export const repoChatSession = schemaTask({
               isProcessing = false;
             }
           })
-          .on('broadcast', { event: 'end_session' }, () => {
+          .on("broadcast", { event: "end_session" }, () => {
             logger.info("Received end session signal", { sessionId });
             shouldExit = true;
             channel.unsubscribe();
@@ -155,37 +160,64 @@ export const repoChatSession = schemaTask({
         // Subscribe with async/await for better error handling
         logger.info("Attempting to subscribe to channel", { channelName });
 
-        const subscribeResult = await new Promise<{ status: string; error?: any }>((resolve) => {
+        const subscribeResult = await new Promise<
+          { status: string; error?: any }
+        >((resolve) => {
           channel.subscribe((status, err) => {
-            logger.info("Supabase subscription status", { status, error: err, sessionId, channelName });
+            logger.info("Supabase subscription status", {
+              status,
+              error: err,
+              sessionId,
+              channelName,
+            });
 
-            if (status === 'TIMED_OUT') {
-              logger.error("Supabase subscription timed out - this may indicate network issues or invalid credentials", {
+            if (status === "TIMED_OUT") {
+              logger.error(
+                "Supabase subscription timed out - this may indicate network issues or invalid credentials",
+                {
+                  sessionId,
+                  channelName,
+                  supabaseUrl: process.env.SUPABASE_URL,
+                },
+              );
+              resolve({
+                status,
+                error: err || new Error("Subscription timed out"),
+              });
+            } else if (status === "SUBSCRIBED") {
+              logger.info("Successfully subscribed to Supabase channel", {
                 sessionId,
                 channelName,
-                supabaseUrl: process.env.SUPABASE_URL
               });
-              resolve({ status, error: err || new Error("Subscription timed out") });
-            } else if (status === 'SUBSCRIBED') {
-              logger.info("Successfully subscribed to Supabase channel", { sessionId, channelName });
               write({
                 type: "text",
                 text: "Connected to chat session. Ready for questions!",
               } as unknown as SDKMessage);
               resolve({ status });
-            } else if (status === 'CHANNEL_ERROR') {
-              logger.error("Supabase channel error", { error: err, sessionId, channelName });
+            } else if (status === "CHANNEL_ERROR") {
+              logger.error("Supabase channel error", {
+                error: err,
+                sessionId,
+                channelName,
+              });
               resolve({ status, error: err || new Error("Channel error") });
-            } else if (status === 'CLOSED') {
-              logger.error("Supabase channel closed unexpectedly", { sessionId, channelName });
+            } else if (status === "CLOSED") {
+              logger.error("Supabase channel closed unexpectedly", {
+                sessionId,
+                channelName,
+              });
               resolve({ status, error: new Error("Channel closed") });
             }
           });
         });
 
         // Validate subscription succeeded
-        if (subscribeResult.status !== 'SUBSCRIBED') {
-          throw new Error(`Failed to subscribe to Supabase channel: ${subscribeResult.error?.message || subscribeResult.status}`);
+        if (subscribeResult.status !== "SUBSCRIBED") {
+          throw new Error(
+            `Failed to subscribe to Supabase channel: ${
+              subscribeResult.error?.message || subscribeResult.status
+            }`,
+          );
         }
 
         // Keep alive until abort signal
@@ -222,7 +254,7 @@ export const repoChatSession = schemaTask({
       } catch (cleanupError) {
         logger.error("Failed to clean up temp directory", {
           tempDir,
-          error: cleanupError
+          error: cleanupError,
         });
       }
     }
@@ -230,7 +262,7 @@ export const repoChatSession = schemaTask({
     return {
       sessionId,
       repoName,
-      status: "completed"
+      status: "completed",
     };
   },
 });

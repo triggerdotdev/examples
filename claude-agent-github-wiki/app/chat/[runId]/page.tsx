@@ -10,9 +10,14 @@ import { Send, StopCircle, Github, MessageSquare } from "lucide-react";
 import { UserMessage } from "@/components/chat/user-message";
 import { AiMessage } from "@/components/chat/ai-message";
 import { ToolCard } from "@/components/chat/tool-card";
-import { useRealtimeStream } from "@trigger.dev/react-hooks";
+import {
+  useRealtimeStream,
+  useTaskTrigger,
+  useRealtimeRun,
+} from "@trigger.dev/react-hooks";
 import { agentStream } from "@/trigger/agent-stream";
 import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
+import type { repoChatSession } from "@/trigger/repo-chat-session";
 
 type Message = {
   id: string;
@@ -24,21 +29,24 @@ type Message = {
   timestamp: Date;
 };
 
-function transformSDKMessage(sdkMsg: SDKMessage, index: number): Message | null {
-  if (sdkMsg.type === 'assistant') {
+function transformSDKMessage(
+  sdkMsg: SDKMessage,
+  index: number
+): Message | null {
+  if (sdkMsg.type === "assistant") {
     for (const block of sdkMsg.message.content) {
-      if (block.type === 'text') {
+      if (block.type === "text") {
         return {
           id: `ai-${index}`,
-          type: 'ai',
+          type: "ai",
           content: block.text,
           timestamp: new Date(),
         };
-      } else if (block.type === 'tool_use') {
+      } else if (block.type === "tool_use") {
         return {
           id: `tool-${index}`,
-          type: 'tool',
-          content: '',
+          type: "tool",
+          content: "",
           toolName: block.name,
           toolInput: block.input,
           timestamp: new Date(),
@@ -71,6 +79,9 @@ export default function ChatPage({ params }: { params: { runId: string } }) {
       enabled: !!chatRunId && !!accessToken,
       timeoutInSeconds: 600,
       throttleInMs: 50,
+      onData: (chunk) => {
+        console.log("the chunk should be: ", chunk);
+      },
     }
   );
 
@@ -88,7 +99,7 @@ export default function ChatPage({ params }: { params: { runId: string } }) {
       chatRunId,
       sessionId,
       repoName: repoNameFromUrl,
-      hasAccessToken: !!accessToken
+      hasAccessToken: !!accessToken,
     });
   }, []);
 
@@ -154,7 +165,9 @@ export default function ChatPage({ params }: { params: { runId: string } }) {
       <header className="border-b px-6 py-4 flex items-center gap-3">
         <Github className="w-5 h-5" />
         <div className="flex items-center gap-2 flex-1">
-          <span className="font-semibold">{repoNameFromUrl || "Repository"}</span>
+          <span className="font-semibold">
+            {repoNameFromUrl || "Repository"}
+          </span>
           {sessionId && (
             <Badge variant="secondary" className="font-normal text-xs">
               Session: {sessionId.substring(0, 16)}...
@@ -173,7 +186,9 @@ export default function ChatPage({ params }: { params: { runId: string } }) {
           ) : (
             allMessages.map((message) => {
               if (message.type === "user") {
-                return <UserMessage key={message.id} content={message.content} />;
+                return (
+                  <UserMessage key={message.id} content={message.content} />
+                );
               } else if (message.type === "ai") {
                 return <AiMessage key={message.id} content={message.content} />;
               } else if (message.type === "tool") {
@@ -194,9 +209,18 @@ export default function ChatPage({ params }: { params: { runId: string } }) {
           {isRunning && (
             <div className="flex items-center gap-2 text-muted-foreground">
               <div className="flex gap-1">
-                <div className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                <div className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                <div className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                <div
+                  className="w-2 h-2 bg-current rounded-full animate-bounce"
+                  style={{ animationDelay: "0ms" }}
+                />
+                <div
+                  className="w-2 h-2 bg-current rounded-full animate-bounce"
+                  style={{ animationDelay: "150ms" }}
+                />
+                <div
+                  className="w-2 h-2 bg-current rounded-full animate-bounce"
+                  style={{ animationDelay: "300ms" }}
+                />
               </div>
               <span className="text-sm">AI is thinking...</span>
             </div>

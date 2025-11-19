@@ -1,4 +1,4 @@
-import { tasks, runs } from "@trigger.dev/sdk/v3";
+import { runs, tasks } from "@trigger.dev/sdk";
 import { cloneRepo } from "@/trigger/clone-repo";
 import { repoChatSession } from "@/trigger/repo-chat-session";
 import { NextRequest, NextResponse } from "next/server";
@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
     if (!githubUrl || typeof githubUrl !== "string") {
       return NextResponse.json(
         { error: "GitHub URL is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -20,14 +20,14 @@ export async function POST(request: NextRequest) {
     if (!githubUrlPattern.test(githubUrl)) {
       return NextResponse.json(
         { error: "Invalid GitHub URL format" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     // Trigger the clone task
     const cloneHandle = await tasks.trigger<typeof cloneRepo>(
       "clone-repo",
-      { githubUrl }
+      { githubUrl },
     );
 
     // Wait for clone to complete using pollForCompletion
@@ -44,19 +44,19 @@ export async function POST(request: NextRequest) {
       } else if (run.status === "FAILED") {
         return NextResponse.json(
           { error: "Failed to clone repository" },
-          { status: 500 }
+          { status: 500 },
         );
       }
 
       // Wait 1 second before next check
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 1000));
       attempts++;
     }
 
     if (!cloneResult) {
       return NextResponse.json(
         { error: "Clone operation timed out" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
         tempDir: cloneResult.output.tempDir,
         sessionId: cloneResult.output.sessionId,
         repoName: cloneResult.output.repoName,
-      }
+      },
     );
 
     // Get public access token from handle (auto-generated, expires in 15 min)
@@ -81,12 +81,11 @@ export async function POST(request: NextRequest) {
       repoName: cloneResult.output.repoName,
       cloneRunId: cloneHandle.id, // Keep for backward compatibility
     });
-
   } catch (error: any) {
     console.error("Failed to trigger clone-repo task:", error);
     return NextResponse.json(
       { error: error.message || "Failed to start cloning" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
