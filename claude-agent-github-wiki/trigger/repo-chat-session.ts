@@ -12,243 +12,111 @@ export const repoChatSession = schemaTask({
     sessionId: z.string(),
     repoName: z.string(),
   }),
-  maxDuration: 3600, // 60 minutes for extended chat sessions
+  maxDuration: 3600,
   run: async ({ tempDir, sessionId, repoName }, { signal }) => {
-    // NOTE: Clean up console.logs after debugging
     console.log("[repo-chat] Starting session:", { sessionId, repoName });
 
+    // Create Supabase client - use publishable key for listening
     const supabase = createClient(
       process.env.SUPABASE_URL!,
-      process.env.SUPABASE_PRIVATE_KEY!,
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY!,
       {
         realtime: {
-          params: {
-            apikey: process.env.SUPABASE_PRIVATE_KEY!,
-            eventsPerSecond: 10,
-          },
-          timeout: 60000,
+          params: { eventsPerSecond: 10 },
         },
-        auth: {
-          persistSession: false,
-        },
-      },
+      }
     );
 
-    // Create abort controller for Claude
-    const abortController = new AbortController();
+    // // Create stream writer
+    // const streamWriter = agentStream.writer();
 
-    // Subscribe to questions via Supabase Broadcast
-    const channelName = `session:${sessionId}`;
-    console.log("[repo-chat] Creating channel:", channelName);
+    // // Write initial message
+    // streamWriter.write({
+    //   type: "text",
+    //   text: "Chat session ready! Ask questions about the repository.",
+    // } as unknown as SDKMessage);
 
-    // NOTE: Clean up console.logs after debugging
-    const channel = supabase.channel(channelName, {
-      config: {
-        broadcast: {
-          self: false,
-          ack: false, // Don't wait for ack to avoid timeouts
-        },
-      },
-    });
+    // Subscribe to Supabase channel AT TASK LEVEL (not inside writer!)
+    const channel = supabase.channel(`session:${sessionId}`);
 
-    let isProcessing = false;
-    let shouldExit = false;
+    // Listen for questions
+    channel.on("broadcast", { event: "question" }, async ({ payload }) => {
+      console.log("[repo-chat] Question received:", payload?.question);
 
-    // Setup abort handler
-    const abortHandler = () => {
-      console.log("[repo-chat] Aborting session");
-      shouldExit = true;
-      abortController.abort();
-      channel.unsubscribe();
-    };
+      const userQuestion = payload?.question;
+    //   if (!userQuestion) return;
 
-    signal.addEventListener("abort", abortHandler);
+    //   // Echo question
+    //   streamWriter.write({
+    //     type: "text",
+    //     text: `User: ${userQuestion}`,
+    //   } as unknown as SDKMessage);
 
-    // Use writer() to stream responses via Trigger.dev Streams v2
-    const { waitUntilComplete } = agentStream.writer({
-      execute: async ({ write }) => {
-        // Write initial ready message
-        write({
-          type: "text",
-          text:
-            "Chat session ready! You can now ask questions about the repository.",
-        } as unknown as SDKMessage);
+    //   try {
+    //     // Process with Claude
+    //     const result = query({
+    //       prompt: userQuestion,
+    //       options: {
+    //         model: "claude-sonnet-4-20250514",
+    //         cwd: tempDir,
+    //         maxTurns: 10,
+    //         permissionMode: "acceptEdits",
+    //         allowedTools: ["Task", "Bash", "Glob", "Grep", "Read", "Edit", "Write"],
+    //       },
+    //     });
 
-        // Add a debug listener for ALL broadcast events
-        channel.on("broadcast", { event: "*" }, (msg) => {
-          console.log("[repo-chat] Broadcast received (any event):", msg);
-        });
+    //     // Stream responses
+    //     for await (const message of result) {
+    //       console.log("[repo-chat] Streaming:", message.type);
+    //       streamWriter.write(message);
+    //     }
+    //   } catch (error: any) {
+    //     console.error("[repo-chat] Error:", error.message);
+    //     streamWriter.write({
+    //       type: "text",
+    //       text: `Error: ${error.message}`,
+    //     } as unknown as SDKMessage);
+    //   }
+    // });
 
-        channel
-          .on("broadcast", { event: "question" }, async ({ payload }) => {
-            console.log(
-              "[repo-chat] Question event triggered with payload:",
-              payload,
-            );
-
-            if (isProcessing) {
-              write({
-                type: "text",
-                text: "Already processing a question, please wait...",
-              } as unknown as SDKMessage);
-              return;
-            }
-
-            isProcessing = true;
-            const { question: userQuestion, messageId } = payload;
-
-            console.log("[repo-chat] Question received:", userQuestion);
-
-            // Echo question to stream for UI display
-            write({
-              type: "text",
-              text: `User: ${userQuestion}`,
-            } as unknown as SDKMessage);
-
-            try {
-              // Process with Claude using the query function
-              const result = query({
-                prompt: userQuestion,
-                options: {
-                  model: "claude-sonnet-4-20250514",
-                  maxThinkingTokens: 8192,
-                  abortController,
-                  cwd: tempDir, // Set working directory to cloned repo
-                  maxTurns: 10,
-                  permissionMode: "acceptEdits",
-                  allowedTools: [
-                    "Task",
-                    "Bash",
-                    "Glob",
-                    "Grep",
-                    "Read",
-                    "Edit",
-                    "Write",
-                  ],
-                },
-              });
-
-              // Stream all messages through Trigger Streams v2
-              for await (const message of result) {
-                console.log("[repo-chat] Streaming message:", message.type);
-                write(message);
-
-                // Check if we should exit
-                if (shouldExit) {
-                  break;
-                }
-              }
-            } catch (error: any) {
-              console.error("[repo-chat] Error:", error.message);
-              write({
-                type: "text",
-                text: `Error: ${error.message}`,
-              } as unknown as SDKMessage);
-            } finally {
-              isProcessing = false;
-            }
-          })
-          .on("broadcast", { event: "end_session" }, () => {
-            console.log("[repo-chat] End session signal received");
-            shouldExit = true;
-            channel.unsubscribe();
-          });
-
-        // Subscribe with async/await for better error handling
-        console.log("[repo-chat] Subscribing to channel:", channelName);
-
-        // Add a small delay to let frontend establish channel first
-        console.log("[repo-chat] Waiting 2s for frontend to initialize...");
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-
-        const subscribeResult = await new Promise<
-          { status: string; error?: any }
-        >((resolve) => {
-          let timeoutId: NodeJS.Timeout;
-
-          // Set a manual timeout of 10 seconds
-          timeoutId = setTimeout(() => {
-            console.error("[repo-chat] Manual timeout after 10s");
-            resolve({
-              status: "MANUAL_TIMEOUT",
-              error: new Error("Subscription timed out after 10 seconds"),
-            });
-          }, 10000);
-
-          channel.subscribe((status, err) => {
-            console.log(`[repo-chat] Subscription status: ${status}`);
-
-            if (status === "SUBSCRIBED") {
-              clearTimeout(timeoutId);
-              console.log("[repo-chat] ✅ Successfully subscribed");
-              write({
-                type: "text",
-                text: "Connected to chat session. Ready for questions!",
-              } as unknown as SDKMessage);
-              resolve({ status });
-            } else if (
-              status === "TIMED_OUT" || status === "CHANNEL_ERROR" ||
-              status === "CLOSED"
-            ) {
-              clearTimeout(timeoutId);
-              console.error(
-                `[repo-chat] ❌ Subscription failed: ${status}`,
-                err,
-              );
-              resolve({
-                status,
-                error: err || new Error(`Subscription failed: ${status}`),
-              });
-            }
-          });
-        });
-
-        // Validate subscription succeeded
-        if (subscribeResult.status !== "SUBSCRIBED") {
-          throw new Error(
-            `Failed to subscribe: ${
-              subscribeResult.error?.message || subscribeResult.status
-            }`,
-          );
+    // Subscribe to channel
+    console.log("[repo-chat] Subscribing to channel...");
+    const status = await new Promise<string>((resolve) => {
+      channel.subscribe((status) => {
+        console.log(`[repo-chat] Status: ${status}`);
+        if (status === "SUBSCRIBED" || status === "CLOSED" || status === "CHANNEL_ERROR") {
+          resolve(status);
         }
-
-        // Keep alive until abort signal
-        await new Promise((resolve) => {
-          const checkInterval = setInterval(() => {
-            if (shouldExit || signal.aborted) {
-              clearInterval(checkInterval);
-              resolve(undefined);
-            }
-          }, 1000);
-        });
-      },
+      });
     });
 
-    // Wait for the stream to complete
-    try {
-      await waitUntilComplete();
-    } catch (error) {
-      console.error("[repo-chat] Session error:", error);
-    } finally {
-      // Cleanup
-      console.log("[repo-chat] Cleaning up session");
-
-      channel.unsubscribe();
-      signal.removeEventListener("abort", abortHandler);
-
-      // Clean up the cloned repository
-      try {
-        await rm(tempDir, { recursive: true, force: true });
-        console.log("[repo-chat] Temp directory cleaned");
-      } catch (cleanupError) {
-        console.error("[repo-chat] Failed to clean temp dir:", cleanupError);
-      }
+    if (status !== "SUBSCRIBED") {
+      throw new Error(`Failed to subscribe: ${status}`);
     }
 
-    return {
-      sessionId,
-      repoName,
-      status: "completed",
-    };
+    console.log("[repo-chat] ✅ Subscribed successfully");
+
+    // Keep task alive until abort
+    await new Promise((resolve) => {
+      const interval = setInterval(() => {
+        if (signal.aborted) {
+          clearInterval(interval);
+          resolve(undefined);
+        }
+      }, 1000);
+    });
+
+    // Cleanup
+    console.log("[repo-chat] Cleaning up...");
+    channel.unsubscribe();
+    // await streamWriter.waitUntilComplete();
+
+    try {
+      await rm(tempDir, { recursive: true, force: true });
+    } catch (e) {
+      console.error("[repo-chat] Cleanup error:", e);
+    }
+
+    return { sessionId, repoName, status: "completed" };
   },
 });

@@ -9,7 +9,7 @@ async function testSupabase() {
 
   // Check environment variables
   const url = process.env.SUPABASE_URL;
-  const privateKey = process.env.SUPABASE_PRIVATE_KEY;
+  const privateKey = process.env.SUPABASE_SECRET_KEY;
 
   console.log("Environment Check:");
   console.log(
@@ -17,7 +17,7 @@ async function testSupabase() {
     url ? `✅ ${url.substring(0, 40)}...` : "❌ NOT SET"
   );
   console.log(
-    "SUPABASE_PRIVATE_KEY:",
+    "SUPABASE_SECRET_KEY:",
     privateKey ? `✅ ${privateKey.substring(0, 20)}...` : "❌ NOT SET"
   );
   console.log("");
@@ -26,7 +26,7 @@ async function testSupabase() {
     console.error("❌ Missing required environment variables!");
     console.log("\nMake sure your .env file contains:");
     console.log("SUPABASE_URL=https://YOUR_PROJECT.supabase.co");
-    console.log("SUPABASE_PRIVATE_KEY=your-service-role-key-here\n");
+    console.log("SUPABASE_SECRET_KEY=your-service-role-key-here\n");
     process.exit(1);
   }
 

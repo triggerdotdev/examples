@@ -100,32 +100,25 @@ export default function ChatPage({ params }: { params: { runId: string } }) {
 
     console.log("[Chat] Setting up Supabase channel for sessionId:", sessionId);
 
+    const channelName = `session:${sessionId}`;
+
     // Create channel for broadcasting questions
     // NOTE: Clean up console.logs after debugging
-    const channel = supabase.channel(`session:${sessionId}`, {
+    const channel = supabase.channel(channelName, {
       config: {
+        private: false, // Use private channel with RLS
         broadcast: {
           self: false,
-          ack: false, // Match backend configuration
+          ack: true,
         },
       },
     });
 
-    // Subscribe to channel (no need to listen, just for sending)
-    channel.subscribe((status) => {
-      console.log(`[Chat] Channel subscription status: ${status}`, {
-        sessionId,
-        channelName: `session:${sessionId}`,
-      });
-
-      if (status === "SUBSCRIBED") {
-        console.log("[Chat] ✅ Successfully subscribed to channel");
-        channelRef.current = channel;
-      } else if (status === "CHANNEL_ERROR") {
-        console.error("[Chat] ❌ Channel subscription error");
-        setError("Failed to connect to chat channel");
-      }
-    });
+    channel
+      .on("broadcast", { event: "question" }, (payload) => {
+        console.log(`[Chat] Channel received question: ${payload}`);
+      })
+      .subscribe();
 
     // Cleanup on unmount
     return () => {
@@ -171,15 +164,16 @@ export default function ChatPage({ params }: { params: { runId: string } }) {
 
       // Send question directly via Supabase broadcast
       // NOTE: Clean up console.logs after debugging
-      const result = await channelRef.current.send({
+      const result = await supabase.channel(`session:${sessionId}`).send({
         type: "broadcast",
         event: "question",
         payload: {
-          question,
+          question: question,
           timestamp: new Date().toISOString(),
           messageId: userMessage.id,
         },
       });
+      console.log("[Chat] result: ", result);
 
       if (result === "ok") {
         console.log("[Chat] ✅ Question broadcast successfully");

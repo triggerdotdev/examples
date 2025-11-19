@@ -19,6 +19,7 @@ Developers can learn advanced Trigger.dev patterns (build extensions, long-runni
 ## Target Users
 
 Developers building production AI applications with Trigger.dev v4, especially those needing:
+
 - Long-running stateful tasks
 - Build extensions for system dependencies
 - Hybrid realtime architectures
@@ -31,12 +32,14 @@ Developers building production AI applications with Trigger.dev v4, especially t
 ### Two-Task System
 
 **Task 1: clone-repo**
+
 - Uses build extension to install git via apt-get
 - Performs shallow clone (depth=1)
 - Generates unique sessionId
 - Returns tempDir, sessionId, repoName
 
 **Task 2: repo-chat-session**
+
 - Long-running (60 minute timeout)
 - Maintains cloned repo in memory
 - Listens for questions via Supabase Broadcast (control plane)
@@ -51,6 +54,7 @@ Task 2 → Trigger.dev Streams v2 → Frontend (response)
 ```
 
 **Why this architecture?**
+
 - Repo stays in memory = no re-cloning
 - Supabase handles bidirectional communication
 - Trigger.dev Streams v2 handles main data flow
@@ -85,7 +89,9 @@ export const cloneRepo = schemaTask({
     const sessionId = generateSessionId();
 
     // Shallow clone with build extension git
-    await execAsync(`git clone --depth=1 --single-branch "${githubUrl}" "${tempDir}/repo"`);
+    await execAsync(
+      `git clone --depth=1 --single-branch "${githubUrl}" "${tempDir}/repo"`
+    );
 
     return { tempDir: join(tempDir, "repo"), sessionId, repoName };
   },
@@ -110,17 +116,19 @@ export const repoChatSession = schemaTask({
     // Supabase for receiving questions
     const channel = supabase.channel(`session:${sessionId}`);
 
-    channel.on('broadcast', { event: 'question' }, async ({ payload }) => {
-      const result = query({
-        prompt: payload.question,
-        options: { cwd: tempDir, /* Claude options */ }
-      });
+    channel
+      .on("broadcast", { event: "question" }, async ({ payload }) => {
+        const result = query({
+          prompt: payload.question,
+          options: { cwd: tempDir /* Claude options */ },
+        });
 
-      // Stream all responses via Trigger.dev
-      for await (const message of result) {
-        streamHandle.write(message);
-      }
-    }).subscribe();
+        // Stream all responses via Trigger.dev
+        for await (const message of result) {
+          streamHandle.write(message);
+        }
+      })
+      .subscribe();
 
     // Keep alive until abort
     await waitForAbort(signal);
@@ -158,9 +166,9 @@ const { parts } = useRealtimeStream(agentStream, chatRunId, { accessToken });
 // Send questions via Supabase
 const channel = supabase.channel(`session:${sessionId}`);
 channel.send({
-  type: 'broadcast',
-  event: 'question',
-  payload: { question, messageId }
+  type: "broadcast",
+  event: "question",
+  payload: { question, messageId },
 });
 ```
 
@@ -169,6 +177,7 @@ channel.send({
 ## Key Features Demonstrated
 
 ### Trigger.dev Features
+
 - **Build Extensions**: Install system dependencies (git) in containers
 - **Long-running Tasks**: 60-minute sessions with state persistence
 - **Realtime Streams v2**: Type-safe streaming with `streams.define<T>()`
@@ -176,12 +185,14 @@ channel.send({
 - **Abort Handling**: Graceful cleanup on cancellation
 
 ### Claude Agent SDK Features
+
 - **Extended Thinking**: 8192 tokens for complex reasoning
 - **Full Tool Suite**: Task, Bash, Glob, Grep, Read, Edit, Write
 - **Working Directory**: Operates within cloned repo
 - **Streaming Results**: AsyncIterable interface
 
 ### Architecture Patterns
+
 - **Control/Data Plane Separation**: Supabase for control, Trigger.dev for data
 - **No Re-cloning**: Repository persists in memory
 - **Session Management**: Unique IDs link tasks and channels
@@ -192,27 +203,32 @@ channel.send({
 ## Implementation Checklist
 
 - [x] **Phase 1: UI + Landing Page**
+
   - Landing page with GitHub URL input
   - Chat interface with message components
   - Tool cards with collapsible results
 
 - [x] **Phase 2: Trigger.dev Setup**
+
   - Initialize project with v4 SDK
   - Configure build extension for git
   - Define typed stream with SDKMessage
 
 - [x] **Phase 3: Two-Task Implementation**
+
   - Clone task with sessionId generation
   - Chat session task with 60-min timeout
   - Supabase Broadcast subscription
   - Trigger Streams v2 piping
 
 - [x] **Phase 4: API Routes**
+
   - Orchestration route (trigger both tasks)
   - Question sending via Supabase
   - Public token generation
 
 - [x] **Phase 5: Frontend Integration**
+
   - useRealtimeStream for responses
   - Supabase client for questions
   - Message transformation logic
@@ -239,7 +255,7 @@ ANTHROPIC_API_KEY=your_anthropic_api_key
 SUPABASE_URL=your_supabase_url
 SUPABASE_ANON_KEY=your_supabase_anon_key
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY=your_supabase_anon_key
 ```
 
 ---
@@ -264,16 +280,19 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 ## Future Enhancements
 
 ### V1.1: Optimization
+
 - Redis caching for frequently accessed repos
 - Multiple concurrent questions
 - Persistent query history
 
 ### V1.2: Features
+
 - Private repo support (GitHub OAuth)
 - Full git history access
 - Repo comparison queries
 
 ### V2: Advanced
+
 - File tree navigation UI
 - Code generation capabilities
 - PR creation from chat

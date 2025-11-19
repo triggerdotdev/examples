@@ -7,8 +7,8 @@ async function test() {
   // Using environment variables
   const SUPABASE_URL =
     process.env.SUPABASE_URL || "https://rnxcjullrjwhgtdbpqbp.supabase.co";
-  const SERVICE_KEY = process.env.SUPABASE_PRIVATE_KEY;
-  const ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const SERVICE_KEY = process.env.SUPABASE_SECRET_KEY;
+  const ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY;
 
   if (!SERVICE_KEY || !ANON_KEY) {
     console.error("Missing keys in environment!");
