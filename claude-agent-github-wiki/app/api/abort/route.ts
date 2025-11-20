@@ -1,4 +1,4 @@
-import { runs } from "@trigger.dev/sdk/v3";
+import { runs } from "@trigger.dev/sdk";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
