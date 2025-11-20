@@ -18,14 +18,11 @@ import {
   CheckCircle,
   Loader2,
   XCircle,
-  Terminal,
-  FileText,
 } from "lucide-react";
 import { agentStream } from "@/trigger/agent-stream";
 import { analyzeRepo } from "@/trigger/analyze-repo";
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
-import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 
 export default function ResponsePage() {
   const params = useParams();
@@ -45,8 +42,23 @@ export default function ResponsePage() {
   // Subscribe to agent stream
   const { parts, error: streamError } = useRealtimeStream(agentStream, runId, {
     accessToken,
-    timeoutInSeconds: 60,
+    timeoutInSeconds: 300, // 5 minute timeout
+    throttleInMs: 50,
   });
+
+  // Debug logging
+  console.log("[Frontend] Stream state:", {
+    runId,
+    accessToken: accessToken ? "present" : "missing",
+    partsLength: parts?.length || 0,
+    streamError: streamError?.message,
+    runStatus: run?.status,
+  });
+
+  // Log when parts change
+  if (parts && parts.length > 0) {
+    console.log(`[Frontend] Received ${parts.length} parts, latest:`, parts[parts.length - 1]?.slice(0, 100));
+  }
 
   const handleAbort = async () => {
     setIsAborting(true);
@@ -69,6 +81,27 @@ export default function ResponsePage() {
   const handleNewQuestion = () => {
     router.push("/");
   };
+
+  // Process streamed text chunks
+  const getFormattedContent = () => {
+    if (!parts || parts.length === 0) return null;
+
+    // parts is now an array of text strings
+    const combinedText = parts.join("");
+
+    // Return the combined text as markdown
+    if (combinedText.trim()) {
+      return (
+        <div className="prose prose-sm dark:prose-invert max-w-none">
+          <ReactMarkdown>{combinedText}</ReactMarkdown>
+        </div>
+      );
+    }
+
+    return null;
+  };
+
+  const formattedContent = getFormattedContent();
 
   // Determine status
   const getStatus = () => {
@@ -176,27 +209,25 @@ export default function ResponsePage() {
         )}
 
         {/* Response Content */}
-        {parts && parts.length > 0 && (
+        {(formattedContent || (parts && parts.length > 0)) && (
           <Card>
             <CardHeader>
               <CardTitle>Analysis Result</CardTitle>
-              <CardDescription>
-                Claude is analyzing your repository. Tool usage is shown in
-                collapsible sections.
-              </CardDescription>
             </CardHeader>
-            {parts.map((part, i) => (
-              <CardContent key={i} className="space-y-4">
-                {part}
-              </CardContent>
-            ))}
+            <CardContent>
+              {formattedContent || (
+                <div className="text-muted-foreground">
+                  Waiting for response... (Received {parts?.length || 0} chunks)
+                </div>
+              )}
+            </CardContent>
           </Card>
         )}
 
-        {/* Show message count for debugging */}
-        {parts && (
+        {/* Show streaming status for debugging */}
+        {parts && parts.length > 0 && status === "running" && (
           <div className="mt-4 text-xs text-muted-foreground text-center">
-            Received {parts.length} messages
+            Streaming response... ({parts.length} text chunks received)
           </div>
         )}
 

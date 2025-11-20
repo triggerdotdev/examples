@@ -1,5 +1,5 @@
-import { query, type SDKMessage } from "@anthropic-ai/claude-agent-sdk";
-import { metadata, schemaTask, streams } from "@trigger.dev/sdk";
+import { query } from "@anthropic-ai/claude-agent-sdk";
+import { logger, metadata, schemaTask } from "@trigger.dev/sdk";
 import { z } from "zod";
 import { mkdtemp, rm } from "fs/promises";
 import { tmpdir } from "os";
@@ -90,16 +90,18 @@ export const analyzeRepo = schemaTask({
       const systemPrompt =
         `You are analyzing the ${repoName} repository that has been cloned to your current working directory.
 
-First, provide a brief 2-3 sentence overview of what this repository contains and its main purpose by examining the file structure and key files like README.md, package.json, etc.
+Your task is to answer the user's question about this repository. Use the available tools (Bash, Read, Grep, Glob) to explore the codebase as needed, but DO NOT narrate your exploration process. The user cannot see your tool usage.
 
-Then, provide a detailed response to the user's question. Focus on technical accuracy and be specific with file references and code examples where relevant.
+After exploring the repository, provide:
+1. A brief 2-3 sentence overview of what this repository contains and its main purpose
+2. A detailed answer to the user's specific question
 
-Start by exploring the repository structure with ls and reading key files, then answer this question: ${question}`;
+User's question: ${question}
+
+Important: Only include your final analysis in your response. Do not include phrases like "Let me explore", "Let me check", "Now let me examine", etc. The user only wants to see the final answer.`;
 
       metadata.set("status", "Generating response...");
       metadata.set("progress", 70);
-
-      const messages: SDKMessage[] = [];
 
       // Use Claude Agent SDK to analyze the repository
       const result = query({
@@ -123,15 +125,40 @@ Start by exploring the repository structure with ls and reading key files, then 
       metadata.set("status", "Streaming response...");
       metadata.set("progress", 90);
 
-      // Stream the response
-      const { stream: readableStream, waitUntilComplete } = agentStream.pipe(
-        result,
-      );
+      // Create an async generator that yields text strings from the messages
+      const extractText = async function* () {
+        for await (const message of result) {
+          logger.debug("Message type", { type: message.type });
 
+          // Extract text from assistant messages
+          if (message.type === "assistant" && message.message?.content) {
+            for (const block of message.message.content) {
+              if (block.type === "text") {
+                const text = block.text;
+                logger.debug("Streaming text block", {
+                  length: text.length,
+                  preview: text.slice(0, 100),
+                });
+
+                // Split large text blocks into smaller chunks for better streaming
+                // This helps when Claude sends a large response in a single message
+                const chunkSize = 20; // Send 20 chars at a time
+                if (text.length > chunkSize) {
+                  for (let i = 0; i < text.length; i += chunkSize) {
+                    yield text.slice(i, i + chunkSize);
+                  }
+                } else {
+                  yield text;
+                }
+              }
+            }
+          }
+        }
+      };
+
+      // Use pipe to stream the text - this properly handles backpressure
+      const { waitUntilComplete } = agentStream.pipe(extractText());
       await waitUntilComplete();
-
-      // Wait for the stream to complete
-      await readableStream.getReader().closed;
 
       metadata.set("status", "Completed");
       metadata.set("progress", 100);
@@ -161,19 +188,10 @@ Start by exploring the repository structure with ls and reading key files, then 
       metadata.set("status", "Failed");
       metadata.set("error", error.message);
 
-      // Stream error message
+      // Stream error message as plain text
       agentStream.writer({
         execute: async ({ write }) => {
-          write({
-            type: "assistant",
-            message: {
-              role: "assistant",
-              content: [{
-                type: "text",
-                text: `Error: ${error.message}`,
-              }],
-            },
-          } as SDKMessage);
+          write(`Error: ${error.message}`);
         },
       });
 
