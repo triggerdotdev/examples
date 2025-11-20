@@ -1,13 +1,12 @@
-import { defineConfig } from "@trigger.dev/sdk/v3";
-import { aptGet } from "@trigger.dev/build/extensions/core";
+import { defineConfig } from "@trigger.dev/sdk";
 
 export default defineConfig({
   project: process.env.TRIGGER_PROJECT_REF!,
   runtime: "node",
   logLevel: "log",
-  maxDuration: 3600, // 60 minute timeout for long-running chat sessions
+  maxDuration: 3600, // 60 minute timeout
   build: {
-    extensions: [aptGet({ packages: ["git"] })],
+    external: ["@anthropic-ai/claude-agent-sdk"],
   },
   retries: {
     enabledInDev: true,
@@ -19,5 +18,5 @@ export default defineConfig({
       randomize: true,
     },
   },
-  dirs: ["./trigger"],
+  machine: "medium-2x",
 });

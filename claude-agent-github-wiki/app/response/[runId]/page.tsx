@@ -2,15 +2,30 @@
 
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { useRealtimeRun, useRealtimeStream } from "@trigger.dev/react-hooks";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { ArrowLeft, AlertCircle, CheckCircle, Loader2, XCircle } from "lucide-react";
+import {
+  ArrowLeft,
+  AlertCircle,
+  CheckCircle,
+  Loader2,
+  XCircle,
+  Terminal,
+  FileText,
+} from "lucide-react";
 import { agentStream } from "@/trigger/agent-stream";
 import { analyzeRepo } from "@/trigger/analyze-repo";
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
+import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 
 export default function ResponsePage() {
   const params = useParams();
@@ -30,7 +45,7 @@ export default function ResponsePage() {
   // Subscribe to agent stream
   const { parts, error: streamError } = useRealtimeStream(agentStream, runId, {
     accessToken,
-    throttleInMs: 100,
+    timeoutInSeconds: 60,
   });
 
   const handleAbort = async () => {
@@ -54,27 +69,6 @@ export default function ResponsePage() {
   const handleNewQuestion = () => {
     router.push("/");
   };
-
-  // Extract text content from agent messages
-  const getResponseText = () => {
-    if (!parts || parts.length === 0) return "";
-
-    return parts
-      .filter((part: any) => part.type === "assistant" && part.message?.content)
-      .map((part: any) => {
-        const content = part.message.content;
-        if (Array.isArray(content)) {
-          return content
-            .filter((c: any) => c.type === "text")
-            .map((c: any) => c.text)
-            .join("");
-        }
-        return "";
-      })
-      .join("\n\n");
-  };
-
-  const responseText = getResponseText();
 
   // Determine status
   const getStatus = () => {
@@ -107,11 +101,7 @@ export default function ResponsePage() {
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         {/* Header */}
         <div className="mb-8">
-          <Button
-            variant="ghost"
-            onClick={handleNewQuestion}
-            className="mb-4"
-          >
+          <Button variant="ghost" onClick={handleNewQuestion} className="mb-4">
             <ArrowLeft className="w-4 h-4 mr-2" />
             Ask Another Question
           </Button>
@@ -128,15 +118,21 @@ export default function ResponsePage() {
         <Card className="mb-6">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              {status === "loading" && <Loader2 className="w-5 h-5 animate-spin" />}
-              {status === "running" && <Loader2 className="w-5 h-5 animate-spin text-blue-500" />}
-              {status === "completed" && <CheckCircle className="w-5 h-5 text-green-500" />}
-              {status === "error" && <XCircle className="w-5 h-5 text-red-500" />}
+              {status === "loading" && (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              )}
+              {status === "running" && (
+                <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
+              )}
+              {status === "completed" && (
+                <CheckCircle className="w-5 h-5 text-green-500" />
+              )}
+              {status === "error" && (
+                <XCircle className="w-5 h-5 text-red-500" />
+              )}
               Analysis Status
             </CardTitle>
-            <CardDescription>
-              {statusText}
-            </CardDescription>
+            <CardDescription>{statusText}</CardDescription>
           </CardHeader>
           <CardContent>
             <Progress value={progress} className="mb-2" />
@@ -171,23 +167,37 @@ export default function ResponsePage() {
           <Alert variant="destructive" className="mb-6">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              {metadata?.error || runError?.message || streamError?.message || "An error occurred during analysis"}
+              {metadata?.error ||
+                runError?.message ||
+                streamError?.message ||
+                "An error occurred during analysis"}
             </AlertDescription>
           </Alert>
         )}
 
         {/* Response Content */}
-        {responseText && (
+        {parts && parts.length > 0 && (
           <Card>
             <CardHeader>
               <CardTitle>Analysis Result</CardTitle>
+              <CardDescription>
+                Claude is analyzing your repository. Tool usage is shown in
+                collapsible sections.
+              </CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="prose prose-sm dark:prose-invert max-w-none">
-                <ReactMarkdown>{responseText}</ReactMarkdown>
-              </div>
-            </CardContent>
+            {parts.map((part, i) => (
+              <CardContent key={i} className="space-y-4">
+                {part}
+              </CardContent>
+            ))}
           </Card>
+        )}
+
+        {/* Show message count for debugging */}
+        {parts && (
+          <div className="mt-4 text-xs text-muted-foreground text-center">
+            Received {parts.length} messages
+          </div>
         )}
 
         {/* Completion Actions */}

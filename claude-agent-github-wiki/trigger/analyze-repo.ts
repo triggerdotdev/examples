@@ -1,11 +1,11 @@
-import { schemaTask, metadata } from "@trigger.dev/sdk";
+import { query, type SDKMessage } from "@anthropic-ai/claude-agent-sdk";
+import { metadata, schemaTask, streams } from "@trigger.dev/sdk";
 import { z } from "zod";
 import { mkdtemp, rm } from "fs/promises";
 import { tmpdir } from "os";
 import { join } from "path";
 import { exec } from "child_process";
 import { promisify } from "util";
-import { query, type SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import { agentStream } from "./agent-stream";
 
 const execAsync = promisify(exec);
@@ -28,7 +28,7 @@ export const analyzeRepo = schemaTask({
     });
 
     // Update progress metadata
-    metadata.set("status", "Validating repository...");
+    metadata.set("status", "Starting analysis...");
     metadata.set("progress", 10);
 
     // Validate GitHub URL
@@ -53,7 +53,8 @@ export const analyzeRepo = schemaTask({
       console.log(`Cloning repository: ${repoName}`);
 
       // Shallow clone repo (depth=1, single branch)
-      const cloneCmd = `git clone --depth=1 --single-branch "${repoUrl}" "${tempDir}/repo"`;
+      const cloneCmd =
+        `git clone --depth=1 --single-branch "${repoUrl}" "${tempDir}/repo"`;
 
       try {
         await execAsync(cloneCmd, {
@@ -65,9 +66,11 @@ export const analyzeRepo = schemaTask({
         // Cleanup temp dir on clone failure
         await rm(tempDir, { recursive: true, force: true });
 
-        if (cloneError.code === 128 || cloneError.stderr?.includes("not found")) {
+        if (
+          cloneError.code === 128 || cloneError.stderr?.includes("not found")
+        ) {
           throw new Error(
-            `Failed to clone repository. It may be private, not exist, or the URL is invalid.`
+            `Failed to clone repository. It may be private, not exist, or the URL is invalid.`,
           );
         }
         throw new Error(`Clone failed: ${cloneError.message}`);
@@ -79,63 +82,56 @@ export const analyzeRepo = schemaTask({
       // Get repository size for warning
       const { stdout: sizeOutput } = await execAsync(
         `du -sh "${tempDir}/repo" | cut -f1`,
-        { signal: abortController.signal }
+        { signal: abortController.signal },
       );
       metadata.set("repoSize", sizeOutput.trim());
 
-      // Create a developer-focused system prompt
-      const systemPrompt = `You are analyzing the ${repoName} repository.
+      // Prepare the prompt for Claude
+      const systemPrompt =
+        `You are analyzing the ${repoName} repository that has been cloned to your current working directory.
 
-First, provide a brief 2-3 sentence overview of what this repository contains and its main purpose.
+First, provide a brief 2-3 sentence overview of what this repository contains and its main purpose by examining the file structure and key files like README.md, package.json, etc.
 
 Then, provide a detailed response to the user's question. Focus on technical accuracy and be specific with file references and code examples where relevant.
 
-User's question: ${question}`;
+Start by exploring the repository structure with ls and reading key files, then answer this question: ${question}`;
 
       metadata.set("status", "Generating response...");
       metadata.set("progress", 70);
 
-      // Process with Claude Agent SDK
+      const messages: SDKMessage[] = [];
+
+      // Use Claude Agent SDK to analyze the repository
       const result = query({
         prompt: systemPrompt,
         options: {
           model: "claude-sonnet-4-20250514",
           cwd: join(tempDir, "repo"),
-          maxTurns: 5, // Reduced from 10 since it's single question
+          maxTurns: 10,
           permissionMode: "acceptEdits",
+          abortController,
           allowedTools: [
-            "Task",
             "Bash",
             "Glob",
             "Grep",
             "Read",
-            // Removed Edit and Write since we're just analyzing
+            // Not allowing Edit/Write since we're just analyzing
           ],
         },
       });
 
-      // Stream the response
       metadata.set("status", "Streaming response...");
       metadata.set("progress", 90);
 
-      for await (const message of result) {
-        console.log("[analyze-repo] Streaming:", message.type);
+      // Stream the response
+      const { stream: readableStream, waitUntilComplete } = agentStream.pipe(
+        result,
+      );
 
-        // Write to stream for frontend consumption
-        agentStream.writer({
-          execute: async ({ write }) => {
-            write(message);
-          },
-        });
+      await waitUntilComplete();
 
-        // Update metadata when we get text responses
-        if (message.type === "assistant" && message.message.content) {
-          const textContent = message.message.content.find(c => c.type === "text");
-          if (textContent && "text" in textContent) {
-            metadata.append("responseChunks", textContent.text);
-          }
-        }
-      }
+      // Wait for the stream to complete
+      await readableStream.getReader().closed;
 
       metadata.set("status", "Completed");
       metadata.set("progress", 100);
