@@ -16,85 +16,128 @@ export const repoChatSession = schemaTask({
   run: async ({ tempDir, sessionId, repoName }, { signal }) => {
     console.log("[repo-chat] Starting session:", { sessionId, repoName });
 
-    // Create Supabase client - use publishable key for listening
+    // Create Supabase client - use secret key for server-side operations
     const supabase = createClient(
       process.env.SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY!,
+      process.env.SUPABASE_SECRET_KEY!,
       {
         realtime: {
           params: { eventsPerSecond: 10 },
         },
-      }
+      },
     );
 
-    // // Create stream writer
-    // const streamWriter = agentStream.writer();
+    // Write initial message
+    agentStream.writer({
+      execute: async ({ write }) => {
+        // Send a properly formatted assistant message
+        write({
+          type: "assistant",
+          message: {
+            role: "assistant",
+            content: [{
+              type: "text",
+              text: "Chat session ready! Ask questions about the repository.",
+            }],
+          },
+        } as SDKMessage);
+      },
+    });
 
-    // // Write initial message
-    // streamWriter.write({
-    //   type: "text",
-    //   text: "Chat session ready! Ask questions about the repository.",
-    // } as unknown as SDKMessage);
-
-    // Subscribe to Supabase channel AT TASK LEVEL (not inside writer!)
+    // Create and subscribe to channel FIRST
+    console.log("[repo-chat] Subscribing to channel...");
     const channel = supabase.channel(`session:${sessionId}`);
 
-    // Listen for questions
-    channel.on("broadcast", { event: "question" }, async ({ payload }) => {
-      console.log("[repo-chat] Question received:", payload?.question);
+    const status = await new Promise<string>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error("Subscription timeout after 30s"));
+      }, 30000);
 
-      const userQuestion = payload?.question;
-    //   if (!userQuestion) return;
-
-    //   // Echo question
-    //   streamWriter.write({
-    //     type: "text",
-    //     text: `User: ${userQuestion}`,
-    //   } as unknown as SDKMessage);
-
-    //   try {
-    //     // Process with Claude
-    //     const result = query({
-    //       prompt: userQuestion,
-    //       options: {
-    //         model: "claude-sonnet-4-20250514",
-    //         cwd: tempDir,
-    //         maxTurns: 10,
-    //         permissionMode: "acceptEdits",
-    //         allowedTools: ["Task", "Bash", "Glob", "Grep", "Read", "Edit", "Write"],
-    //       },
-    //     });
-
-    //     // Stream responses
-    //     for await (const message of result) {
-    //       console.log("[repo-chat] Streaming:", message.type);
-    //       streamWriter.write(message);
-    //     }
-    //   } catch (error: any) {
-    //     console.error("[repo-chat] Error:", error.message);
-    //     streamWriter.write({
-    //       type: "text",
-    //       text: `Error: ${error.message}`,
-    //     } as unknown as SDKMessage);
-    //   }
-    // });
-
-    // Subscribe to channel
-    console.log("[repo-chat] Subscribing to channel...");
-    const status = await new Promise<string>((resolve) => {
       channel.subscribe((status) => {
         console.log(`[repo-chat] Status: ${status}`);
-        if (status === "SUBSCRIBED" || status === "CLOSED" || status === "CHANNEL_ERROR") {
+        if (status === "SUBSCRIBED") {
+          clearTimeout(timeout);
           resolve(status);
+        } else if (status === "CLOSED" || status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          clearTimeout(timeout);
+          reject(new Error(`Subscription failed: ${status}`));
         }
       });
     });
 
-    if (status !== "SUBSCRIBED") {
-      throw new Error(`Failed to subscribe: ${status}`);
-    }
-
     console.log("[repo-chat] ✅ Subscribed successfully");
+
+    // NOW add the event listener after successful subscription
+    channel.on("broadcast", { event: "question" }, async ({ payload }) => {
+      console.log("[repo-chat] Question received:", payload?.question);
+
+      const userQuestion = payload?.question;
+      if (!userQuestion) return;
+
+      // Echo question
+      agentStream.writer({
+        execute: async ({ write }) => {
+          write({
+            type: "assistant",
+            message: {
+              role: "assistant",
+              content: [{
+                type: "text",
+                text: `User: ${userQuestion}`,
+              }],
+            },
+          } as SDKMessage);
+        },
+      });
+
+      try {
+        // Process with Claude
+        const result = query({
+          prompt: userQuestion,
+          options: {
+            model: "claude-sonnet-4-20250514",
+            cwd: tempDir,
+            maxTurns: 10,
+            permissionMode: "acceptEdits",
+            allowedTools: [
+              "Task",
+              "Bash",
+              "Glob",
+              "Grep",
+              "Read",
+              "Edit",
+              "Write",
+            ],
+          },
+        });
+
+        // Stream responses
+        for await (const message of result) {
+          console.log("[repo-chat] Streaming:", message.type);
+          agentStream.writer({
+            execute: async ({ write }) => {
+              write(message);
+            },
+          });
+        }
+      } catch (error: any) {
+        console.error("[repo-chat] Error:", error.message);
+        agentStream.writer({
+          execute: async ({ write }) => {
+            write({
+              type: "assistant",
+              message: {
+                role: "assistant",
+                content: [{
+                  type: "text",
+                  text: `Error: ${error.message}`,
+                }],
+              },
+            } as SDKMessage);
+          },
+        });
+      }
+    });
 
     // Keep task alive until abort
     await new Promise((resolve) => {

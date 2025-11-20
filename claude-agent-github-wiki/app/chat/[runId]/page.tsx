@@ -120,6 +120,9 @@ export default function ChatPage({ params }: { params: { runId: string } }) {
       })
       .subscribe();
 
+    // Store the channel reference so we can use it to send messages
+    channelRef.current = channel;
+
     // Cleanup on unmount
     return () => {
       console.log("[Chat] Cleaning up channel subscription");
