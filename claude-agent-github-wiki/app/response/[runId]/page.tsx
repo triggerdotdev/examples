@@ -223,6 +223,16 @@ export default function ResponsePage() {
                   Waiting for response... (Received {parts?.length || 0} chunks)
                 </div>
               )}
+
+              {parts && parts.length > 0 && status === "running" && (
+                <div>
+                  {parts.map((part, index) => (
+                    <div key={index} className="mb-2">
+                      {part}
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
@@ -231,15 +241,6 @@ export default function ResponsePage() {
           Streaming response... ({parts.length} text chunks received)
         </div>
         {/* Show streaming status for debugging */}
-        {parts && parts.length > 0 && status === "running" && (
-          <div>
-            {parts.map((part, index) => (
-              <div key={index} className="mb-2">
-                {part}
-              </div>
-            ))}
-          </div>
-        )}
 
         {/* Completion Actions */}
         {status === "completed" && (
