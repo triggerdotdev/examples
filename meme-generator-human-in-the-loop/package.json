@@ -14,7 +14,7 @@
     "@trigger.dev/react-hooks": "4.0.0-v4-beta.1",
     "@trigger.dev/sdk": "4.0.2",
     "ai": "^5.0.45",
-    "next": "15.3.0",
+    "next": "15.4.7",
     "openai": "^4.93.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
