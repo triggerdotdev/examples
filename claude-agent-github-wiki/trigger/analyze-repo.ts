@@ -1,5 +1,5 @@
 import { query } from "@anthropic-ai/claude-agent-sdk";
-import { logger, metadata, schemaTask } from "@trigger.dev/sdk";
+import { metadata, schemaTask } from "@trigger.dev/sdk";
 import { z } from "zod";
 import { mkdtemp, rm } from "fs/promises";
 import { tmpdir } from "os";
@@ -112,6 +112,7 @@ Important: Only include your final analysis in your response. Do not include phr
           maxTurns: 10,
           permissionMode: "acceptEdits",
           abortController,
+          includePartialMessages: true, // Enable incremental text streaming
           allowedTools: [
             "Bash",
             "Glob",
@@ -125,39 +126,31 @@ Important: Only include your final analysis in your response. Do not include phr
       metadata.set("status", "Streaming response...");
       metadata.set("progress", 90);
 
-      // Create an async generator that yields text strings from the messages
-      const extractText = async function* () {
-        for await (const message of result) {
-          logger.debug("Message type", { type: message.type });
-
-          // Extract text from assistant messages
-          if (message.type === "assistant" && message.message?.content) {
-            for (const block of message.message.content) {
-              if (block.type === "text") {
-                const text = block.text;
-                logger.debug("Streaming text block", {
-                  length: text.length,
-                  preview: text.slice(0, 100),
-                });
-
-                // Split large text blocks into smaller chunks for better streaming
-                // This helps when Claude sends a large response in a single message
-                const chunkSize = 20; // Send 20 chars at a time
-                if (text.length > chunkSize) {
-                  for (let i = 0; i < text.length; i += chunkSize) {
-                    yield text.slice(i, i + chunkSize);
-                  }
-                } else {
-                  yield text;
+      // Stream text using writer API
+      const { waitUntilComplete } = agentStream.writer({
+        execute: async ({ write }) => {
+          for await (const message of result) {
+            // Handle incremental text deltas from stream events
+            if (message.type === "stream_event") {
+              const event = message.event;
+              if (
+                event.type === "content_block_delta" &&
+                event.delta.type === "text_delta"
+              ) {
+                write(event.delta.text);
+              }
+            } // Fallback: handle complete assistant messages
+            else if (message.type === "assistant" && message.message?.content) {
+              for (const block of message.message.content) {
+                if (block.type === "text") {
+                  write(block.text);
                 }
               }
             }
           }
-        }
-      };
+        },
+      });
 
-      // Use pipe to stream the text - this properly handles backpressure
-      const { waitUntilComplete } = agentStream.pipe(extractText());
       await waitUntilComplete();
 
       metadata.set("status", "Completed");

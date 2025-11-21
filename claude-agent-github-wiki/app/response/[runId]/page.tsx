@@ -57,7 +57,10 @@ export default function ResponsePage() {
 
   // Log when parts change
   if (parts && parts.length > 0) {
-    console.log(`[Frontend] Received ${parts.length} parts, latest:`, parts[parts.length - 1]?.slice(0, 100));
+    console.log(
+      `[Frontend] Received ${parts.length} parts, latest:`,
+      parts[parts.length - 1]?.slice(0, 100)
+    );
   }
 
   const handleAbort = async () => {
@@ -224,10 +227,17 @@ export default function ResponsePage() {
           </Card>
         )}
 
+        <div className="mt-4 text-xs text-muted-foreground text-center">
+          Streaming response... ({parts.length} text chunks received)
+        </div>
         {/* Show streaming status for debugging */}
         {parts && parts.length > 0 && status === "running" && (
-          <div className="mt-4 text-xs text-muted-foreground text-center">
-            Streaming response... ({parts.length} text chunks received)
+          <div>
+            {parts.map((part, index) => (
+              <div key={index} className="mb-2">
+                {part}
+              </div>
+            ))}
           </div>
         )}
 
