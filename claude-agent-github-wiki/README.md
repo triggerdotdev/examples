@@ -1,193 +1,105 @@
-# GitHub Repository Chat with AI
+# GitHub repository analyzer with Claude Agent SDK
 
-A production-ready Next.js application that enables real-time conversations with GitHub repositories using Claude AI. Built with Trigger.dev for background processing, Supabase for realtime messaging, and Claude Agent SDK for intelligent code analysis.
-
-## Architecture Overview
-
-This application uses a hybrid architecture combining:
-
-- **Trigger.dev Realtime Streams v2** for streaming AI responses (main data pipeline)
-- **Supabase Broadcast** for sending questions to the AI (lightweight control plane)
-- **Claude Agent SDK** for repository analysis with tool usage
-- **Build Extensions** for containerized git operations
-
-## Key Features
-
-- **Two-Task System**:
-  - Task 1: Clones repository with git build extension
-  - Task 2: Long-running chat session that maintains repo in memory
-- **No Re-cloning**: Repository stays in memory for entire chat session (up to 60 minutes)
-- **Real-time Streaming**: AI responses stream live via Trigger.dev Streams v2
-- **Tool Usage Visualization**: See Claude using Bash, Grep, Read, and other tools
-- **Session Management**: Unique session IDs link clone and chat operations
+AI-powered repository analyzer that lets you ask questions about any public GitHub repository. Uses Anthropic's Claude Agent SDK with agentic tools to explore codebases and provide detailed answers, with real-time streaming responses to the frontend via Trigger.dev.
 
 ## Tech Stack
 
-- **Frontend**: Next.js 14 (App Router), TypeScript, Tailwind CSS, shadcn/ui
-- **Backend**: Trigger.dev v4 for task orchestration
-- **AI**: Claude Agent SDK with extended thinking
-- **Realtime**: Trigger.dev Streams v2 + Supabase Broadcast
-- **Build**: Trigger.dev build extensions with apt-get for git
+- [**Next.js**](https://nextjs.org/) – React frontend framework
+- [**Claude Agent SDK**](https://github.com/anthropic-ai/claude-agent-sdk) – Agentic AI with tool usage
+- [**Trigger.dev**](https://trigger.dev/) – Background task orchestration with real-time streaming
 
-## Getting Started
+## Features
 
-### Prerequisites
+- **Ask anything about any public repo** – Architecture, security vulnerabilities, API endpoints, testing strategies, etc.
+- **Claude Agent SDK exploration** – Claude explores the codebase and provide detailed answers
+- **Cancel anytime** – Abort long-running Trigger.dev task with cleanup
+- **Trigger.dev Realtime streaming** – Watch Claude's analysis stream in as it's generated
+- **Progress tracking using Trigger.dev Realtime** – See clone status, analysis progress, and repo size
 
-1. Create accounts and get API keys:
-   - [Trigger.dev](https://cloud.trigger.dev) - Project ref and secret key
-   - [Anthropic](https://console.anthropic.com) - Claude API key
-   - [Supabase](https://app.supabase.com) - Project URL and anon key
+## Setup & Running Locally
 
-### Environment Setup
+1. **Clone the repository**
 
-1. Copy the example environment file:
+   ```bash
+   git clone <repository-url>
+   cd claude-agent-github-wiki
+   ```
 
-```bash
-cp .env.example .env.local
-```
+2. **Install dependencies**
 
-2. Add your API keys to `.env.local`:
+   ```bash
+   npm install
+   ```
 
-```env
-# Trigger.dev
-TRIGGER_PROJECT_REF=your_project_ref
-TRIGGER_SECRET_KEY=your_secret_key
+3. **Copy environment variables and configure**
 
-# Claude API
-ANTHROPIC_API_KEY=your_anthropic_api_key
+   ```bash
+   cp .env.example .env
+   ```
 
-# Supabase
-SUPABASE_URL=your_supabase_project_url
-SUPABASE_ANON_KEY=your_supabase_anon_key
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY=your_supabase_anon_key
-```
+   Fill in the required variables:
 
-### Installation
+   - `TRIGGER_SECRET_KEY` – Get from [Trigger.dev dashboard](https://cloud.trigger.dev/)
+   - `TRIGGER_PROJECT_REF` – Your Trigger.dev project ref (starts with `proj_`)
+   - `ANTHROPIC_API_KEY` – Get from [Anthropic Console](https://console.anthropic.com/)
 
-```bash
-npm install
-```
+4. **Start development servers**
 
-### Development
+   ```bash
+   # Terminal 1: Start Next.js dev server
+   npm run dev
 
-Run both the Next.js app and Trigger.dev dev server:
+   # Terminal 2: Start Trigger.dev CLI
+   npx trigger.dev@latest dev
+   ```
 
-```bash
-# Terminal 1: Next.js
-npm run dev
-
-# Terminal 2: Trigger.dev
-npx trigger.dev@latest dev
-```
-
-Open [http://localhost:3000](http://localhost:3000)
-
-### Deployment
-
-Deploy to Trigger.dev:
-
-```bash
-npx trigger.dev@latest deploy
-```
-
-Deploy Next.js to Vercel:
-
-```bash
-vercel deploy
-```
+   Open [http://localhost:3000](http://localhost:3000)
 
 ## How It Works
 
-### Flow Diagram
+Trigger.dev orchestrates the repository analysis through a single long-running task:
+
+1. **`analyzeRepo`** – Main task that:
+   - Clones the repository to a temp directory (shallow clone for speed)
+   - Spawns a Claude agent with file system tools
+   - Streams Claude's response in real-time via Trigger.dev Realtime Streams
+   - Cleans up temp directory on completion or error
+
+**Process flow:**
 
 ```
-User enters GitHub URL
+User enters GitHub URL + question
     ↓
-Task 1: clone-repo (with git build extension)
+API triggers analyzeRepo task
     ↓
-Returns { tempDir, sessionId, repoName }
+Clone repo to temp directory
     ↓
-Task 2: repo-chat-session (long-running, 60 min timeout)
+Claude Agent SDK explores codebase with tools
     ↓
-Subscribes to Supabase channel for questions
+Response streams via Trigger.dev Realtime → Frontend
     ↓
-User sends questions → Supabase → Task 2
-    ↓
-Claude analyzes repo with tools
-    ↓
-Responses stream via Trigger.dev Streams v2 → Frontend
+Cleanup temp directory
 ```
 
-### Key Components
+**Claude's available tools:**
 
-1. **Build Extension** (`trigger.config.ts`):
+- **Bash** – Run shell commands to explore the repo
+- **Glob** – Find files by pattern (e.g., `**/*.ts`)
+- **Grep** – Search file contents with regex
+- **Read** – Read file contents
 
-   - Installs git via apt-get in container
-   - Enables shallow cloning without local git dependency
+## Relevant Code
 
-2. **Clone Task** (`trigger/clone-repo.ts`):
+- **Main analysis task** – Clones repo, runs Claude agent, streams response ([`trigger/analyze-repo.ts`](trigger/analyze-repo.ts))
+- **Stream definition** – Typed stream for real-time text responses ([`trigger/agent-stream.ts`](trigger/agent-stream.ts))
+- **API endpoint** – Triggers the task and returns access token ([`app/api/analyze-repo/route.ts`](app/api/analyze-repo/route.ts))
+- **Response page** – Real-time streaming display with progress ([`app/response/[runId]/page.tsx`](app/response/[runId]/page.tsx))
+- **Landing page** – Repository URL input with example repos ([`app/page.tsx`](app/page.tsx))
+- **Trigger.dev config** – Project settings with external SDK bundle ([`trigger.config.ts`](trigger.config.ts))
 
-   - Performs shallow clone (`--depth=1`)
-   - Generates unique session ID
-   - Returns temp directory path
+## Learn More
 
-3. **Chat Session Task** (`trigger/repo-chat-session.ts`):
-
-   - Maintains repo in memory for 60 minutes
-   - Listens for questions via Supabase Broadcast
-   - Streams responses via Trigger.dev Streams v2
-   - Cleans up temp directory on exit
-
-4. **Frontend** (`app/chat/[runId]/page.tsx`):
-   - Sends questions via Supabase
-   - Receives responses via Trigger.dev Streams
-   - Displays tool usage and AI reasoning
-
-## Project Structure
-
-```
-app/
-├── page.tsx                    # Landing page
-├── chat/[runId]/page.tsx      # Chat interface
-└── api/
-    ├── analyze-repo/           # Triggers both tasks
-    └── chat/                   # Sends questions via Supabase
-
-trigger/
-├── clone-repo.ts              # Task 1: Git clone
-├── repo-chat-session.ts       # Task 2: Long-running chat
-└── agent-stream.ts            # Shared stream definition
-
-components/
-├── chat/
-│   ├── user-message.tsx      # User message display
-│   ├── ai-message.tsx        # AI response with markdown
-│   └── tool-card.tsx         # Tool usage visualization
-└── ui/                        # shadcn/ui components
-```
-
-## Advanced Features
-
-- **60-minute sessions**: Extended timeout for complex analysis
-- **Abort handling**: Graceful cleanup on cancellation
-- **Error recovery**: Fallback to Trigger.dev streams if Supabase fails
-- **Progress tracking**: Real-time status updates
-- **Tool visualization**: Collapsible tool results over 50 lines
-
-## Limitations
-
-- Public repositories only (no auth for private repos)
-- Maximum session duration: 60 minutes
-- Shallow clone only (no full git history)
-- One active question at a time per session
-
-## Development Notes
-
-This demo showcases:
-
-- Trigger.dev Realtime Streams v2 for data streaming
-- Build extensions for containerized dependencies
-- Hybrid architecture pattern (control + data plane separation)
-- Long-running task management
-- Claude Agent SDK integration
+- [**Trigger.dev Realtime Streams**](https://trigger.dev/docs/realtime/streams) – Stream data from tasks to your frontend
+- [**Trigger.dev React Hooks**](https://trigger.dev/docs/realtime/react-hooks/overview) – `useRealtimeStream` for consuming streams
+- [**Claude Agent SDK**](https://github.com/anthropic-ai/claude-agent-sdk) – Run Claude with agentic tool usage
+- [**Trigger.dev schemaTask**](https://trigger.dev/docs/tasks/schematask) – Type-safe task payloads with Zod
