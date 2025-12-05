@@ -20,7 +20,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { agentStream } from "@/trigger/agent-stream";
-import { analyzeRepo } from "@/trigger/analyze-repo";
+import type { analyzeRepo } from "@/trigger/analyze-repo";
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 

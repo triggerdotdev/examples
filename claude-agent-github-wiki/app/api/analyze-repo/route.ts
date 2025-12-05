@@ -1,5 +1,5 @@
 import { tasks } from "@trigger.dev/sdk";
-import { analyzeRepo } from "@/trigger/analyze-repo";
+import type { analyzeRepo } from "@/trigger/analyze-repo";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
