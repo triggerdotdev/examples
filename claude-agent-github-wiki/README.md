@@ -4,9 +4,9 @@ AI-powered repository analyzer that lets you ask questions about any public GitH
 
 ## Tech Stack
 
-- [**Next.js**](https://nextjs.org/) – React frontend framework
-- [**Claude Agent SDK**](https://github.com/anthropic-ai/claude-agent-sdk) – Agentic AI with tool usage
-- [**Trigger.dev**](https://trigger.dev/) – Background task orchestration with real-time streaming
+- [**Next.js**](https://nextjs.org/) – React framework with App Router
+- [**Claude Agent SDK**](https://platform.claude.com/docs/en/agent-sdk/overview) – Anthropic's SDK for building AI agents; provides an agentic loop with shell, file, and search tools
+- [**Trigger.dev**](https://trigger.dev/) – runs the agent in a long-running background task with real-time streaming to the frontend
 
 ## Features
 
