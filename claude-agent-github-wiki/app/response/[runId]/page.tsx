@@ -220,27 +220,12 @@ export default function ResponsePage() {
             <CardContent>
               {formattedContent || (
                 <div className="text-muted-foreground">
-                  Waiting for response... (Received {parts?.length || 0} chunks)
-                </div>
-              )}
-
-              {parts && parts.length > 0 && status === "running" && (
-                <div>
-                  {parts.map((part, index) => (
-                    <div key={index} className="mb-2">
-                      {part}
-                    </div>
-                  ))}
+                  Waiting for response...
                 </div>
               )}
             </CardContent>
           </Card>
         )}
-
-        <div className="mt-4 text-xs text-muted-foreground text-center">
-          Streaming response... ({parts.length} text chunks received)
-        </div>
-        {/* Show streaming status for debugging */}
 
         {/* Completion Actions */}
         {status === "completed" && (

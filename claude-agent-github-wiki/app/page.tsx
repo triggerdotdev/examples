@@ -5,10 +5,26 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Github, Sparkles, ChevronDown, ChevronUp, AlertCircle } from "lucide-react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Github,
+  Sparkles,
+  ChevronDown,
+  ChevronUp,
+  AlertCircle,
+} from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 const exampleQuestions = [
   "What is the architecture of this codebase?",
@@ -35,7 +51,7 @@ const exampleRepos = [
   {
     name: "VS Code",
     url: "https://github.com/microsoft/vscode",
-    description: "Visual Studio Code",
+    description: "GitHub repository for VS Code",
     stars: "158k",
     warning: true, // Large repo
   },
@@ -52,7 +68,10 @@ export default function Home() {
   const validateGitHubUrl = (url: string): boolean => {
     try {
       const urlObj = new URL(url);
-      return urlObj.hostname === "github.com" && urlObj.pathname.split("/").length >= 3;
+      return (
+        urlObj.hostname === "github.com" &&
+        urlObj.pathname.split("/").length >= 3
+      );
     } catch {
       return false;
     }
@@ -118,16 +137,17 @@ export default function Home() {
       <div className="container mx-auto px-4 py-16 md:py-24 max-w-4xl">
         <div className="text-center space-y-6 mb-12">
           <div className="flex items-center justify-center gap-2 mb-4">
-            <Github className="w-12 h-12" />
-            <Sparkles className="w-12 h-12" />
+            <Github className="w-8 h-8" />
+            <Sparkles className="w-8 h-8" />
           </div>
 
-          <h1 className="text-5xl md:text-6xl font-bold tracking-tight">
+          <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
             Analyze any GitHub Repository
           </h1>
 
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Ask questions about any public GitHub repository and get detailed AI-powered analysis.
+            Ask questions about any public GitHub repository and get detailed
+            AI-powered analysis, powered by Trigger.dev and Claude.
           </p>
         </div>
 
@@ -135,7 +155,8 @@ export default function Home() {
           <CardHeader>
             <CardTitle>Repository Analysis</CardTitle>
             <CardDescription>
-              Enter a GitHub repository URL and ask a question about the codebase
+              Enter a GitHub repository URL and ask a question about the
+              codebase
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -172,7 +193,12 @@ export default function Home() {
               {/* Example Questions */}
               <Collapsible open={showExamples} onOpenChange={setShowExamples}>
                 <CollapsibleTrigger asChild>
-                  <Button type="button" variant="ghost" size="sm" className="w-full">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="w-full"
+                  >
                     {showExamples ? (
                       <>
                         <ChevronUp className="w-4 h-4 mr-2" />
@@ -209,7 +235,12 @@ export default function Home() {
                 </Alert>
               )}
 
-              <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
+              <Button
+                type="submit"
+                className="w-full"
+                size="lg"
+                disabled={isLoading}
+              >
                 {isLoading ? (
                   <>
                     <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" />
@@ -236,38 +267,34 @@ export default function Home() {
             {exampleRepos.map((repo) => (
               <Card
                 key={repo.url}
-                className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-105"
+                className="cursor-pointer transition-all duration-200 flex flex-col"
                 onClick={() => handleExampleRepo(repo.url)}
               >
-                <CardHeader className="pb-2">
-                  <CardTitle className="flex items-center gap-2 text-base">
+                <CardHeader className="pb-2 flex flex-1">
+                  <CardTitle className="flex items-center gap-2 text-base ">
                     <Github className="w-4 h-4" />
                     {repo.name}
                   </CardTitle>
-                  <CardDescription className="text-xs">{repo.description}</CardDescription>
+                  <CardDescription className="text-xs">
+                    {repo.description}
+                  </CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="mt-auto">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center text-xs text-muted-foreground">
-                      <svg className="w-3 h-3 mr-1 fill-current" viewBox="0 0 16 16">
+                      <svg
+                        className="w-3 h-3 mr-1 fill-current"
+                        viewBox="0 0 16 16"
+                      >
                         <path d="M8 .25a.75.75 0 01.673.418l1.882 3.815 4.21.612a.75.75 0 01.416 1.279l-3.046 2.97.719 4.192a.75.75 0 01-1.088.791L8 12.347l-3.766 1.98a.75.75 0 01-1.088-.79l.72-4.194L.818 6.374a.75.75 0 01.416-1.28l4.21-.611L7.327.668A.75.75 0 018 .25z" />
                       </svg>
                       {repo.stars}
                     </div>
-                    {repo.warning && (
-                      <AlertCircle className="w-3 h-3 text-yellow-500" title="Large repository" />
-                    )}
                   </div>
                 </CardContent>
               </Card>
             ))}
           </div>
-        </div>
-
-        <div className="mt-12 text-center text-sm text-muted-foreground">
-          <p>
-            Powered by Claude AI and Trigger.dev • Public repositories only
-          </p>
         </div>
       </div>
     </div>
