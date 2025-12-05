@@ -53,7 +53,6 @@ const exampleRepos = [
     url: "https://github.com/microsoft/vscode",
     description: "GitHub repository for VS Code",
     stars: "158k",
-    warning: true, // Large repo
   },
 ];
 

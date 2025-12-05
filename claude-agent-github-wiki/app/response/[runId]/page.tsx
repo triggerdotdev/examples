@@ -46,23 +46,6 @@ export default function ResponsePage() {
     throttleInMs: 50,
   });
 
-  // Debug logging
-  console.log("[Frontend] Stream state:", {
-    runId,
-    accessToken: accessToken ? "present" : "missing",
-    partsLength: parts?.length || 0,
-    streamError: streamError?.message,
-    runStatus: run?.status,
-  });
-
-  // Log when parts change
-  if (parts && parts.length > 0) {
-    console.log(
-      `[Frontend] Received ${parts.length} parts, latest:`,
-      parts[parts.length - 1]?.slice(0, 100)
-    );
-  }
-
   const handleAbort = async () => {
     setIsAborting(true);
     try {
@@ -95,7 +78,7 @@ export default function ResponsePage() {
     // Return the combined text as markdown
     if (combinedText.trim()) {
       return (
-        <div className="prose prose-sm dark:prose-invert max-w-none">
+        <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-4 prose-headings:mt-6 prose-headings:mb-3">
           <ReactMarkdown>{combinedText}</ReactMarkdown>
         </div>
       );
