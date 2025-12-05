@@ -14,7 +14,7 @@
     "@repo/db": "workspace:*",
     "@repo/ui": "workspace:*",
     "@trigger.dev/sdk": "^3.3.17",
-    "next": "^15.4.7",
+    "next": "^15.4.8",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
