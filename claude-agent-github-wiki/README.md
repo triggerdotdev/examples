@@ -101,5 +101,5 @@ Cleanup temp directory
 
 - [**Trigger.dev Realtime Streams**](https://trigger.dev/docs/realtime/streams) – Stream data from tasks to your frontend
 - [**Trigger.dev React Hooks**](https://trigger.dev/docs/realtime/react-hooks/overview) – `useRealtimeStream` for consuming streams
-- [**Claude Agent SDK**](https://github.com/anthropic-ai/claude-agent-sdk) – Run Claude with agentic tool usage
-- [**Trigger.dev schemaTask**](https://trigger.dev/docs/tasks/schematask) – Type-safe task payloads with Zod
+- [**Claude Agent SDK**](https://platform.claude.com/docs/en/agent-sdk/overview) – Run Claude with agentic tool usage
+- [**Trigger.dev schemaTask**](https://trigger.dev/docs/tasks/schemaTask) – Type-safe task payloads with Zod
