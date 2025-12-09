@@ -100,22 +100,19 @@ User's question: ${question}
 
 Important: Only include your final analysis in your response. Do not include phrases like "Let me explore", "Let me check", "Now let me examine", etc. The user only wants to see the final answer.`;
 
-      metadata.set("status", "Generating response...");
-      metadata.set("progress", 70);
-
       // Use Claude Agent SDK to analyze the repository
       const result = query({
         prompt: systemPrompt,
         options: {
           model: "claude-sonnet-4-20250514",
           cwd: join(tempDir, "repo"),
-          maxTurns: 10,
+          maxTurns: 30,
           permissionMode: "acceptEdits",
           abortController,
           includePartialMessages: true, // Enable incremental text streaming
           allowedTools: [
-            "Bash",
-            "Glob",
+            // "Bash",
+            // "Glob",
             "Grep",
             "Read",
             // Not allowing Edit/Write since we're just analyzing
@@ -123,13 +120,26 @@ Important: Only include your final analysis in your response. Do not include phr
         },
       });
 
-      metadata.set("status", "Streaming response...");
-      metadata.set("progress", 90);
+      metadata.set("status", "Generating response...");
+      metadata.set("progress", 80);
 
       // Stream text using writer API
       const { waitUntilComplete } = agentStream.writer({
         execute: async ({ write }) => {
           for await (const message of result) {
+            // During tool use phase - update metadata with tool names
+            if (message.type === "assistant" && message.message?.content) {
+              const toolNames: string[] = [];
+              for (const block of message.message.content) {
+                if (block.type === "tool_use") {
+                  toolNames.push(block.name);
+                }
+              }
+              if (toolNames.length > 0) {
+                metadata.set("status", `Analyzing: ${toolNames.join(", ")}`);
+              }
+            }
+
             // Handle incremental text deltas from stream events
             if (message.type === "stream_event") {
               const event = message.event;
@@ -137,14 +147,8 @@ Important: Only include your final analysis in your response. Do not include phr
                 event.type === "content_block_delta" &&
                 event.delta.type === "text_delta"
               ) {
+                metadata.set("status", "Streaming response...");
                 write(event.delta.text);
-              }
-            } // Fallback: handle complete assistant messages
-            else if (message.type === "assistant" && message.message?.content) {
-              for (const block of message.message.content) {
-                if (block.type === "text") {
-                  write(block.text);
-                }
               }
             }
           }

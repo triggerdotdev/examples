@@ -18,6 +18,7 @@ import {
   CheckCircle,
   Loader2,
   XCircle,
+  MessageCircleQuestionIcon,
 } from "lucide-react";
 import { agentStream } from "@/trigger/agent-stream";
 import type { analyzeRepo } from "@/trigger/analyze-repo";
@@ -110,17 +111,21 @@ export default function ResponsePage() {
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         {/* Header */}
         <div className="mb-8">
-          <Button variant="ghost" onClick={handleNewQuestion} className="mb-3">
+          <Button
+            variant="ghost"
+            onClick={handleNewQuestion}
+            className="mb-3 p-0"
+          >
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Ask Another Question
+            Ask another question
           </Button>
 
-          <h1 className="text-3xl font-bold mb-2">Repository Analysis</h1>
+          <h1 className="text-3xl font-bold mb-2">Repository analysis</h1>
         </div>
 
         {/* Status Card */}
-        <Card className="mb-4">
-          <CardHeader>
+        <Card className="mb-4 p-0">
+          <CardHeader className="p-6">
             <CardTitle className="flex justify-between gap-2">
               <div className="flex items-center gap-2">
                 {status === "loading" && (
@@ -135,7 +140,7 @@ export default function ResponsePage() {
                 {status === "error" && (
                   <XCircle className="w-5 h-5 text-red-500" />
                 )}
-                <span className="text-xl">Analysis Status:</span>
+                <span className="text-xl">Analysis status:</span>
               </div>
               <CardDescription className="text-lg font-medium">
                 {statusText}
@@ -170,11 +175,9 @@ export default function ResponsePage() {
           </CardContent>
         </Card>
         {question && (
-          <div className="flex items-center gap-2 bg-black/90 p-3 rounded-xl border mt-3 w-fit">
-            <p className="text-white">
-              <span className="font-medium text-white/70">Question:</span>{" "}
-              {question}
-            </p>
+          <div className="flex items-center gap-2 bg-black/90 p-4 rounded-xl border mt-6 w-fit">
+            <MessageCircleQuestionIcon className="w-6 h-6 text-gray-400" />
+            <p className="text-white">{question}</p>
           </div>
         )}
         {/* Error Alert */}
@@ -192,8 +195,8 @@ export default function ResponsePage() {
 
         {/* Response Content */}
         {combinedText.trim() && (
-          <Card className="border-none">
-            <CardContent className="p-0 py-4">
+          <Card className="mt-4 p-4">
+            <CardContent className="p-0">
               <Streamdown isAnimating={isStreaming} mode="streaming">
                 {combinedText}
               </Streamdown>
