@@ -22,7 +22,15 @@ import {
 import { agentStream } from "@/trigger/agent-stream";
 import type { analyzeRepo } from "@/trigger/analyze-repo";
 import { useState } from "react";
-import ReactMarkdown from "react-markdown";
+import { Streamdown } from "streamdown";
+
+interface RunMetadata {
+  progress?: number;
+  status?: string;
+  repository?: string;
+  repoSize?: string;
+  error?: string;
+}
 
 export default function ResponsePage() {
   const params = useParams();
@@ -69,25 +77,7 @@ export default function ResponsePage() {
   };
 
   // Process streamed text chunks
-  const getFormattedContent = () => {
-    if (!parts || parts.length === 0) return null;
-
-    // parts is now an array of text strings
-    const combinedText = parts.join("");
-
-    // Return the combined text as markdown
-    if (combinedText.trim()) {
-      return (
-        <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-4 prose-headings:mt-6 prose-headings:mb-3">
-          <ReactMarkdown>{combinedText}</ReactMarkdown>
-        </div>
-      );
-    }
-
-    return null;
-  };
-
-  const formattedContent = getFormattedContent();
+  const combinedText = parts?.join("") || "";
 
   // Determine status
   const getStatus = () => {
@@ -111,7 +101,8 @@ export default function ResponsePage() {
   };
 
   const status = getStatus();
-  const metadata = run?.metadata as any;
+  const isStreaming = status === "running" || status === "loading";
+  const metadata = run?.metadata as RunMetadata | undefined;
   const progress = metadata?.progress || 0;
   const statusText = metadata?.status || "Initializing...";
 
@@ -120,41 +111,40 @@ export default function ResponsePage() {
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         {/* Header */}
         <div className="mb-8">
-          <Button variant="ghost" onClick={handleNewQuestion} className="mb-4">
+          <Button variant="ghost" onClick={handleNewQuestion} className="mb-3">
             <ArrowLeft className="w-4 h-4 mr-2" />
             Ask Another Question
           </Button>
 
           <h1 className="text-3xl font-bold mb-2">Repository Analysis</h1>
-          {question && (
-            <p className="text-muted-foreground">
-              <span className="font-medium">Question:</span> {question}
-            </p>
-          )}
         </div>
 
         {/* Status Card */}
-        <Card className="mb-6">
+        <Card className="mb-4">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              {status === "loading" && (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              )}
-              {status === "running" && (
-                <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
-              )}
-              {status === "completed" && (
-                <CheckCircle className="w-5 h-5 text-green-500" />
-              )}
-              {status === "error" && (
-                <XCircle className="w-5 h-5 text-red-500" />
-              )}
-              Analysis Status
+            <CardTitle className="flex justify-between gap-2">
+              <div className="flex items-center gap-2">
+                {status === "loading" && (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                )}
+                {status === "running" && (
+                  <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
+                )}
+                {status === "completed" && (
+                  <CheckCircle className="w-5 h-5 text-green-500" />
+                )}
+                {status === "error" && (
+                  <XCircle className="w-5 h-5 text-red-500" />
+                )}
+                <span className="text-xl">Analysis Status:</span>
+              </div>
+              <CardDescription className="text-lg font-medium">
+                {statusText}
+              </CardDescription>
             </CardTitle>
-            <CardDescription>{statusText}</CardDescription>
           </CardHeader>
           <CardContent>
-            <Progress value={progress} className="mb-2" />
+            <Progress value={progress} className="mb-3" />
             <div className="flex justify-between text-sm text-muted-foreground">
               <span>{metadata?.repository || "Repository"}</span>
               <span>{metadata?.repoSize || ""}</span>
@@ -180,7 +170,14 @@ export default function ResponsePage() {
             )}
           </CardContent>
         </Card>
-
+        {question && (
+          <div className="flex items-center gap-2 bg-black/90 p-3 rounded-md border mt-3 w-fit">
+            <p className="text-white">
+              <span className="font-medium text-white/70">Question:</span>{" "}
+              {question}
+            </p>
+          </div>
+        )}
         {/* Error Alert */}
         {(runError || streamError || metadata?.error) && (
           <Alert variant="destructive" className="mb-6">
@@ -195,24 +192,19 @@ export default function ResponsePage() {
         )}
 
         {/* Response Content */}
-        {(formattedContent || (parts && parts.length > 0)) && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Analysis Result</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {formattedContent || (
-                <div className="text-muted-foreground">
-                  Waiting for response...
-                </div>
-              )}
+        {combinedText.trim() && (
+          <Card className="border-none">
+            <CardContent className="p-0 py-4">
+              <Streamdown isAnimating={isStreaming} mode="streaming">
+                {combinedText}
+              </Streamdown>
             </CardContent>
           </Card>
         )}
 
         {/* Completion Actions */}
         {status === "completed" && (
-          <div className="mt-6 text-center">
+          <div className="mt-6 text-center place-self-start">
             <Button onClick={handleNewQuestion} size="lg">
               Ask Another Question
             </Button>
