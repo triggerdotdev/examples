@@ -78,7 +78,6 @@ export default function ResponsePage() {
 
   // Process streamed text chunks
   const combinedText = parts?.join("") || "";
-
   // Determine status
   const getStatus = () => {
     if (runError || streamError) return "error";
@@ -145,7 +144,7 @@ export default function ResponsePage() {
           </CardHeader>
           <CardContent>
             <Progress value={progress} className="mb-3" />
-            <div className="flex justify-between text-sm text-muted-foreground">
+            <div className="flex justify-between text-sm text-muted-foreground h-4">
               <span>{metadata?.repository || "Repository"}</span>
               <span>{metadata?.repoSize || ""}</span>
             </div>
@@ -171,7 +170,7 @@ export default function ResponsePage() {
           </CardContent>
         </Card>
         {question && (
-          <div className="flex items-center gap-2 bg-black/90 p-3 rounded-md border mt-3 w-fit">
+          <div className="flex items-center gap-2 bg-black/90 p-3 rounded-xl border mt-3 w-fit">
             <p className="text-white">
               <span className="font-medium text-white/70">Question:</span>{" "}
               {question}
