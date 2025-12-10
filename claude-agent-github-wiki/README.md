@@ -2,6 +2,10 @@
 
 This demo shows how to build a simple AI-powered repository analyzer that lets you ask questions about any public GitHub repository, using [Trigger.dev](https://trigger.dev/) for workflow orchestration, streaming, and showing progress on the frontend and [Anthropic's Claude Agent SDK](https://platform.claude.com/docs/en/agent-sdk/overview) for the agentic loop.
 
+## Demo video
+
+<video src="https://content.trigger.dev/Claude%20GitHub%20Wiki-example.mp4" controls autoplay loop muted width="100%"></video>
+
 ## Tech stack
 
 - [**Next.js**](https://nextjs.org/) – Frontend framework using the App Router
