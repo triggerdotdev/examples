@@ -134,14 +134,14 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-secondary/20">
       <div className="container mx-auto px-4 py-16 md:py-24 max-w-4xl">
-        <div className="text-center space-y-6 mb-12">
+        <div className="text-center space-y-6 mb-8">
           <div className="flex items-center justify-center gap-2 mb-4">
             <Github className="w-8 h-8" />
             <Sparkles className="w-8 h-8" />
           </div>
 
           <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
-            Analyze any GitHub Repository
+            Analyze any GitHub repository
           </h1>
 
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
@@ -152,7 +152,7 @@ export default function Home() {
 
         <Card className="max-w-2xl mx-auto">
           <CardHeader>
-            <CardTitle>Repository Analysis</CardTitle>
+            <CardTitle className="pb-2">Repository analysis</CardTitle>
             <CardDescription>
               Enter a GitHub repository URL and ask a question about the
               codebase
@@ -162,7 +162,7 @@ export default function Home() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <label htmlFor="repo" className="text-sm font-medium">
-                  GitHub Repository URL
+                  GitHub repository URL
                 </label>
                 <Input
                   id="repo"
@@ -177,7 +177,7 @@ export default function Home() {
 
               <div className="space-y-2">
                 <label htmlFor="question" className="text-sm font-medium">
-                  Your Question
+                  Your question
                 </label>
                 <Textarea
                   id="question"
@@ -188,44 +188,6 @@ export default function Home() {
                   disabled={isLoading}
                 />
               </div>
-
-              {/* Example Questions */}
-              <Collapsible open={showExamples} onOpenChange={setShowExamples}>
-                <CollapsibleTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="w-full"
-                  >
-                    {showExamples ? (
-                      <>
-                        <ChevronUp className="w-4 h-4 mr-2" />
-                        Hide example questions
-                      </>
-                    ) : (
-                      <>
-                        <ChevronDown className="w-4 h-4 mr-2" />
-                        Show example questions
-                      </>
-                    )}
-                  </Button>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="space-y-2 mt-2">
-                  {exampleQuestions.map((q, idx) => (
-                    <Button
-                      key={idx}
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="w-full text-left justify-start"
-                      onClick={() => handleExampleQuestion(q)}
-                    >
-                      {q}
-                    </Button>
-                  ))}
-                </CollapsibleContent>
-              </Collapsible>
 
               {error && (
                 <Alert variant="destructive">
@@ -257,7 +219,7 @@ export default function Home() {
         </Card>
 
         {/* Example Repositories */}
-        <div className="mt-12 space-y-4">
+        <div className="mt-8 space-y-4">
           <h2 className="text-xl font-semibold text-center">
             Try with popular repositories
           </h2>

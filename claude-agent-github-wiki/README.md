@@ -37,7 +37,7 @@ This demo shows how to build a simple AI-powered repository analyzer that lets y
    cp .env.example .env
    ```
 
-   Fill in the required variables:
+   Fill in the required environment variables:
 
    - `TRIGGER_SECRET_KEY` – Get this from the [Trigger.dev dashboard](https://cloud.trigger.dev/)
    - `TRIGGER_PROJECT_REF` – Your Trigger.dev project ref (starts with `proj_`)
