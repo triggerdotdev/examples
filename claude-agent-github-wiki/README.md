@@ -1,10 +1,10 @@
-# GitHub repository analyzer with Claude Agent SDK
+# GitHub repository analyzer agent using Claude and Trigger.dev
 
-AI-powered repository analyzer that lets you ask questions about any public GitHub repository. Uses Anthropic's Claude Agent SDK with agentic tools to explore codebases and provide detailed answers, with real-time streaming responses to the frontend via Trigger.dev.
+This demo shows how to build a simple AI-powered repository analyzer that lets you ask questions about any public GitHub repository, using [Trigger.dev](https://trigger.dev/) for workflow orchestration, streaming, and showing progress on the frontend and [Anthropic's Claude Agent SDK](https://platform.claude.com/docs/en/agent-sdk/overview) for the agentic loop.
 
-## Tech Stack
+## Tech stack
 
-- [**Next.js**](https://nextjs.org/) – React framework with App Router
+- [**Next.js**](https://nextjs.org/) – Frontend framework using the App Router
 - [**Claude Agent SDK**](https://platform.claude.com/docs/en/agent-sdk/overview) – Anthropic's SDK for building AI agents; provides an agentic loop with shell, file, and search tools
 - [**Trigger.dev**](https://trigger.dev/) – runs the agent in a long-running background task with real-time streaming to the frontend
 
@@ -16,7 +16,7 @@ AI-powered repository analyzer that lets you ask questions about any public GitH
 - **Trigger.dev Realtime streaming** – Watch Claude's analysis stream in as it's generated
 - **Progress tracking using Trigger.dev Realtime** – See clone status, analysis progress, and repo size
 
-## Setup & Running Locally
+## Setup & running locally
 
 1. **Clone the repository**
 
@@ -39,11 +39,11 @@ AI-powered repository analyzer that lets you ask questions about any public GitH
 
    Fill in the required variables:
 
-   - `TRIGGER_SECRET_KEY` – Get from [Trigger.dev dashboard](https://cloud.trigger.dev/)
+   - `TRIGGER_SECRET_KEY` – Get this from the [Trigger.dev dashboard](https://cloud.trigger.dev/)
    - `TRIGGER_PROJECT_REF` – Your Trigger.dev project ref (starts with `proj_`)
-   - `ANTHROPIC_API_KEY` – Get from [Anthropic Console](https://console.anthropic.com/)
+   - `ANTHROPIC_API_KEY` – Get this from the [Anthropic Console](https://console.anthropic.com/)
 
-4. **Start development servers**
+4. **Start the development servers**
 
    ```bash
    # Terminal 1: Start Next.js dev server
@@ -55,49 +55,26 @@ AI-powered repository analyzer that lets you ask questions about any public GitH
 
    Open [http://localhost:3000](http://localhost:3000)
 
-## How It Works
+## How it works
 
 Trigger.dev orchestrates the repository analysis through a single long-running task:
 
 1. **`analyzeRepo`** – Main task that:
    - Clones the repository to a temp directory (shallow clone for speed)
    - Spawns a Claude agent with file system tools
-   - Streams Claude's response in real-time via Trigger.dev Realtime Streams
-   - Cleans up temp directory on completion or error
+   - Streams Claude's response to the frontend in real-time via Trigger.dev's Realtime Streams
+   - Cleans up the temp directory on completion or error
 
-**Process flow:**
-
-```
-User enters GitHub URL + question
-    ↓
-API triggers analyzeRepo task
-    ↓
-Clone repo to temp directory
-    ↓
-Claude Agent SDK explores codebase with tools
-    ↓
-Response streams via Trigger.dev Realtime → Frontend
-    ↓
-Cleanup temp directory
-```
-
-**Claude's available tools:**
-
-- **Bash** – Run shell commands to explore the repo
-- **Glob** – Find files by pattern (e.g., `**/*.ts`)
-- **Grep** – Search file contents with regex
-- **Read** – Read file contents
-
-## Relevant Code
+## Relevant code
 
 - **Main analysis task** – Clones repo, runs Claude agent, streams response ([`trigger/analyze-repo.ts`](trigger/analyze-repo.ts))
 - **Stream definition** – Typed stream for real-time text responses ([`trigger/agent-stream.ts`](trigger/agent-stream.ts))
-- **API endpoint** – Triggers the task and returns access token ([`app/api/analyze-repo/route.ts`](app/api/analyze-repo/route.ts))
+- **API endpoint** – Triggers the task and returns a public access token ([`app/api/analyze-repo/route.ts`](app/api/analyze-repo/route.ts))
 - **Response page** – Real-time streaming display with progress ([`app/response/[runId]/page.tsx`](app/response/[runId]/page.tsx))
 - **Landing page** – Repository URL input with example repos ([`app/page.tsx`](app/page.tsx))
 - **Trigger.dev config** – Project settings with external SDK bundle ([`trigger.config.ts`](trigger.config.ts))
 
-## Learn More
+## Learn more
 
 - [**Trigger.dev Realtime Streams**](https://trigger.dev/docs/realtime/streams) – Stream data from tasks to your frontend
 - [**Trigger.dev React Hooks**](https://trigger.dev/docs/realtime/react-hooks/overview) – `useRealtimeStream` for consuming streams
