@@ -48,3 +48,7 @@ yarn-error.log*
 apps/**/public/build
 .tests-container-id.txt
 /app/routes/_marketing-site.components
+
+# Misc 
+CLAUDE.md
+ARCHITECTURE.md
