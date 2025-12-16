@@ -1,22 +1,12 @@
 {
-  "name": "claude-agent-github-wiki",
-  "version": "0.1.0",
-  "private": true,
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "next lint",
-    "typecheck": "tsc --noEmit"
-  },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.1.37",
     "@next/swc-wasm-nodejs": "13.5.1",
     "@radix-ui/react-collapsible": "^1.1.0",
     "@radix-ui/react-progress": "^1.1.0",
     "@radix-ui/react-slot": "^1.1.0",
-    "@trigger.dev/react-hooks": "4.2.0",
-    "@trigger.dev/sdk": "4.2.0",
+    "@trigger.dev/react-hooks": "4.3.0",
+    "@trigger.dev/sdk": "4.3.0",
     "@types/node": "20.6.2",
     "@types/react": "18.2.22",
     "@types/react-dom": "18.2.7",
@@ -38,5 +28,15 @@
   },
   "devDependencies": {
     "trigger.dev": "^4.1.0"
-  }
+  },
+  "name": "claude-agent-github-wiki",
+  "private": true,
+  "scripts": {
+    "build": "next build",
+    "dev": "next dev",
+    "lint": "next lint",
+    "start": "next start",
+    "typecheck": "tsc --noEmit"
+  },
+  "version": "0.1.0"
 }
