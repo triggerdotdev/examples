@@ -87,6 +87,7 @@ export const analyzeRepo = schemaTask({
       metadata.set("repoSize", sizeOutput.trim());
 
       // Prepare the prompt for Claude
+
       const systemPrompt =
         `You are analyzing the ${repoName} repository that has been cloned to your current working directory.
 
