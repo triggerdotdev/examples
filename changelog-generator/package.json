@@ -1,0 +1,42 @@
+{
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.1.37",
+    "@radix-ui/react-progress": "^1.1.0",
+    "@radix-ui/react-slot": "^1.1.0",
+    "@trigger.dev/react-hooks": "4.3.0",
+    "@trigger.dev/sdk": "4.3.0",
+    "class-variance-authority": "^0.7.0",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.446.0",
+    "next": "^14.2.33",
+    "octokit": "^4.1.2",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "streamdown": "^1.6.10",
+    "tailwind-merge": "^2.5.2",
+    "tailwindcss": "3.3.3",
+    "tailwindcss-animate": "^1.0.7",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/node": "20.6.2",
+    "@types/react": "18.2.22",
+    "@types/react-dom": "18.2.7",
+    "autoprefixer": "10.4.15",
+    "eslint": "8.49.0",
+    "eslint-config-next": "13.5.1",
+    "postcss": "8.4.30",
+    "trigger.dev": "^4.1.0",
+    "typescript": "5.2.2"
+  },
+  "name": "changelog-generator",
+  "private": true,
+  "scripts": {
+    "build": "next build",
+    "dev": "next dev",
+    "lint": "next lint",
+    "start": "next start",
+    "typecheck": "tsc --noEmit"
+  },
+  "version": "0.1.0"
+}
