@@ -2,13 +2,6 @@ import * as React from "react";
 
 import { cn } from "@/lib/utils";
 
-/**
- * Spacing system (4px base):
- * - Card padding: 20px (p-5) - balanced breathing room
- * - CardHeader/Content gap: handled by space-y-4 in header, pt-0 in content
- * - Internal spacing: 4px between label/value, 8px between groups
- */
-
 const Card = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
