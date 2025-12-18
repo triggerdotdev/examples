@@ -18,12 +18,12 @@ const exampleRepos = [
   {
     name: "Trigger.dev",
     url: "https://github.com/triggerdotdev/trigger.dev",
-    description: "Background jobs framework",
+    description: "AI agents & workflows",
   },
   {
     name: "Next.js",
     url: "https://github.com/vercel/next.js",
-    description: "The React Framework",
+    description: "Frontend framework",
   },
   {
     name: "Tailwind CSS",
@@ -128,28 +128,21 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex items-center justify-center">
       <div className="container mx-auto px-4 py-12 max-w-2xl">
         {/* Header */}
         <header className="text-center mb-8">
-          <h1 className="text-2xl font-bold tracking-tight">
+          <h1 className="text-4xl font-bold tracking-tight mb-4">
             Changelog generator
           </h1>
-          <p className="mt-2 text-muted-foreground">
-            Turn GitHub commits into developer-friendly changelogs using Claude
-            Agent SDK with custom MCP tools + Trigger.dev.
+          <p className="mt-2 text-muted-foreground max-w-md mx-auto">
+            Turn GitHub commits into changelogs using Claude Agent SDK with
+            custom MCP tools + Trigger.dev.
           </p>
         </header>
 
-        {/* Main Form Card */}
         <Card>
-          <CardHeader>
-            <CardTitle>Generate changelog</CardTitle>
-            <CardDescription>
-              Enter a GitHub repository and date range to generate a changelog
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+          <CardContent className="p-6">
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <label htmlFor="repo" className="text-sm font-medium">
@@ -165,7 +158,7 @@ export default function Home() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-4 pb-2">
                 <div className="space-y-2">
                   <label htmlFor="startDate" className="text-sm font-medium">
                     Start date
@@ -222,7 +215,6 @@ export default function Home() {
           </CardContent>
         </Card>
 
-        {/* Example Repositories */}
         <section className="mt-8">
           <h2 className="text-sm font-medium text-muted-foreground mb-4">
             Try with popular repositories
@@ -232,13 +224,13 @@ export default function Home() {
             {exampleRepos.map((repo) => (
               <Card
                 key={repo.url}
-                className="cursor-pointer transition-colors hover:border-primary"
+                className="cursor-pointer transition-colors hover:border-gray-700"
                 onClick={() => handleExampleRepo(repo.url)}
               >
-                <CardHeader>
+                <CardHeader className="gap-1">
                   <CardTitle className="flex items-center gap-2">
                     <Github className="w-4 h-4 shrink-0" />
-                    <span className="truncate">{repo.name}</span>
+                    <span>{repo.name}</span>
                   </CardTitle>
                   <CardDescription className="text-xs">
                     {repo.description}

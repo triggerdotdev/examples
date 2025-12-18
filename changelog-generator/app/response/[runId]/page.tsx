@@ -120,7 +120,8 @@ export default function ResponsePage() {
       userScrolledRef.current = true;
     }
     // User scrolled to bottom - re-enable auto-scroll
-    const isNearBottom = window.innerHeight + scrollTop >= document.body.scrollHeight - 100;
+    const isNearBottom =
+      window.innerHeight + scrollTop >= document.body.scrollHeight - 100;
     if (isNearBottom) {
       userScrolledRef.current = false;
     }
@@ -168,7 +169,11 @@ export default function ResponsePage() {
   const metadata = run?.metadata as RunMetadata | undefined;
 
   return (
-    <div className="min-h-screen bg-background" onScroll={handleScroll} onWheel={handleScroll}>
+    <div
+      className="min-h-screen bg-background"
+      onScroll={handleScroll}
+      onWheel={handleScroll}
+    >
       <div className="container mx-auto px-4 py-12 max-w-2xl">
         {/* Header */}
         <header className="mb-8">
@@ -204,7 +209,7 @@ export default function ResponsePage() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="text-muted-foreground font-medium">
-                Claude is cooking...
+                Generating changelogs with Claude...
               </CardTitle>
               <span className="text-sm text-muted-foreground">
                 {metadata?.agent?.phase || "Initializing..."}
