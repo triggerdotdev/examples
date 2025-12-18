@@ -207,7 +207,7 @@ export default function Home() {
                 ) : (
                   <>
                     <Sparkles className="w-4 h-4 mr-2" />
-                    Generate Changelog
+                    Generate changelogs
                   </>
                 )}
               </Button>

@@ -2,6 +2,10 @@
 
 Generate changelogs from GitHub commits using AI with a two-phase approach: scan commits first, then selectively fetch diffs for unclear changes.
 
+## Demo video
+
+<video src="https://content.trigger.dev/claude-changelog-generator.mp4" controls autoplay loop muted width="100%"></video>
+
 ## Tech Stack
 
 - **[Next.js](https://nextjs.org)** – Frontend framework using App Router
