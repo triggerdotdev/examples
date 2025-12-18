@@ -2,27 +2,10 @@
 
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { useRealtimeRun, useRealtimeStream } from "@trigger.dev/react-hooks";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import {
-  ArrowLeft,
-  AlertCircle,
-  CheckCircle,
-  Loader2,
-  XCircle,
-  Calendar,
-  GitCommit,
-  Copy,
-  Check,
-} from "lucide-react";
+import { ArrowLeft, AlertCircle, Calendar, Copy, Check } from "lucide-react";
 import { changelogStream } from "@/trigger/changelog-stream";
 import { useState } from "react";
 import { Streamdown } from "streamdown";
@@ -61,7 +44,6 @@ interface RunMetadata {
   summary?: Summary;
 }
 
-// Parse markdown into individual entries by ### headings
 function parseChangelogSections(
   markdown: string
 ): Array<{ title: string; content: string; category?: string; date?: string }> {
@@ -78,10 +60,8 @@ function parseChangelogSections(
 
   for (const line of lines) {
     if (line.startsWith("## ")) {
-      // Track category but don't create a section for it
       currentCategory = line.replace("## ", "").trim();
     } else if (line.startsWith("### ")) {
-      // Save previous entry
       if (currentTitle) {
         const { content, date } = extractDate(currentContent.join("\n").trim());
         sections.push({
@@ -98,7 +78,6 @@ function parseChangelogSections(
     }
   }
 
-  // Save last entry
   if (currentTitle) {
     const { content, date } = extractDate(currentContent.join("\n").trim());
     sections.push({
@@ -112,7 +91,6 @@ function parseChangelogSections(
   return sections.filter((s) => s.content.length > 0);
 }
 
-// Extract [DATE: Dec 7] from end of content
 function extractDate(content: string): { content: string; date?: string } {
   const dateMatch = content.match(/\[DATE:\s*([^\]]+)\]\s*$/);
   if (dateMatch) {
@@ -122,40 +100,6 @@ function extractDate(content: string): { content: string; date?: string } {
     };
   }
   return { content };
-}
-
-// Parse date string like "Dec 7" or "Dec 7-9" into sortable value (newest first)
-function parseDateForSort(dateStr?: string): number {
-  if (!dateStr) return 0;
-  const months: Record<string, number> = {
-    Jan: 1,
-    Feb: 2,
-    Mar: 3,
-    Apr: 4,
-    May: 5,
-    Jun: 6,
-    Jul: 7,
-    Aug: 8,
-    Sep: 9,
-    Oct: 10,
-    Nov: 11,
-    Dec: 12,
-  };
-  // Handle "Dec 7" or "Dec 7-9" - use last day for ranges
-  const match = dateStr.match(/([A-Za-z]+)\s+(\d+)(?:-(\d+))?/);
-  if (match) {
-    const month = months[match[1]] || 0;
-    const day = parseInt(match[3] || match[2], 10);
-    return month * 100 + day;
-  }
-  return 0;
-}
-
-// Sort sections by date, newest first
-function sortByDateDesc<T extends { date?: string }>(sections: T[]): T[] {
-  return [...sections].sort(
-    (a, b) => parseDateForSort(b.date) - parseDateForSort(a.date)
-  );
 }
 
 export default function ResponsePage() {
@@ -181,24 +125,6 @@ export default function ResponsePage() {
       throttleInMs: 50,
     }
   );
-
-  const handleAbort = async () => {
-    setIsAborting(true);
-    try {
-      const response = await fetch("/api/abort", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ runId }),
-      });
-
-      if (!response.ok) {
-        console.error("Failed to abort");
-      }
-    } catch (err) {
-      console.error("Error aborting:", err);
-    }
-    setIsAborting(false);
-  };
 
   const handleNewChangelog = () => {
     router.push("/");
@@ -239,86 +165,29 @@ export default function ResponsePage() {
   const status = getStatus();
   const isStreaming = status === "running" || status === "loading";
   const metadata = run?.metadata as RunMetadata | undefined;
-  const progress = metadata?.progress || 0;
-  const statusText = metadata?.status || "Initializing...";
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-secondary/20">
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
+    <div className="min-h-screen bg-background">
+      <div className="container mx-auto px-4 py-12 max-w-2xl">
         {/* Header */}
-        <div className="mb-8">
+        <header className="mb-8">
           <Button
             variant="ghost"
             onClick={handleNewChangelog}
-            className="mb-3 p-0"
+            className="-ml-3 mb-4"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Generate another changelog
+            Back
           </Button>
 
-          <h1 className="text-3xl font-bold mb-2">Changelog generation</h1>
-        </div>
-
-        {/* Status Card
-        <Card className="mb-4 p-0">
-          <CardHeader className="p-6">
-            <CardTitle className="flex justify-between gap-2">
-              <div className="flex items-center gap-2">
-                {status === "loading" && (
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                )}
-                {status === "running" && (
-                  <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
-                )}
-                {status === "completed" && (
-                  <CheckCircle className="w-5 h-5 text-green-500" />
-                )}
-                {status === "error" && (
-                  <XCircle className="w-5 h-5 text-red-500" />
-                )}
-                <span className="text-xl">Status:</span>
-              </div>
-              <CardDescription className="text-lg font-medium">
-                {statusText}
-              </CardDescription>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Progress value={progress} className="mb-3" />
-            <div className="flex justify-between text-sm text-muted-foreground h-4">
-              <span>{metadata?.repository || "Repository"}</span>
-              {metadata?.commitCount && (
-                <span className="flex items-center gap-1">
-                  <GitCommit className="w-3 h-3" />
-                  {metadata.commitCount} commits
-                </span>
-              )}
-            </div>
-
-            {status === "running" && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-4"
-                onClick={handleAbort}
-                disabled={isAborting}
-              >
-                {isAborting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Aborting...
-                  </>
-                ) : (
-                  "Cancel"
-                )}
-              </Button>
-            )}
-          </CardContent>
-        </Card> */}
+          <h1 className="text-2xl font-bold tracking-tight">
+            Changelog generation
+          </h1>
+        </header>
 
         {/* Error Alert */}
         {(runError || streamError || metadata?.error) && (
-          <Alert variant="destructive" className="mb-6 mt-4">
+          <Alert variant="destructive" className="mb-8">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
               {metadata?.error ||
@@ -329,29 +198,32 @@ export default function ResponsePage() {
           </Alert>
         )}
 
-        {/* Agent Stats */}
-
-        <Card className="mt-4 bg-zinc-900 border-zinc-800">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-zinc-400 flex justify-between">
-              <span>Claudey is cooking...</span>
-              <span className="text-zinc-600">
+        {/* Agent Status Card */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-muted-foreground font-medium">
+                Claudey is cooking...
+              </CardTitle>
+              <span className="text-sm text-muted-foreground">
                 {metadata?.agent?.phase || "Initializing..."}
               </span>
-            </CardTitle>
-            <div className="flex items-center gap-2 rounded-xl w-fit my-3 text-sm">
-              <span className="text-zinc-500">
-                {metadata?.repository || "Repository"}
-              </span>
-              <Calendar className="w-5 h-5 text-zinc-400" />
-              <p className="text-zinc-500">
-                {startDate} to {endDate}
-              </p>
             </div>
           </CardHeader>
-          <CardContent className="text-xs font-mono text-zinc-500 space-y-2">
+          <CardContent className="space-y-4">
+            {/* Repository & Date Range */}
+            <div className="flex items-center gap-3 text-sm text-muted-foreground">
+              <span>{metadata?.repository || "Repository"}</span>
+              <span className="text-border">|</span>
+              <Calendar className="w-4 h-4" />
+              <span>
+                {startDate} to {endDate}
+              </span>
+            </div>
+
+            {/* Stats */}
             {metadata?.agent && (
-              <>
+              <div className="text-xs font-mono text-muted-foreground space-y-2">
                 <div className="flex gap-4">
                   {metadata?.commitCount && (
                     <span>{metadata.commitCount} commits</span>
@@ -367,38 +239,40 @@ export default function ResponsePage() {
                   )}
                 </div>
                 {metadata.agent.diffsInvestigated.length > 0 && (
-                  <div className="text-zinc-600">
+                  <div className="opacity-60">
                     Investigated: {metadata.agent.diffsInvestigated.join(", ")}
                   </div>
                 )}
-                <div className="space-y-1 text-zinc-600">
-                  {metadata.agent.toolCalls.map((call, i) => (
-                    <div key={i}>
-                      {call.tool}({call.input})
-                    </div>
-                  ))}
-                </div>
-              </>
+                {metadata.agent.toolCalls.length > 0 && (
+                  <div className="space-y-1 opacity-60">
+                    {metadata.agent.toolCalls.map((call, i) => (
+                      <div key={i}>
+                        {call.tool}({call.input})
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             )}
           </CardContent>
         </Card>
 
-        {/* Changelog Content - Split into cards by section */}
+        {/* Changelog Cards */}
         {combinedText.trim() && (
-          <>
+          <div className="mt-8 space-y-4">
             {parseChangelogSections(combinedText).map((section, i) => (
-              <Card key={i} className="mt-4">
-                <CardHeader className="pb-3">
-                  <div className="flex justify-between items-start gap-4">
+              <Card key={i}>
+                <CardHeader>
+                  <div className="flex items-start justify-between gap-4">
                     <div className="space-y-1">
                       {section.category && (
-                        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                        <span className="text-xs font-medium text-muted-foreground bg-secondary px-2 py-0.5 rounded">
                           {section.category}
                         </span>
                       )}
-                      <CardTitle className="text-lg">{section.title}</CardTitle>
+                      <CardTitle>{section.title}</CardTitle>
                     </div>
-                    <div className="flex items-center gap-3 shrink-0">
+                    <div className="flex items-center gap-4 shrink-0">
                       {section.date && (
                         <span className="text-xs text-muted-foreground">
                           {section.date}
@@ -408,16 +282,16 @@ export default function ResponsePage() {
                         variant="ghost"
                         size="sm"
                         onClick={() => handleCopySection(section, i)}
-                        className="gap-1 text-xs text-muted-foreground hover:text-foreground"
+                        className="text-xs text-muted-foreground hover:text-foreground"
                       >
                         {copiedIndex === i ? (
                           <>
-                            <Check className="w-3 h-3" />
+                            <Check className="w-3 h-3 mr-1" />
                             Copied
                           </>
                         ) : (
                           <>
-                            <Copy className="w-3 h-3" />
+                            <Copy className="w-3 h-3 mr-1" />
                             Copy MDX
                           </>
                         )}
@@ -438,24 +312,25 @@ export default function ResponsePage() {
                 </CardContent>
               </Card>
             ))}
-            {/* Show streaming content while building if no sections parsed yet */}
+
+            {/* Streaming placeholder */}
             {isStreaming &&
               parseChangelogSections(combinedText).length === 0 && (
-                <Card className="mt-4 p-4">
-                  <CardContent className="p-0">
+                <Card>
+                  <CardContent className="pt-5">
                     <Streamdown isAnimating={isStreaming} mode="streaming">
                       {combinedText}
                     </Streamdown>
                   </CardContent>
                 </Card>
               )}
-          </>
+          </div>
         )}
 
         {/* Completion Actions */}
         {status === "completed" && (
-          <div className="mt-6 text-center place-self-start">
-            <Button onClick={handleNewChangelog} size="lg">
+          <div className="mt-8">
+            <Button onClick={handleNewChangelog}>
               Generate Another Changelog
             </Button>
           </div>

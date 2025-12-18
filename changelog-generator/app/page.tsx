@@ -11,7 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Github, Sparkles, AlertCircle, Calendar } from "lucide-react";
+import { Github, Sparkles, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const exampleRepos = [
@@ -128,27 +128,23 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-secondary/20">
-      <div className="container mx-auto px-4 py-16 md:py-24 max-w-4xl">
-        <div className="text-center space-y-6 mb-8">
-          {/* <div className="flex items-center justify-center gap-2 mb-4">
-            <Github className="w-8 h-8" />
-            <Sparkles className="w-8 h-8" />
-          </div> */}
-
-          <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
+    <div className="min-h-screen bg-background">
+      <div className="container mx-auto px-4 py-12 max-w-2xl">
+        {/* Header */}
+        <header className="text-center mb-8">
+          <h1 className="text-2xl font-bold tracking-tight">
             Changelog generator
           </h1>
-
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+          <p className="mt-2 text-muted-foreground">
             Turn GitHub commits into developer-friendly changelogs using Claude
             Agent SDK with custom MCP tools + Trigger.dev.
           </p>
-        </div>
+        </header>
 
-        <Card className="max-w-2xl mx-auto">
+        {/* Main Form Card */}
+        <Card>
           <CardHeader>
-            <CardTitle className="pb-2">Generate changelog</CardTitle>
+            <CardTitle>Generate changelog</CardTitle>
             <CardDescription>
               Enter a GitHub repository and date range to generate a changelog
             </CardDescription>
@@ -165,7 +161,6 @@ export default function Home() {
                   placeholder="https://github.com/username/repository"
                   value={repoUrl}
                   onChange={(e) => setRepoUrl(e.target.value)}
-                  className="w-full"
                   disabled={isLoading}
                 />
               </div>
@@ -175,30 +170,26 @@ export default function Home() {
                   <label htmlFor="startDate" className="text-sm font-medium">
                     Start date
                   </label>
-                  <div className="relative">
-                    <Input
-                      id="startDate"
-                      type="date"
-                      value={startDate}
-                      onChange={(e) => setStartDate(e.target.value)}
-                      disabled={isLoading}
-                    />
-                  </div>
+                  <Input
+                    id="startDate"
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    disabled={isLoading}
+                  />
                 </div>
 
                 <div className="space-y-2">
                   <label htmlFor="endDate" className="text-sm font-medium">
                     End date
                   </label>
-                  <div className="relative">
-                    <Input
-                      id="endDate"
-                      type="date"
-                      value={endDate}
-                      onChange={(e) => setEndDate(e.target.value)}
-                      disabled={isLoading}
-                    />
-                  </div>
+                  <Input
+                    id="endDate"
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    disabled={isLoading}
+                  />
                 </div>
               </div>
 
@@ -232,22 +223,22 @@ export default function Home() {
         </Card>
 
         {/* Example Repositories */}
-        <div className="mt-8 space-y-4">
-          <h2 className="text-xl font-semibold text-center">
+        <section className="mt-8">
+          <h2 className="text-sm font-medium text-muted-foreground mb-4">
             Try with popular repositories
           </h2>
 
-          <div className="grid md:grid-cols-3 gap-4 max-w-2xl mx-auto">
+          <div className="grid grid-cols-3 gap-4">
             {exampleRepos.map((repo) => (
               <Card
                 key={repo.url}
-                className="cursor-pointer transition-all duration-200 hover:border-primary"
+                className="cursor-pointer transition-colors hover:border-primary"
                 onClick={() => handleExampleRepo(repo.url)}
               >
-                <CardHeader className="pb-2">
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <Github className="w-4 h-4" />
-                    {repo.name}
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Github className="w-4 h-4 shrink-0" />
+                    <span className="truncate">{repo.name}</span>
                   </CardTitle>
                   <CardDescription className="text-xs">
                     {repo.description}
@@ -256,7 +247,7 @@ export default function Home() {
               </Card>
             ))}
           </div>
-        </div>
+        </section>
       </div>
     </div>
   );
