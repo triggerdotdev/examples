@@ -5,6 +5,8 @@
 /* GitHub Dark Mode Theme */
 @layer base {
   :root {
+    color-scheme: dark;
+
     /* GitHub dark: #0d1117 */
     --background: 215 28% 7%;
     /* GitHub text: #e6edf3 */
@@ -66,4 +68,16 @@
 /* Inline code styling */
 :not(pre) > code {
   @apply bg-secondary px-1.5 py-0.5 rounded font-mono text-sm;
+}
+
+/* Date input calendar icon */
+input[type="date"] {
+  position: relative;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  position: absolute;
+  right: 12px;
+  filter: invert(0.5);
+  cursor: pointer;
 }
