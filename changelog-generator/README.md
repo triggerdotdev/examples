@@ -1,13 +1,13 @@
 # Changelog Generator using Claude Agent SDK and Trigger.dev
 
-Generate intelligent changelogs from GitHub commits using AI with a two-phase approach: scan commits first, then selectively fetch diffs for unclear changes.
+Generate changelogs from GitHub commits using AI with a two-phase approach: scan commits first, then selectively fetch diffs for unclear changes.
 
 ## Tech Stack
 
-- **Next.js** – Frontend framework using App Router
-- **Claude Agent SDK** – Anthropic's SDK for building AI agents with custom tools
-- **Trigger.dev** – Background task orchestration with real-time streaming
-- **Octokit** – GitHub API client
+- **[Next.js](https://nextjs.org)** – Frontend framework using App Router
+- **[Claude Agent SDK](https://github.com/anthropics/claude-agent-sdk)** – Anthropic's agent SDK for building AI agents with custom tools
+- **[Trigger.dev](https://trigger.dev)** – Background task orchestration with real-time streaming to the frontend
+- **[Octokit](https://github.com/octokit/octokit.js)** – GitHub API client
 
 ## Features
 
@@ -52,6 +52,7 @@ Streams to frontend via Trigger.dev Realtime
    ```
 
    Fill in:
+
    - `TRIGGER_SECRET_KEY` – From [Trigger.dev dashboard](https://cloud.trigger.dev/)
    - `TRIGGER_PROJECT_REF` – Your project ref (starts with `proj_`)
    - `ANTHROPIC_API_KEY` – From [Anthropic Console](https://console.anthropic.com/)
@@ -71,10 +72,10 @@ Streams to frontend via Trigger.dev Realtime
 
 ## Relevant Files
 
-- `trigger/generate-changelog.ts` – Main task with custom MCP tools for GitHub
-- `trigger/changelog-stream.ts` – Stream definition for real-time output
-- `app/api/generate-changelog/route.ts` – API endpoint
-- `app/response/[runId]/page.tsx` – Streaming display page
+- [trigger/generate-changelog.ts](trigger/generate-changelog.ts) – Main task with custom MCP tools for GitHub
+- [trigger/changelog-stream.ts](trigger/changelog-stream.ts) – Stream definition for real-time output
+- [app/api/generate-changelog/route.ts](app/api/generate-changelog/route.ts) – API endpoint
+- [app/response/[runId]/page.tsx](app/response/[runId]/page.tsx) – Streaming display page
 
 ## Custom Tools
 
@@ -82,10 +83,10 @@ The task defines two custom MCP tools that Claude can use:
 
 ```typescript
 // List commits with messages (lightweight)
-list_commits({ since: "2024-01-01", until: "2024-02-01" })
+list_commits({ since: "2024-01-01", until: "2024-02-01" });
 
 // Get full diff for a specific commit (on-demand)
-get_commit_diff({ sha: "abc1234" })
+get_commit_diff({ sha: "abc1234" });
 ```
 
 This two-phase approach minimizes token usage while giving Claude full context when needed.
