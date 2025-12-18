@@ -14,11 +14,8 @@ const generateChangelogSchema = z.object({
   endDate: z.string(),
 });
 
-// Create GitHub tools for Claude to use
 function createGitHubTools(owner: string, repo: string) {
-  const octokit = new Octokit({
-    auth: process.env.GITHUB_TOKEN,
-  });
+  const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
 
   return createSdkMcpServer({
     name: "github",
@@ -34,21 +31,20 @@ function createGitHubTools(owner: string, repo: string) {
         async (args) => {
           const commits: string[] = [];
           let page = 1;
-          const perPage = 100;
 
-          while (true) {
-            const response = await octokit.rest.repos.listCommits({
+          while (commits.length < 300) {
+            const { data } = await octokit.rest.repos.listCommits({
               owner,
               repo,
               since: args.since,
               until: args.until,
-              per_page: perPage,
+              per_page: 100,
               page,
             });
 
-            if (response.data.length === 0) break;
+            if (data.length === 0) break;
 
-            for (const commit of response.data) {
+            for (const commit of data) {
               const sha = commit.sha.substring(0, 7);
               const date = commit.commit.author?.date?.split("T")[0] || "";
               const author = commit.commit.author?.name || "Unknown";
@@ -56,9 +52,8 @@ function createGitHubTools(owner: string, repo: string) {
               commits.push(`[${sha}] ${date} (${author}): ${message}`);
             }
 
-            if (response.data.length < perPage) break;
+            if (data.length < 100) break;
             page++;
-            if (commits.length >= 300) break;
           }
 
           metadata.set("commitCount", commits.length);
@@ -80,54 +75,49 @@ function createGitHubTools(owner: string, repo: string) {
         "get_commit_diff",
         "Get the full diff/patch for a specific commit. Use this to understand what code actually changed when the commit message is unclear or you need more context.",
         {
-          sha: z
-            .string()
-            .describe("The commit SHA (short or full) to get diff for"),
+          sha: z.string().describe("The commit SHA (short or full)"),
         },
         async (args) => {
           try {
-            const response = await octokit.rest.repos.getCommit({
+            const { data: commit } = await octokit.rest.repos.getCommit({
               owner,
               repo,
               ref: args.sha,
             });
 
-            const commit = response.data;
             const files = commit.files || [];
-
-            let diffOutput = `Commit: ${commit.sha.substring(0, 7)}\n`;
-            diffOutput += `Author: ${commit.commit.author?.name}\n`;
-            diffOutput += `Date: ${commit.commit.author?.date}\n`;
-            diffOutput += `Message: ${commit.commit.message}\n\n`;
-            diffOutput += `Files changed: ${files.length}\n`;
-            diffOutput += `Additions: ${
-              commit.stats?.additions || 0
-            }, Deletions: ${commit.stats?.deletions || 0}\n\n`;
+            const lines = [
+              `Commit: ${commit.sha.substring(0, 7)}`,
+              `Author: ${commit.commit.author?.name}`,
+              `Date: ${commit.commit.author?.date}`,
+              `Message: ${commit.commit.message}`,
+              "",
+              `Files changed: ${files.length}`,
+              `+${commit.stats?.additions || 0} -${
+                commit.stats?.deletions || 0
+              }`,
+              "",
+            ];
 
             for (const file of files) {
-              diffOutput += `--- ${file.filename} (${file.status}) ---\n`;
+              lines.push(`--- ${file.filename} (${file.status}) ---`);
               if (file.patch) {
-                // Truncate very large patches
                 const patch = file.patch.length > 2000
                   ? file.patch.substring(0, 2000) + "\n... (truncated)"
                   : file.patch;
-                diffOutput += patch + "\n\n";
+                lines.push(patch, "");
               }
             }
 
             return {
-              content: [{ type: "text" as const, text: diffOutput }],
+              content: [{ type: "text" as const, text: lines.join("\n") }],
             };
           } catch (error) {
+            const msg = error instanceof Error
+              ? error.message
+              : "Unknown error";
             return {
-              content: [
-                {
-                  type: "text" as const,
-                  text: `Error fetching commit ${args.sha}: ${
-                    error instanceof Error ? error.message : "Unknown error"
-                  }`,
-                },
-              ],
+              content: [{ type: "text" as const, text: `Error: ${msg}` }],
             };
           }
         },
@@ -139,28 +129,20 @@ function createGitHubTools(owner: string, repo: string) {
 export const generateChangelog = schemaTask({
   id: "generate-changelog",
   schema: generateChangelogSchema,
-  maxDuration: 300, // 5 minutes for agent exploration
+  maxDuration: 300,
   run: async ({ repoUrl, startDate, endDate }, { signal }) => {
     const abortController = new AbortController();
     signal.addEventListener("abort", () => abortController.abort());
 
-    metadata.set("status", "Starting...");
-    metadata.set("progress", 10);
-
     // Parse repo URL
     const match = repoUrl.match(/github\.com\/([^/]+)\/([^/]+)/);
-    if (!match) {
-      throw new Error("Invalid GitHub repository URL");
-    }
+    if (!match) throw new Error("Invalid GitHub repository URL");
+
     const [, owner, repo] = match;
     const repoName = `${owner}/${repo.replace(".git", "")}`;
     metadata.set("repository", repoName);
 
-    // Create GitHub tools for this repo
     const githubServer = createGitHubTools(owner, repo.replace(".git", ""));
-
-    metadata.set("status", "Analyzing commits...");
-    metadata.set("progress", 20);
 
     const promptContent =
       `You are a changelog writer analyzing the ${repoName} repository.
@@ -285,99 +267,50 @@ Output ONLY the final changelog, no explanations or preamble.`;
     });
 
     const startTime = Date.now();
-
-    // Initialize structured agent state
-    metadata.set("agent", {
-      phase: "exploring",
-      turns: 0,
-      toolCalls: [],
-      diffsInvestigated: [],
-      startedAt: new Date().toISOString(),
-    });
-    metadata.set("status", "Agent exploring commits...");
-    metadata.set("progress", 40);
-
-    // Local state for tracking
-    const toolCalls: Array<{
-      tool: string;
-      input: string;
-      timestamp: string;
-    }> = [];
-    let turnCount = 0;
+    const toolCalls: { tool: string; input: string }[] = [];
     const diffsInvestigated: string[] = [];
+    let turns = 0;
 
-    // Stream the response
+    const updateAgent = (phase: string) => {
+      metadata.set("agent", { phase, turns, toolCalls, diffsInvestigated });
+    };
+
+    updateAgent("exploring");
+
     const { waitUntilComplete } = changelogStream.writer({
       execute: async ({ write }) => {
         for await (const message of result) {
-          // Track turns
           if (message.type === "assistant") {
-            turnCount++;
-            metadata.set("agent", {
-              phase: "exploring",
-              turns: turnCount,
-              toolCalls: [...toolCalls],
-              diffsInvestigated: [...diffsInvestigated],
-              startedAt: new Date(startTime).toISOString(),
-            });
+            turns++;
+            updateAgent("exploring");
           }
 
-          // Log tool calls with details
           if (message.type === "assistant" && message.message?.content) {
             for (const block of message.message.content) {
               if (block.type === "tool_use") {
-                const toolCall = {
-                  tool: block.name.replace("mcp__github__", ""),
-                  input: JSON.stringify(block.input),
-                  timestamp: new Date().toISOString(),
-                };
-                toolCalls.push(toolCall);
+                const tool = block.name.replace("mcp__github__", "");
+                const input = JSON.stringify(block.input);
+                toolCalls.push({ tool, input });
 
-                if (block.name === "mcp__github__list_commits") {
-                  metadata.set("status", "Fetching commit list...");
-                  metadata.set("agent", {
-                    phase: "fetching_commits",
-                    turns: turnCount,
-                    toolCalls: [...toolCalls],
-                    diffsInvestigated: [...diffsInvestigated],
-                    startedAt: new Date(startTime).toISOString(),
-                  });
-                } else if (block.name === "mcp__github__get_commit_diff") {
-                  const sha = (block.input as { sha?: string })?.sha || "unknown";
+                if (tool === "list_commits") {
+                  updateAgent("fetching_commits");
+                } else if (tool === "get_commit_diff") {
+                  const sha = (block.input as { sha?: string })?.sha ||
+                    "unknown";
                   diffsInvestigated.push(sha);
-                  metadata.set(
-                    "status",
-                    `Investigating commit ${sha} (${diffsInvestigated.length} checked)`,
-                  );
-                  metadata.set("agent", {
-                    phase: "investigating_diffs",
-                    turns: turnCount,
-                    toolCalls: [...toolCalls],
-                    diffsInvestigated: [...diffsInvestigated],
-                    currentDiff: sha,
-                    startedAt: new Date(startTime).toISOString(),
-                  });
+                  updateAgent("investigating_diffs");
                 }
               }
             }
           }
 
-          // Stream text deltas
           if (message.type === "stream_event") {
             const event = message.event;
             if (
               event.type === "content_block_delta" &&
               event.delta.type === "text_delta"
             ) {
-              metadata.set("status", "Writing changelog...");
-              metadata.set("progress", 80);
-              metadata.set("agent", {
-                phase: "writing",
-                turns: turnCount,
-                toolCalls: [...toolCalls],
-                diffsInvestigated: [...diffsInvestigated],
-                startedAt: new Date(startTime).toISOString(),
-              });
+              updateAgent("writing");
               write(event.delta.text);
             }
           }
@@ -387,31 +320,11 @@ Output ONLY the final changelog, no explanations or preamble.`;
 
     await waitUntilComplete();
 
-    const duration = Date.now() - startTime;
-
-    // Final summary
-    metadata.set("status", "Completed");
-    metadata.set("progress", 100);
-    metadata.set("agent", {
-      phase: "completed",
-      turns: turnCount,
-      toolCalls: [...toolCalls],
-      diffsInvestigated: [...diffsInvestigated],
-      startedAt: new Date(startTime).toISOString(),
-      completedAt: new Date().toISOString(),
-      durationMs: duration,
-    });
+    updateAgent("completed");
     metadata.set("summary", {
-      diffsChecked: diffsInvestigated.length,
-      agentTurns: turnCount,
-      durationSec: Math.round(duration / 1000),
+      durationSec: Math.round((Date.now() - startTime) / 1000),
     });
 
-    return {
-      repoName,
-      startDate,
-      endDate,
-      status: "completed",
-    };
+    return { repoName, startDate, endDate };
   },
 });
