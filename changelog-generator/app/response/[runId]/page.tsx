@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams, useSearchParams, useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useRealtimeRun, useRealtimeStream } from "@trigger.dev/react-hooks";
 import { Streamdown } from "streamdown";
 import { ArrowLeft, AlertCircle, Calendar, Copy, Check } from "lucide-react";
@@ -88,6 +88,8 @@ export default function ResponsePage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const userScrolledRef = useRef(false);
+  const lastScrollTop = useRef(0);
 
   const runId = params.runId as string;
   const accessToken = searchParams.get("accessToken") || "";
@@ -108,6 +110,21 @@ export default function ResponsePage() {
 
   const handleNewChangelog = () => {
     router.push("/");
+  };
+
+  // Detect if user scrolled up (away from bottom) to cancel auto-scroll
+  const handleScroll = () => {
+    const scrollTop = window.scrollY;
+    // User scrolled up - cancel auto-scroll
+    if (scrollTop < lastScrollTop.current - 50) {
+      userScrolledRef.current = true;
+    }
+    // User scrolled to bottom - re-enable auto-scroll
+    const isNearBottom = window.innerHeight + scrollTop >= document.body.scrollHeight - 100;
+    if (isNearBottom) {
+      userScrolledRef.current = false;
+    }
+    lastScrollTop.current = scrollTop;
   };
 
   const handleCopySection = async (
@@ -151,7 +168,7 @@ export default function ResponsePage() {
   const metadata = run?.metadata as RunMetadata | undefined;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background" onScroll={handleScroll} onWheel={handleScroll}>
       <div className="container mx-auto px-4 py-12 max-w-2xl">
         {/* Header */}
         <header className="mb-8">
@@ -248,24 +265,26 @@ export default function ResponsePage() {
               <Card key={i}>
                 <CardHeader className="flex gap-4">
                   <div className="flex items-center w-full justify-between gap-4 shrink-0">
-                    <div className="gap-3 flex items-center">
-                      {section.category && (
-                        <span className="text-xs font-medium text-muted-foreground bg-secondary px-2 py-0.5 rounded">
-                          {section.category}
-                        </span>
-                      )}
-                      {section.date && (
-                        <span className="text-xs text-muted-foreground">
-                          {section.date}
-                        </span>
-                      )}
-                    </div>
+                    {(section.category || section.date) && (
+                      <div className="gap-3 flex items-center">
+                        {section.category && (
+                          <span className="text-xs font-medium text-muted-foreground bg-secondary px-2 py-0.5 rounded">
+                            {section.category}
+                          </span>
+                        )}
+                        {section.date && (
+                          <span className="text-xs text-muted-foreground">
+                            {section.date}
+                          </span>
+                        )}
+                      </div>
+                    )}
 
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => handleCopySection(section, i)}
-                      className="text-xs text-muted-foreground hover:text-foreground"
+                      className="ml-auto text-xs text-muted-foreground hover:text-foreground"
                     >
                       {copiedIndex === i ? (
                         <>
@@ -287,6 +306,7 @@ export default function ResponsePage() {
                     isAnimating={isStreaming && i === sections.length - 1}
                     mode="streaming"
                     shikiTheme={["github-dark", "github-dark"]}
+                    className="text-foreground/85"
                   >
                     {section.content}
                   </Streamdown>
@@ -304,6 +324,15 @@ export default function ResponsePage() {
             )}
           </div>
         )}
+
+        {/* Scroll anchor - auto-scrolls unless user scrolled away */}
+        <div
+          ref={(el) => {
+            if (el && isStreaming && !userScrolledRef.current) {
+              el.scrollIntoView({ behavior: "smooth", block: "end" });
+            }
+          }}
+        />
 
         {/* Completion Actions */}
         {status === "completed" && (
