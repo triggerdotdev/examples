@@ -5,7 +5,13 @@ import { useMemo, useRef, useState } from "react";
 import { useRealtimeRun, useRealtimeStream } from "@trigger.dev/react-hooks";
 import { Streamdown } from "streamdown";
 import { ArrowLeft, AlertCircle, Calendar, Copy, Check } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { changelogStream } from "@/trigger/changelog-stream";
@@ -48,7 +54,7 @@ function parseChangelogSections(
         sections.push({
           title: currentTitle,
           content,
-          category: currentCategory || undefined,
+          category: currentCategory || "Update",
           date,
         });
       }
@@ -64,7 +70,7 @@ function parseChangelogSections(
     sections.push({
       title: currentTitle,
       content,
-      category: currentCategory || undefined,
+      category: currentCategory || "Update",
       date,
     });
   }
@@ -73,10 +79,10 @@ function parseChangelogSections(
 }
 
 function extractDate(content: string): { content: string; date?: string } {
-  const dateMatch = content.match(/\[DATE:\s*([^\]]+)\]\s*$/);
+  const dateMatch = content.match(/\[DATE:\s*([^\]]+)\]/);
   if (dateMatch) {
     return {
-      content: content.replace(/\[DATE:\s*[^\]]+\]\s*$/, "").trim(),
+      content: content.replace(/\[DATE:\s*[^\]]+\]\s*/, "").trim(),
       date: dateMatch[1].trim(),
     };
   }
@@ -187,7 +193,7 @@ export default function ResponsePage() {
           </Button>
 
           <h1 className="text-2xl font-bold tracking-tight">
-            Changelog entries
+            Generated changelogs
           </h1>
         </header>
 
@@ -270,19 +276,10 @@ export default function ResponsePage() {
               <Card key={i}>
                 <CardHeader className="flex gap-4">
                   <div className="flex items-center w-full justify-between gap-4 shrink-0">
-                    {(section.category || section.date) && (
-                      <div className="gap-3 flex items-center">
-                        {section.category && (
-                          <span className="text-xs font-medium text-muted-foreground bg-secondary px-2 py-0.5 rounded">
-                            {section.category}
-                          </span>
-                        )}
-                        {section.date && (
-                          <span className="text-xs text-muted-foreground">
-                            {section.date}
-                          </span>
-                        )}
-                      </div>
+                    {section.category && (
+                      <span className="text-xs font-medium text-muted-foreground bg-secondary px-2 py-0.5 rounded">
+                        {section.category}
+                      </span>
                     )}
 
                     <Button
@@ -316,6 +313,13 @@ export default function ResponsePage() {
                     {section.content}
                   </Streamdown>
                 </CardContent>
+                {section.date && (
+                  <CardFooter className="pt-4 border-t border-border">
+                    <span className="text-xs text-muted-foreground">
+                      {section.date}
+                    </span>
+                  </CardFooter>
+                )}
               </Card>
             ))}
 

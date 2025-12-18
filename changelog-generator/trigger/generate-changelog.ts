@@ -166,7 +166,7 @@ CHANGELOG FORMAT (MDX):
 - Write entries in chronological order: NEWEST FIRST (most recent date at top)
 - Write technical content, no fluff
 - Breaking changes go at the top with migration steps
-- Include the date at the END of the entry in format: [DATE: Dec 7]
+- At the END of each entry, include the date: [DATE: Dec 7]
 - Do NOT include commit SHAs
 
 WHAT TO INCLUDE - ask "does this change or improve the developer experience?":
