@@ -62,3 +62,8 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Inline code styling */
+:not(pre) > code {
+  @apply bg-secondary px-1.5 py-0.5 rounded font-mono text-sm;
+}

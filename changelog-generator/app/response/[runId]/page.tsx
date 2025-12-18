@@ -1,47 +1,28 @@
 "use client";
 
 import { useParams, useSearchParams, useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
 import { useRealtimeRun, useRealtimeStream } from "@trigger.dev/react-hooks";
+import { Streamdown } from "streamdown";
+import { ArrowLeft, AlertCircle, Calendar, Copy, Check } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { ArrowLeft, AlertCircle, Calendar, Copy, Check } from "lucide-react";
 import { changelogStream } from "@/trigger/changelog-stream";
-import { useState } from "react";
-import { Streamdown } from "streamdown";
-
-interface ToolCall {
-  tool: string;
-  input: string;
-  timestamp: string;
-}
-
-interface AgentState {
-  phase: string;
-  turns: number;
-  toolCalls: ToolCall[];
-  diffsInvestigated: string[];
-  commitCount?: number;
-  currentDiff?: string;
-  startedAt: string;
-  completedAt?: string;
-  durationMs?: number;
-}
-
-interface Summary {
-  diffsChecked: number;
-  agentTurns: number;
-  durationSec: number;
-}
 
 interface RunMetadata {
-  progress?: number;
-  status?: string;
   repository?: string;
   commitCount?: number;
   error?: string;
-  agent?: AgentState;
-  summary?: Summary;
+  agent?: {
+    phase: string;
+    turns: number;
+    toolCalls: { tool: string; input: string }[];
+    diffsInvestigated: string[];
+  };
+  summary?: {
+    durationSec: number;
+  };
 }
 
 function parseChangelogSections(
@@ -106,13 +87,12 @@ export default function ResponsePage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const [isAborting, setIsAborting] = useState(false);
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
   const runId = params.runId as string;
   const accessToken = searchParams.get("accessToken") || "";
   const startDate = searchParams.get("startDate") || "";
   const endDate = searchParams.get("endDate") || "";
-  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
   const { run, error: runError } = useRealtimeRun(runId, { accessToken });
 
@@ -141,6 +121,10 @@ export default function ResponsePage() {
   };
 
   const combinedText = parts?.join("") || "";
+  const sections = useMemo(
+    () => parseChangelogSections(combinedText),
+    [combinedText]
+  );
 
   const getStatus = () => {
     if (runError || streamError) return "error";
@@ -181,7 +165,7 @@ export default function ResponsePage() {
           </Button>
 
           <h1 className="text-2xl font-bold tracking-tight">
-            Changelog generation
+            Changelog entries
           </h1>
         </header>
 
@@ -203,7 +187,7 @@ export default function ResponsePage() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="text-muted-foreground font-medium">
-                Claudey is cooking...
+                Claude is cooking...
               </CardTitle>
               <span className="text-sm text-muted-foreground">
                 {metadata?.agent?.phase || "Initializing..."}
@@ -259,53 +243,50 @@ export default function ResponsePage() {
 
         {/* Changelog Cards */}
         {combinedText.trim() && (
-          <div className="mt-8 space-y-4">
-            {parseChangelogSections(combinedText).map((section, i) => (
+          <div className="mt-8 pb-4 space-y-4">
+            {sections.map((section, i) => (
               <Card key={i}>
-                <CardHeader>
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="space-y-1">
+                <CardHeader className="flex gap-4">
+                  <div className="flex items-center w-full justify-between gap-4 shrink-0">
+                    <div className="gap-3 flex items-center">
                       {section.category && (
                         <span className="text-xs font-medium text-muted-foreground bg-secondary px-2 py-0.5 rounded">
                           {section.category}
                         </span>
                       )}
-                      <CardTitle>{section.title}</CardTitle>
-                    </div>
-                    <div className="flex items-center gap-4 shrink-0">
                       {section.date && (
                         <span className="text-xs text-muted-foreground">
                           {section.date}
                         </span>
                       )}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleCopySection(section, i)}
-                        className="text-xs text-muted-foreground hover:text-foreground"
-                      >
-                        {copiedIndex === i ? (
-                          <>
-                            <Check className="w-3 h-3 mr-1" />
-                            Copied
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="w-3 h-3 mr-1" />
-                            Copy MDX
-                          </>
-                        )}
-                      </Button>
                     </div>
+
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleCopySection(section, i)}
+                      className="text-xs text-muted-foreground hover:text-foreground"
+                    >
+                      {copiedIndex === i ? (
+                        <>
+                          <Check className="w-3 h-3 mr-1" />
+                          Copied
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3 h-3 mr-1" />
+                          Copy MDX
+                        </>
+                      )}
+                    </Button>
                   </div>
+                  <CardTitle>{section.title}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <Streamdown
-                    isAnimating={
-                      isStreaming &&
-                      i === parseChangelogSections(combinedText).length - 1
-                    }
+                    isAnimating={isStreaming && i === sections.length - 1}
                     mode="streaming"
+                    shikiTheme={["github-dark", "github-dark"]}
                   >
                     {section.content}
                   </Streamdown>
@@ -313,17 +294,14 @@ export default function ResponsePage() {
               </Card>
             ))}
 
-            {/* Streaming placeholder */}
-            {isStreaming &&
-              parseChangelogSections(combinedText).length === 0 && (
-                <Card>
-                  <CardContent className="pt-5">
-                    <Streamdown isAnimating={isStreaming} mode="streaming">
-                      {combinedText}
-                    </Streamdown>
-                  </CardContent>
-                </Card>
-              )}
+            {/* Thinking text - shown before changelog sections appear */}
+            {isStreaming && sections.length === 0 && (
+              <div className="text-xs font-mono text-muted-foreground/70 leading-relaxed">
+                <Streamdown isAnimating={isStreaming} mode="streaming">
+                  {combinedText}
+                </Streamdown>
+              </div>
+            )}
           </div>
         )}
 
