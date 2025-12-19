@@ -1,4 +1,4 @@
-# Changelog generator using theClaude Agent SDK and Trigger.dev
+# Changelog generator using the Claude Agent SDK and Trigger.dev
 
 An AI agent that explores GitHub commits, investigates unclear changes by fetching diffs on demand, and generates developer-friendly changelogs. Built with the Claude Agent SDK and Trigger.dev.
 
