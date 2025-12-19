@@ -1,0 +1,83 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* GitHub Dark Mode Theme */
+@layer base {
+  :root {
+    color-scheme: dark;
+
+    /* GitHub dark: #0d1117 */
+    --background: 215 28% 7%;
+    /* GitHub text: #e6edf3 */
+    --foreground: 210 40% 92%;
+
+    /* GitHub elevated: #161b22 */
+    --card: 215 24% 11%;
+    --card-foreground: 210 40% 92%;
+
+    --popover: 215 24% 11%;
+    --popover-foreground: 210 40% 92%;
+
+    /* GitHub green: #238636 */
+    --primary: 132 69% 36%;
+    --primary-foreground: 0 0% 100%;
+
+    /* GitHub subtle: #21262d */
+    --secondary: 215 19% 15%;
+    --secondary-foreground: 210 40% 92%;
+
+    /* GitHub muted bg: #21262d */
+    --muted: 215 19% 15%;
+    /* GitHub muted text: #7d8590 */
+    --muted-foreground: 215 8% 53%;
+
+    --accent: 215 19% 15%;
+    --accent-foreground: 210 40% 92%;
+
+    /* GitHub red: #da3633 */
+    --destructive: 1 68% 53%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* GitHub border: #30363d */
+    --border: 212 14% 21%;
+    --input: 212 14% 21%;
+
+    /* GitHub blue: #58a6ff */
+    --ring: 212 100% 67%;
+
+    --chart-1: 132 69% 36%;
+    --chart-2: 212 100% 67%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+
+    --radius: 0.5rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Inline code styling */
+:not(pre) > code {
+  @apply bg-secondary px-1.5 py-0.5 rounded font-mono text-sm;
+}
+
+/* Date input calendar icon */
+input[type="date"] {
+  position: relative;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  position: absolute;
+  right: 12px;
+  filter: invert(0.5);
+  cursor: pointer;
+}
