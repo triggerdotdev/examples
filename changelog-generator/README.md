@@ -11,7 +11,7 @@ An AI agent that explores GitHub commits, investigates unclear changes by fetchi
 
 ## Demo
 
-<video src="https://content.trigger.dev/claude-changelog-generator.mp4" controls autoplay loop muted width="100%"></video>
+https://github.com/user-attachments/assets/ea151c1d-f866-4da4-90e4-96d65008d51a
 
 ## Running the project locally
 
