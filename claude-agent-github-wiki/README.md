@@ -8,9 +8,9 @@ Ask questions about any public GitHub repository and get AI-powered analysis usi
 - **[Claude Agent SDK](https://platform.claude.com/docs/en/agent-sdk/overview)** – Anthropic's SDK for building AI agents with file system and search tools
 - **[Trigger.dev](https://trigger.dev/)** – Background task orchestration with real-time streaming to the frontend, observability, and deployment
 
-## Demo
+## Demo video
 
-<video src="https://content.trigger.dev/Claude%20GitHub%20Wiki-example.mp4" controls autoplay loop muted width="100%"></video>
+https://github.com/user-attachments/assets/ff89ae41-0488-4d1c-aa7d-4dad15cefc12
 
 ## Running the project locally
 
