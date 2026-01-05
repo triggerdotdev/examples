@@ -1,5 +1,7 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
+CLAUDE.md
+
 postgres-data
 # dependencies
 node_modules
@@ -12,7 +14,6 @@ coverage
 # next.js
 .next/
 out/
-build
 dist
 packages/**/dist
 
@@ -23,8 +24,6 @@ packages/**/styles/tailwind.css
 # misc
 .DS_Store
 *.pem
-functions/*.js
-functions/*.js.map
 
 # debug
 npm-debug.log*
@@ -47,8 +46,17 @@ yarn-error.log*
 .output
 apps/**/public/build
 .tests-container-id.txt
-/app/routes/_marketing-site.components
+.sentryclirc
+.buildt
 
-# Misc 
-CLAUDE.md
-ARCHITECTURE.md
+**/tmp/
+/test-results/
+/playwright-report/
+/playwright/.cache/
+
+.cosine
+.trigger
+.tshy*
+.yarn
+*.tsbuildinfo
+.claude
