@@ -1,9 +1,21 @@
-import { task, batch } from "@trigger.dev/sdk";
+import { task, metadata, batch } from "@trigger.dev/sdk";
 import { createServiceClient } from "@/lib/supabase/server";
 import { getBasicInfo } from "./get-basic-info";
 import { getIndustry } from "./get-industry";
 import { getEmployeeCount } from "./get-employee-count";
 import { getFunding } from "./get-funding";
+
+// Metadata shape for realtime updates
+export type EnrichmentMetadata = {
+  companyName: string;
+  status: "enriching" | "complete" | "error";
+  website?: string | null;
+  description?: string | null;
+  industry?: string | null;
+  employeeCount?: string | null;
+  amountRaised?: string | null;
+  errors?: Record<string, string>;
+};
 
 export const enrichCompany = task({
   id: "enrich-company",
@@ -13,13 +25,19 @@ export const enrichCompany = task({
     companyName,
     userId,
   }: {
-    companyId?: string; // Optional - if provided, UPDATE existing row
+    companyId?: string;
     companyName: string;
-    userId: string; // Required for new companies
+    userId: string;
   }) => {
     const supabase = createServiceClient();
+    const errors: Record<string, string> = {};
 
-    // Run all enrichment tasks in parallel
+    // Initialize metadata for realtime
+    metadata.set("companyName", companyName);
+    metadata.set("status", "enriching");
+    await metadata.flush();
+
+    // Run all tasks in parallel using batch
     const { runs } = await batch.triggerByTaskAndWait([
       { task: getBasicInfo, payload: { companyName } },
       { task: getIndustry, payload: { companyName } },
@@ -27,85 +45,80 @@ export const enrichCompany = task({
       { task: getFunding, payload: { companyName } },
     ]);
 
-    // Collect results and errors
     const [basicInfoRun, industryRun, employeeRun, fundingRun] = runs;
-    const errors: Record<string, string> = {};
 
-    // Extract data from successful runs
-    const companyData: Record<string, string | null> = {
-      name: companyName,
-      website: null,
-      description: null,
-      industry: null,
-      employee_count: null,
-      amount_raised: null,
-    };
+    // Extract results and update metadata
+    let website: string | null = null;
+    let description: string | null = null;
+    let industry: string | null = null;
+    let employeeCount: string | null = null;
+    let amountRaised: string | null = null;
 
-    if (basicInfoRun.ok) {
-      companyData.website = basicInfoRun.output.website;
-      companyData.description = basicInfoRun.output.description;
+    if (basicInfoRun.ok && basicInfoRun.output) {
+      website = basicInfoRun.output.website;
+      description = basicInfoRun.output.description;
+      metadata.set("website", website);
+      metadata.set("description", description);
     } else {
-      errors["get-basic-info"] = typeof basicInfoRun.error === "string"
-        ? basicInfoRun.error
-        : "Failed to get basic info";
+      errors["get-basic-info"] = "Failed to get basic info";
     }
 
-    if (industryRun.ok) {
-      companyData.industry = industryRun.output.industry;
+    if (industryRun.ok && industryRun.output) {
+      industry = industryRun.output.industry;
+      metadata.set("industry", industry);
     } else {
-      errors["get-industry"] = typeof industryRun.error === "string"
-        ? industryRun.error
-        : "Failed to get industry";
+      errors["get-industry"] = "Failed to get industry";
     }
 
-    if (employeeRun.ok) {
-      companyData.employee_count = employeeRun.output.employeeCount;
+    if (employeeRun.ok && employeeRun.output) {
+      employeeCount = employeeRun.output.employeeCount;
+      metadata.set("employeeCount", employeeCount);
     } else {
-      errors["get-employee-count"] = typeof employeeRun.error === "string"
-        ? employeeRun.error
-        : "Failed to get employee count";
+      errors["get-employee-count"] = "Failed to get employee count";
     }
 
-    if (fundingRun.ok) {
-      companyData.amount_raised = fundingRun.output.amountRaised;
+    if (fundingRun.ok && fundingRun.output) {
+      amountRaised = fundingRun.output.amountRaised;
+      metadata.set("amountRaised", amountRaised);
     } else {
-      errors["get-funding"] = typeof fundingRun.error === "string"
-        ? fundingRun.error
-        : "Failed to get funding";
+      errors["get-funding"] = "Failed to get funding";
     }
 
     const hasErrors = Object.keys(errors).length > 0;
+    metadata.set("status", hasErrors ? "error" : "complete");
+    if (hasErrors) {
+      metadata.set("errors", errors);
+    }
+
+    // Build company data for DB
+    const companyData = {
+      name: companyName,
+      website,
+      description,
+      industry,
+      employee_count: employeeCount,
+      amount_raised: amountRaised,
+    };
+
     const now = new Date().toISOString();
 
-    // Save to database - INSERT new or UPDATE existing
+    // Persist to database
     if (companyId) {
-      // Update existing company
       await supabase
         .from("companies")
         .update({
-          name: companyName,
-          website: companyData.website,
-          description: companyData.description,
-          industry: companyData.industry,
-          employee_count: companyData.employee_count,
-          amount_raised: companyData.amount_raised,
+          ...companyData,
           enrichment_status: hasErrors ? "error" : "complete",
           enrichment_completed_at: now,
           errors: hasErrors ? errors : {},
         })
         .eq("id", companyId);
     } else {
-      // Insert new company with all enriched data
       const { data } = await supabase
         .from("companies")
         .insert({
           user_id: userId,
-          name: companyName,
-          website: companyData.website,
-          description: companyData.description,
-          industry: companyData.industry,
-          employee_count: companyData.employee_count,
-          amount_raised: companyData.amount_raised,
+          ...companyData,
           enrichment_status: hasErrors ? "error" : "complete",
           enrichment_started_at: now,
           enrichment_completed_at: now,

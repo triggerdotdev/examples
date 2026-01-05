@@ -1,4 +1,4 @@
-import { task } from "@trigger.dev/sdk";
+import { task, metadata } from "@trigger.dev/sdk";
 import Exa from "exa-js";
 import { generateText, Output } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
@@ -34,6 +34,9 @@ ${JSON.stringify(results.results, null, 2)}
 Provide a range estimate (e.g., "50-100", "500-1,000", "5,000-10,000", "10,000+"). If you can't find specific numbers, make an educated estimate based on the company's apparent size and industry.`,
       output: Output.object({ schema }),
     });
+
+    // Update parent metadata for realtime streaming
+    metadata.parent.set("employeeCount", output.employeeCount);
 
     return output;
   },

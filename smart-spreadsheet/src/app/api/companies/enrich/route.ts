@@ -20,8 +20,8 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json({
-      triggered: 1,
       runId: handle.id,
+      accessToken: handle.publicAccessToken,
     });
   }
 

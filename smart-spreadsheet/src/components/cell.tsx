@@ -6,7 +6,6 @@ import { AlertCircle, RefreshCw, ExternalLink } from "lucide-react";
 interface CellProps {
   value: string | null;
   isLoading: boolean;
-  taskName?: string;
   error?: string;
   onRetry?: () => void;
   isLink?: boolean;
@@ -15,7 +14,6 @@ interface CellProps {
 export function Cell({
   value,
   isLoading,
-  taskName,
   error,
   onRetry,
   isLink,

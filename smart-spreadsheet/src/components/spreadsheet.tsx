@@ -1,12 +1,19 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef, useMemo } from "react";
+import { useState, useCallback, useRef } from "react";
 import { Cell } from "./cell";
-import { createClient } from "@/lib/supabase/client";
+import { EnrichingRow } from "./enriching-row";
 import type { Company } from "@/lib/supabase/types";
-import { Play, Loader2 } from "lucide-react";
+import { LucideWandSparkles } from "lucide-react";
 
-const EMPTY_ROWS = 20;
+const EMPTY_ROWS = 10;
+
+interface EnrichingDraft {
+  rowIndex: number;
+  companyName: string;
+  runId: string;
+  accessToken: string;
+}
 
 interface SpreadsheetProps {
   initialCompanies: Company[];
@@ -14,93 +21,20 @@ interface SpreadsheetProps {
 
 export function Spreadsheet({ initialCompanies }: SpreadsheetProps) {
   const [companies, setCompanies] = useState<Company[]>(initialCompanies);
-  const [newCompanyName, setNewCompanyName] = useState<Record<number, string>>({});
-  const [enrichingDrafts, setEnrichingDrafts] = useState<Set<number>>(new Set());
-  const [draftErrors, setDraftErrors] = useState<Record<number, string>>({});
+  const [newCompanyName, setNewCompanyName] = useState<Record<number, string>>(
+    {}
+  );
+  const [enrichingDrafts, setEnrichingDrafts] = useState<EnrichingDraft[]>([]);
   const inputRefs = useRef<Record<number, HTMLInputElement | null>>({});
-  const pendingCompanyNames = useRef<Set<string>>(new Set());
 
-  const supabase = useMemo(() => {
-    try {
-      return createClient();
-    } catch {
-      return null;
-    }
-  }, []);
-
-  // Supabase realtime - valid useEffect for external system
-  useEffect(() => {
-    if (!supabase) return;
-
-    const channel = supabase
-      .channel("companies-changes")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "companies" },
-        (payload) => {
-          if (payload.eventType === "INSERT") {
-            const newCompany = payload.new as Company;
-            setCompanies((prev) => [...prev, newCompany]);
-
-            // Clear draft if this was a pending enrichment
-            if (pendingCompanyNames.current.has(newCompany.name)) {
-              pendingCompanyNames.current.delete(newCompany.name);
-              // Find and clear the draft row with this name
-              setNewCompanyName((prev) => {
-                const next = { ...prev };
-                for (const [key, value] of Object.entries(next)) {
-                  if (value.trim() === newCompany.name) {
-                    delete next[Number(key)];
-                    break;
-                  }
-                }
-                return next;
-              });
-              // Clear enriching state for that row
-              setEnrichingDrafts((prev) => {
-                const next = new Set(prev);
-                // Remove all - the draft is gone now anyway
-                return next;
-              });
-            }
-          } else if (payload.eventType === "UPDATE") {
-            setCompanies((prev) =>
-              prev.map((c) =>
-                c.id === (payload.new as Company).id
-                  ? (payload.new as Company)
-                  : c
-              )
-            );
-          } else if (payload.eventType === "DELETE") {
-            setCompanies((prev) =>
-              prev.filter((c) => c.id !== (payload.old as Company).id)
-            );
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [supabase]);
-
-  // Enrich a draft row (triggers enrichment, saves to DB when complete)
+  // Enrich a new company
   const handleEnrichDraft = useCallback(
     async (rowIndex: number) => {
       const name = newCompanyName[rowIndex]?.trim();
-      if (!name || enrichingDrafts.has(rowIndex)) return;
+      if (!name) return;
 
-      // Mark as enriching
-      setEnrichingDrafts((prev) => new Set(prev).add(rowIndex));
-      setDraftErrors((prev) => {
-        const next = { ...prev };
-        delete next[rowIndex];
-        return next;
-      });
-
-      // Track this company name so we can clear draft when it appears
-      pendingCompanyNames.current.add(name);
+      // Check if already enriching this row
+      if (enrichingDrafts.some((d) => d.rowIndex === rowIndex)) return;
 
       try {
         const res = await fetch("/api/companies/enrich", {
@@ -109,48 +43,66 @@ export function Spreadsheet({ initialCompanies }: SpreadsheetProps) {
           body: JSON.stringify({ companyName: name }),
         });
 
-        if (!res.ok) {
-          throw new Error("Failed to trigger enrichment");
-        }
-        // Don't clear draft here - wait for Supabase realtime INSERT
-      } catch (err) {
-        // Show error, allow retry
-        pendingCompanyNames.current.delete(name);
-        setDraftErrors((prev) => ({
+        if (!res.ok) throw new Error("Failed to trigger");
+
+        const { runId, accessToken } = await res.json();
+
+        // Add to enriching drafts with per-run accessToken
+        setEnrichingDrafts((prev) => [
           ...prev,
-          [rowIndex]: err instanceof Error ? err.message : "Enrichment failed",
-        }));
-        setEnrichingDrafts((prev) => {
-          const next = new Set(prev);
-          next.delete(rowIndex);
+          { rowIndex, companyName: name, runId, accessToken },
+        ]);
+
+        // Clear the input
+        setNewCompanyName((prev) => {
+          const next = { ...prev };
+          delete next[rowIndex];
           return next;
         });
+      } catch (err) {
+        console.error("Enrich failed:", err);
       }
     },
     [newCompanyName, enrichingDrafts]
   );
 
-  // Update field in DB
-  const handleFieldUpdate = useCallback(
-    async (companyId: string, field: string, value: string) => {
-      // Optimistic update
-      setCompanies((prev) =>
-        prev.map((c) =>
-          c.id === companyId ? { ...c, [field]: value || null } : c
-        )
-      );
-      // Persist (skip if supabase not configured)
-      if (supabase) {
-        await supabase
-          .from("companies")
-          .update({ [field]: value || null })
-          .eq("id", companyId);
+  // Handle enrichment complete - add to companies, remove from drafts
+  const handleEnrichComplete = useCallback(
+    (
+      runId: string,
+      data: {
+        companyName: string;
+        website: string | null;
+        description: string | null;
+        industry: string | null;
+        employeeCount: string | null;
+        amountRaised: string | null;
       }
+    ) => {
+      // Add as a company (DB persistence already happened in task)
+      const newCompany: Company = {
+        id: `local-${Date.now()}`,
+        created_at: new Date().toISOString(),
+        user_id: "",
+        name: data.companyName,
+        website: data.website,
+        description: data.description,
+        industry: data.industry,
+        employee_count: data.employeeCount,
+        amount_raised: data.amountRaised,
+        enrichment_status: "complete",
+        enrichment_started_at: null,
+        enrichment_completed_at: new Date().toISOString(),
+        errors: {},
+      };
+
+      setCompanies((prev) => [...prev, newCompany]);
+      setEnrichingDrafts((prev) => prev.filter((d) => d.runId !== runId));
     },
-    [supabase]
+    []
   );
 
-  // Trigger enrichment for a row
+  // Re-enrich existing company
   const handleEnrichRow = useCallback(async (company: Company) => {
     await fetch("/api/companies/enrich", {
       method: "POST",
@@ -172,7 +124,6 @@ export function Spreadsheet({ initialCompanies }: SpreadsheetProps) {
     }
   };
 
-  // Derived: check if enriching
   const isEnriching = (company: Company) =>
     company.enrichment_status === "pending" ||
     company.enrichment_status === "enriching";
@@ -184,8 +135,12 @@ export function Spreadsheet({ initialCompanies }: SpreadsheetProps) {
     <div className="border border-border rounded-sm overflow-hidden">
       {/* Header */}
       <div className="flex bg-muted/50 border-b border-border text-xs font-medium text-muted-foreground">
-        <div className="w-10 shrink-0 px-2 py-2 border-r border-border bg-muted/30 text-center">#</div>
-        <div className="w-10 shrink-0 px-2 py-2 border-r border-border bg-muted/30 text-center">▶</div>
+        <div className="w-10 shrink-0 px-2 py-2 border-r border-border bg-muted/30 text-center">
+          #
+        </div>
+        <div className="w-10 shrink-0 px-2 py-2 border-r border-border bg-muted/30 text-center flex items-center justify-center">
+          <LucideWandSparkles className="h-3 w-3 text-gray-400" />
+        </div>
         <div className="w-[180px] shrink-0 px-3 py-2 border-r border-border">
           Company
         </div>
@@ -211,104 +166,83 @@ export function Spreadsheet({ initialCompanies }: SpreadsheetProps) {
             key={company.id}
             className="flex border-b border-border hover:bg-muted/5 text-sm"
           >
-            {/* Row number */}
             <div className="w-10 shrink-0 px-2 py-2 border-r border-border bg-muted/20 text-center text-xs text-muted-foreground">
               {index + 1}
             </div>
 
-            {/* Enrich button */}
-            <div className="w-10 shrink-0 px-2 py-2 border-r border-border bg-muted/10 flex items-center justify-center">
+            <div className="w-10 shrink-0 px-2 py-2 border-r border-border bg-muted/10 flex items-center justify-center pointer-events-none">
               <button
                 onClick={() => handleEnrichRow(company)}
                 disabled={isEnriching(company)}
-                className="p-1 hover:bg-muted rounded transition-colors disabled:opacity-50"
+                className="p-1 hover:bg-muted rounded transition-colors disabled:opacity-50 hover:cursor-pointer"
                 title="Enrich with AI"
               >
-                <Play className="h-3 w-3 text-blue-400" />
+                <LucideWandSparkles className="h-3 w-3 text-blue-400" />
               </button>
             </div>
 
-            {/* Company name - editable */}
+            <div className="w-[180px] shrink-0 px-3 py-2 border-r border-border font-medium">
+              {company.name}
+            </div>
+
             <div className="w-[180px] shrink-0 px-3 py-2 border-r border-border">
-              <input
-                type="text"
-                defaultValue={company.name}
-                onBlur={(e) => {
-                  if (e.target.value !== company.name) {
-                    handleFieldUpdate(company.id, "name", e.target.value);
-                  }
-                }}
-                className="w-full bg-transparent outline-none focus:bg-blue-500/5 rounded px-1 -mx-1"
+              <Cell
+                value={company.website}
+                isLoading={isEnriching(company) && !company.website}
+                isLink={!!company.website}
               />
             </div>
 
-            {/* Website - editable */}
-            <div className="w-[180px] shrink-0 px-3 py-2 border-r border-border">
-              {isEnriching(company) && !company.website ? (
-                <Cell value={null} isLoading taskName="getBasicInfo" />
-              ) : (
-                <input
-                  type="text"
-                  defaultValue={company.website ?? ""}
-                  onBlur={(e) => {
-                    if (e.target.value !== (company.website ?? "")) {
-                      handleFieldUpdate(company.id, "website", e.target.value);
-                    }
-                  }}
-                  placeholder="—"
-                  className="w-full bg-transparent outline-none focus:bg-blue-500/5 rounded px-1 -mx-1 placeholder:text-muted-foreground/50"
-                />
-              )}
-            </div>
-
-            {/* Description */}
             <div className="flex-1 min-w-[250px] px-3 py-2 border-r border-border">
               <Cell
                 value={company.description}
                 isLoading={isEnriching(company) && !company.description}
-                taskName="getBasicInfo"
                 error={getError(company, "get-basic-info")}
               />
             </div>
 
-            {/* Industry */}
             <div className="w-[140px] shrink-0 px-3 py-2 border-r border-border">
               <Cell
                 value={company.industry}
                 isLoading={isEnriching(company) && !company.industry}
-                taskName="getIndustry"
                 error={getError(company, "get-industry")}
               />
             </div>
 
-            {/* Employees */}
             <div className="w-[100px] shrink-0 px-3 py-2 border-r border-border">
               <Cell
                 value={company.employee_count}
                 isLoading={isEnriching(company) && !company.employee_count}
-                taskName="getEmployeeCount"
                 error={getError(company, "get-employee-count")}
               />
             </div>
 
-            {/* Raised */}
             <div className="w-[120px] shrink-0 px-3 py-2">
               <Cell
                 value={company.amount_raised}
                 isLoading={isEnriching(company) && !company.amount_raised}
-                taskName="getFunding"
                 error={getError(company, "get-funding")}
               />
             </div>
           </div>
         ))}
 
+        {/* Enriching draft rows - with realtime updates */}
+        {enrichingDrafts.map((draft) => (
+          <EnrichingRow
+            key={draft.runId}
+            rowIndex={companies.length + enrichingDrafts.indexOf(draft)}
+            companyName={draft.companyName}
+            runId={draft.runId}
+            accessToken={draft.accessToken}
+            onComplete={(data) => handleEnrichComplete(draft.runId, data)}
+          />
+        ))}
+
         {/* Empty input rows */}
         {Array.from({ length: EMPTY_ROWS }).map((_, i) => {
-          const rowIndex = companies.length + i;
-          const isEnrichingDraft = enrichingDrafts.has(rowIndex);
+          const rowIndex = companies.length + enrichingDrafts.length + i;
           const hasText = !!newCompanyName[rowIndex]?.trim();
-          const error = draftErrors[rowIndex];
 
           return (
             <div
@@ -318,23 +252,19 @@ export function Spreadsheet({ initialCompanies }: SpreadsheetProps) {
               <div className="w-10 shrink-0 px-2 py-2 border-r border-border bg-muted/20 text-center text-xs text-muted-foreground">
                 {rowIndex + 1}
               </div>
-              {/* Play button - show when has text */}
+
               <div className="w-10 shrink-0 px-2 py-2 border-r border-border bg-muted/10 flex items-center justify-center">
                 {hasText && (
                   <button
                     onClick={() => handleEnrichDraft(rowIndex)}
-                    disabled={isEnrichingDraft}
-                    className="p-1 hover:bg-muted rounded transition-colors disabled:opacity-50"
+                    className="p-1 hover:bg-muted rounded transition-colors"
                     title="Enrich with AI"
                   >
-                    {isEnrichingDraft ? (
-                      <Loader2 className="h-3 w-3 text-blue-400 animate-spin" />
-                    ) : (
-                      <Play className="h-3 w-3 text-blue-400" />
-                    )}
+                    <LucideWandSparkles className="h-3 w-3 text-blue-400" />
                   </button>
                 )}
               </div>
+
               <div className="w-[180px] shrink-0 border-r border-border">
                 <input
                   ref={(el) => {
@@ -349,29 +279,25 @@ export function Spreadsheet({ initialCompanies }: SpreadsheetProps) {
                     }))
                   }
                   onKeyDown={(e) => handleKeyDown(e, rowIndex)}
-                  placeholder={
-                    rowIndex === companies.length ? "Enter company..." : ""
-                  }
-                  disabled={isEnrichingDraft}
-                  className="w-full h-full px-3 py-2 bg-transparent outline-none focus:bg-blue-500/5 placeholder:text-muted-foreground/30 text-sm text-foreground disabled:opacity-50"
+                  placeholder={i === 0 ? "Enter company..." : ""}
+                  className="w-full h-full px-3 py-2 bg-transparent outline-none focus:bg-blue-500/5 placeholder:text-muted-foreground/30 text-sm"
                 />
               </div>
+
               <div className="w-[180px] shrink-0 px-3 py-2 border-r border-border text-muted-foreground/20">
-                {isEnrichingDraft ? <Cell value={null} isLoading taskName="enriching" /> : "—"}
+                —
               </div>
               <div className="flex-1 min-w-[250px] px-3 py-2 border-r border-border text-muted-foreground/20">
-                {isEnrichingDraft ? <Cell value={null} isLoading taskName="enriching" /> : error ? (
-                  <span className="text-destructive text-xs">{error}</span>
-                ) : "—"}
+                —
               </div>
               <div className="w-[140px] shrink-0 px-3 py-2 border-r border-border text-muted-foreground/20">
-                {isEnrichingDraft ? <Cell value={null} isLoading taskName="enriching" /> : "—"}
+                —
               </div>
               <div className="w-[100px] shrink-0 px-3 py-2 border-r border-border text-muted-foreground/20">
-                {isEnrichingDraft ? <Cell value={null} isLoading taskName="enriching" /> : "—"}
+                —
               </div>
               <div className="w-[120px] shrink-0 px-3 py-2 text-muted-foreground/20">
-                {isEnrichingDraft ? <Cell value={null} isLoading taskName="enriching" /> : "—"}
+                —
               </div>
             </div>
           );

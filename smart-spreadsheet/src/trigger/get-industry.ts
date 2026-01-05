@@ -1,4 +1,4 @@
-import { task } from "@trigger.dev/sdk";
+import { task, metadata } from "@trigger.dev/sdk";
 import { generateText, Output } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
 import { z } from "zod";
@@ -32,6 +32,9 @@ Provide a concise industry classification using common categories like:
 If the company spans multiple industries, pick the primary one.`,
       output: Output.object({ schema }),
     });
+
+    // Update parent metadata for realtime streaming
+    metadata.parent.set("industry", output.industry);
 
     return output;
   },

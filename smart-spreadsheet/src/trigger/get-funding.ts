@@ -1,4 +1,4 @@
-import { task } from "@trigger.dev/sdk";
+import { task, metadata } from "@trigger.dev/sdk";
 import Exa from "exa-js";
 import { generateText, Output } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
@@ -34,6 +34,9 @@ ${JSON.stringify(results.results, null, 2)}
 Return the total amount raised (e.g., "$50M", "$1.2B"). If the company is bootstrapped, return "Bootstrapped". If you can't find funding info, return "Unknown".`,
       output: Output.object({ schema }),
     });
+
+    // Update parent metadata for realtime streaming
+    metadata.parent.set("amountRaised", output.amountRaised);
 
     return output;
   },
