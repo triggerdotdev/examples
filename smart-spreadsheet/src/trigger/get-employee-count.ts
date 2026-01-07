@@ -4,10 +4,21 @@ import { generateText, Output } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
 import { z } from "zod";
 
+const employeeRanges = [
+  "1-10",
+  "11-50",
+  "51-200",
+  "201-500",
+  "501-1,000",
+  "1,001-5,000",
+  "5,001-10,000",
+  "10,001+",
+] as const;
+
 const schema = z.object({
   employeeCount: z
-    .string()
-    .describe("Employee count range, e.g. '50-100', '1,000-5,000', '10,000+'"),
+    .enum(employeeRanges)
+    .describe("Employee count range - pick the closest match"),
 });
 
 export const getEmployeeCount = task({
@@ -25,19 +36,27 @@ export const getEmployeeCount = task({
       }
     );
 
+    // Get the best source URL
+    const sourceUrl = results.results[0]?.url ?? null;
+
     const { output } = await generateText({
       model: anthropic("claude-sonnet-4-20250514"),
       prompt: `Estimate the employee count for "${companyName}" based on these search results:
 
 ${JSON.stringify(results.results, null, 2)}
 
-Provide a range estimate (e.g., "50-100", "500-1,000", "5,000-10,000", "10,000+"). If you can't find specific numbers, make an educated estimate based on the company's apparent size and industry.`,
+Pick the closest range from: ${employeeRanges.join(", ")}
+
+If you find a specific number, pick the range it falls into. If no data, estimate based on company size/stage.`,
       output: Output.object({ schema }),
     });
 
     // Update parent metadata for realtime streaming
     metadata.parent.set("employeeCount", output.employeeCount);
 
-    return output;
+    return {
+      employeeCount: output.employeeCount,
+      sourceUrl,
+    };
   },
 });
