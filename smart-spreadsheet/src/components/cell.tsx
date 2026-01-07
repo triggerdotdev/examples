@@ -10,6 +10,7 @@ interface CellProps {
   onRetry?: () => void;
   isLink?: boolean;
   sourceUrl?: string | null;
+  linkStyle?: "underline" | "icon"; // underline = text is link, icon = hover icon
 }
 
 export function Cell({
@@ -19,6 +20,7 @@ export function Cell({
   onRetry,
   isLink,
   sourceUrl,
+  linkStyle = "icon",
 }: CellProps) {
   if (error) {
     return (
@@ -66,12 +68,28 @@ export function Cell({
     );
   }
 
-  return (
-    <span className="inline-flex items-center gap-1.5 max-w-full group">
-      <span className="truncate" title={value}>
-        {value}
-      </span>
-      {sourceUrl && (
+  // If sourceUrl exists, render based on linkStyle
+  if (sourceUrl) {
+    if (linkStyle === "underline") {
+      // Underlined text, no icon (for data cells)
+      return (
+        <a
+          href={sourceUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="truncate text-foreground underline decoration-muted-foreground/40 underline-offset-2 hover:decoration-blue-400 transition-colors"
+          title={value}
+        >
+          {value}
+        </a>
+      );
+    }
+    // Hover icon style (for description)
+    return (
+      <span className="inline-flex items-center gap-1.5 max-w-full group">
+        <span className="truncate" title={value}>
+          {value}
+        </span>
         <a
           href={sourceUrl}
           target="_blank"
@@ -82,7 +100,13 @@ export function Cell({
         >
           <ExternalLink className="h-3 w-3" />
         </a>
-      )}
+      </span>
+    );
+  }
+
+  return (
+    <span className="truncate" title={value}>
+      {value}
     </span>
   );
 }

@@ -25,10 +25,12 @@ export const enrichCompany = task({
   run: async ({
     companyId,
     companyName,
+    companyUrl,
     userId,
   }: {
     companyId?: string;
     companyName: string;
+    companyUrl?: string | null;
     userId: string;
   }) => {
     const supabase = createServiceClient();
@@ -41,10 +43,10 @@ export const enrichCompany = task({
 
     // Run all tasks in parallel using batch
     const { runs } = await batch.triggerByTaskAndWait([
-      { task: getBasicInfo, payload: { companyName } },
-      { task: getIndustry, payload: { companyName } },
-      { task: getEmployeeCount, payload: { companyName } },
-      { task: getFundingRound, payload: { companyName } },
+      { task: getBasicInfo, payload: { companyName, companyUrl } },
+      { task: getIndustry, payload: { companyName, companyUrl } },
+      { task: getEmployeeCount, payload: { companyName, companyUrl } },
+      { task: getFundingRound, payload: { companyName, companyUrl } },
     ]);
 
     const [basicInfoRun, industryRun, employeeRun, fundingRun] = runs;

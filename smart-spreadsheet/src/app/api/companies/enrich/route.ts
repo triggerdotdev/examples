@@ -16,6 +16,7 @@ export async function POST(request: Request) {
   if (body.companyName && typeof body.companyName === "string") {
     const handle = await tasks.trigger<typeof enrichCompany>("enrich-company", {
       companyName: body.companyName.trim(),
+      companyUrl: body.companyUrl ?? null,
       userId: DEV_USER_ID,
     });
 

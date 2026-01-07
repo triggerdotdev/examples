@@ -97,7 +97,7 @@ export function EnrichingRow({
       </div>
 
       {/* Industry */}
-      <div className="w-[140px] shrink-0 px-3 py-2 border-r border-border">
+      <div className="w-[140px] shrink-0 px-3 py-2 border-r border-border overflow-hidden">
         <Cell value={meta?.industry ?? null} isLoading={!meta?.industry} />
       </div>
 
@@ -107,6 +107,7 @@ export function EnrichingRow({
           value={meta?.employeeCount ?? null}
           isLoading={!meta?.employeeCount}
           sourceUrl={meta?.sources?.employee_count}
+          linkStyle="underline"
         />
       </div>
 
@@ -116,6 +117,7 @@ export function EnrichingRow({
           value={meta?.stage ?? null}
           isLoading={!meta?.stage}
           sourceUrl={meta?.sources?.funding}
+          linkStyle="underline"
         />
       </div>
 
@@ -125,6 +127,7 @@ export function EnrichingRow({
           value={meta?.lastRoundAmount ?? null}
           isLoading={!meta?.lastRoundAmount}
           sourceUrl={meta?.sources?.funding}
+          linkStyle="underline"
         />
       </div>
     </div>

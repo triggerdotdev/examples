@@ -8,6 +8,25 @@ import { LucideWandSparkles } from "lucide-react";
 
 const EMPTY_ROWS = 10;
 
+// Detect if input looks like a URL and extract domain
+function parseInput(input: string): { name: string; url: string | null } {
+  const trimmed = input.trim();
+
+  // Check for URL patterns
+  const urlPattern = /^(https?:\/\/)?([a-z0-9][-a-z0-9]*\.)+[a-z]{2,}(\/.*)?$/i;
+  if (urlPattern.test(trimmed)) {
+    // Normalize URL
+    const url = trimmed.startsWith("http") ? trimmed : `https://${trimmed}`;
+    // Extract domain for display name
+    const domain = url.replace(/^https?:\/\/(www\.)?/, "").split("/")[0];
+    // Convert domain to readable name (e.g., "stripe.com" -> "Stripe")
+    const name = domain.split(".")[0].charAt(0).toUpperCase() + domain.split(".")[0].slice(1);
+    return { name, url };
+  }
+
+  return { name: trimmed, url: null };
+}
+
 interface EnrichingDraft {
   rowIndex: number;
   companyName: string;
@@ -30,17 +49,20 @@ export function Spreadsheet({ initialCompanies }: SpreadsheetProps) {
   // Enrich a new company
   const handleEnrichDraft = useCallback(
     async (rowIndex: number) => {
-      const name = newCompanyName[rowIndex]?.trim();
-      if (!name) return;
+      const input = newCompanyName[rowIndex]?.trim();
+      if (!input) return;
 
       // Check if already enriching this row
       if (enrichingDrafts.some((d) => d.rowIndex === rowIndex)) return;
+
+      // Parse input - could be company name or URL
+      const { name, url } = parseInput(input);
 
       try {
         const res = await fetch("/api/companies/enrich", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ companyName: name }),
+          body: JSON.stringify({ companyName: name, companyUrl: url }),
         });
 
         if (!res.ok) throw new Error("Failed to trigger");
@@ -210,7 +232,7 @@ export function Spreadsheet({ initialCompanies }: SpreadsheetProps) {
               />
             </div>
 
-            <div className="w-[140px] shrink-0 px-3 py-2 border-r border-border">
+            <div className="w-[140px] shrink-0 px-3 py-2 border-r border-border overflow-hidden">
               <Cell
                 value={company.industry}
                 isLoading={isEnriching(company) && !company.industry}
@@ -224,6 +246,7 @@ export function Spreadsheet({ initialCompanies }: SpreadsheetProps) {
                 isLoading={isEnriching(company) && !company.employee_count}
                 error={getError(company, "get-employee-count")}
                 sourceUrl={company.sources?.employee_count}
+                linkStyle="underline"
               />
             </div>
 
@@ -233,6 +256,7 @@ export function Spreadsheet({ initialCompanies }: SpreadsheetProps) {
                 isLoading={isEnriching(company) && !company.stage}
                 error={getError(company, "get-funding-round")}
                 sourceUrl={company.sources?.funding}
+                linkStyle="underline"
               />
             </div>
 
@@ -242,6 +266,7 @@ export function Spreadsheet({ initialCompanies }: SpreadsheetProps) {
                 isLoading={isEnriching(company) && !company.last_round_amount}
                 error={getError(company, "get-funding-round")}
                 sourceUrl={company.sources?.funding}
+                linkStyle="underline"
               />
             </div>
           </div>

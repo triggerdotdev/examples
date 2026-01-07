@@ -28,7 +28,13 @@ const schema = z.object({
 export const getFundingRound = task({
   id: "get-funding-round",
   retry: { maxAttempts: 2 },
-  run: async ({ companyName }: { companyName: string }) => {
+  run: async ({
+    companyName,
+    companyUrl,
+  }: {
+    companyName: string;
+    companyUrl?: string | null;
+  }) => {
     const exa = new Exa(process.env.EXA_API_KEY!);
 
     const results = await exa.searchAndContents(

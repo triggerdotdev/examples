@@ -14,7 +14,13 @@ const schema = z.object({
 export const getIndustry = task({
   id: "get-industry",
   retry: { maxAttempts: 2 },
-  run: async ({ companyName }: { companyName: string }) => {
+  run: async ({
+    companyName,
+    companyUrl,
+  }: {
+    companyName: string;
+    companyUrl?: string | null;
+  }) => {
     const { output } = await generateText({
       model: anthropic("claude-sonnet-4-20250514"),
       prompt: `What industry does the company "${companyName}" operate in?
