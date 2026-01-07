@@ -4,7 +4,7 @@ import { useState, useCallback, useRef } from "react";
 import { Cell } from "./cell";
 import { EnrichingRow } from "./enriching-row";
 import type { Company } from "@/lib/supabase/types";
-import { LucideWandSparkles } from "lucide-react";
+import { LucideWandSparkles, Trash2 } from "lucide-react";
 
 const EMPTY_ROWS = 10;
 
@@ -137,6 +137,25 @@ export function Spreadsheet({ initialCompanies }: SpreadsheetProps) {
     });
   }, []);
 
+  // Delete company
+  const handleDeleteRow = useCallback(async (company: Company) => {
+    if (!window.confirm(`Delete "${company.name}"?`)) return;
+
+    try {
+      const res = await fetch("/api/companies", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: company.id }),
+      });
+
+      if (!res.ok) throw new Error("Failed to delete");
+
+      setCompanies((prev) => prev.filter((c) => c.id !== company.id));
+    } catch (err) {
+      console.error("Delete failed:", err);
+    }
+  }, []);
+
   const handleKeyDown = (e: React.KeyboardEvent, rowIndex: number) => {
     if (e.key === "Enter") {
       e.preventDefault();
@@ -193,7 +212,7 @@ export function Spreadsheet({ initialCompanies }: SpreadsheetProps) {
         {companies.map((company, index) => (
           <div
             key={company.id}
-            className="flex border-b border-border hover:bg-muted/5 text-sm"
+            className="group flex border-b border-border hover:bg-muted/5 text-sm"
           >
             <div className="w-10 shrink-0 px-2 py-2 border-r border-border bg-muted/20 text-center text-xs text-muted-foreground">
               {index + 1}
@@ -210,8 +229,15 @@ export function Spreadsheet({ initialCompanies }: SpreadsheetProps) {
               </button>
             </div>
 
-            <div className="w-[180px] shrink-0 px-3 py-2 border-r border-border font-medium">
+            <div className="w-[180px] shrink-0 px-3 py-2 border-r border-border font-medium relative">
               {company.name}
+              <button
+                onClick={() => handleDeleteRow(company)}
+                className="absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-red-500/10 transition-all"
+                title="Delete company"
+              >
+                <Trash2 className="h-3 w-3 text-red-400" />
+              </button>
             </div>
 
             <div className="w-[180px] shrink-0 px-3 py-2 border-r border-border">
