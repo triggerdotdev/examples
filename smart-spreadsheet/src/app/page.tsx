@@ -30,6 +30,24 @@ export default async function Home() {
             >
               Trigger.dev
             </a>
+            ,{" "}
+            <a
+              href="https://exa.ai"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-400 hover:underline"
+            >
+              Exa
+            </a>{" "}
+            and{" "}
+            <a
+              href="https://anthropic.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-400 hover:underline"
+            >
+              Claude
+            </a>
           </p>
         </div>
         <ThemeToggle />
