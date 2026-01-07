@@ -83,6 +83,7 @@ export function EnrichingRow({
           value={meta?.website ?? null}
           isLoading={!meta?.website}
           isLink={!!meta?.website}
+          sourceUrl={meta?.sources?.website}
         />
       </div>
 
@@ -91,6 +92,7 @@ export function EnrichingRow({
         <Cell
           value={meta?.description ?? null}
           isLoading={!meta?.description}
+          sourceUrl={meta?.sources?.description}
         />
       </div>
 
@@ -104,12 +106,17 @@ export function EnrichingRow({
         <Cell
           value={meta?.employeeCount ?? null}
           isLoading={!meta?.employeeCount}
+          sourceUrl={meta?.sources?.employee_count}
         />
       </div>
 
       {/* Stage */}
       <div className="w-[100px] shrink-0 px-3 py-2 border-r border-border">
-        <Cell value={meta?.stage ?? null} isLoading={!meta?.stage} />
+        <Cell
+          value={meta?.stage ?? null}
+          isLoading={!meta?.stage}
+          sourceUrl={meta?.sources?.funding}
+        />
       </div>
 
       {/* Last Round */}
@@ -117,6 +124,7 @@ export function EnrichingRow({
         <Cell
           value={meta?.lastRoundAmount ?? null}
           isLoading={!meta?.lastRoundAmount}
+          sourceUrl={meta?.sources?.funding}
         />
       </div>
     </div>

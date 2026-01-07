@@ -160,7 +160,10 @@ export function Spreadsheet({ initialCompanies }: SpreadsheetProps) {
         <div className="w-[100px] shrink-0 px-3 py-2 border-r border-border">
           Employees
         </div>
-        <div className="w-[120px] shrink-0 px-3 py-2">Raised</div>
+        <div className="w-[100px] shrink-0 px-3 py-2 border-r border-border">
+          Stage
+        </div>
+        <div className="w-[120px] shrink-0 px-3 py-2">Last Round</div>
       </div>
 
       {/* Data rows */}
@@ -194,6 +197,7 @@ export function Spreadsheet({ initialCompanies }: SpreadsheetProps) {
                 value={company.website}
                 isLoading={isEnriching(company) && !company.website}
                 isLink={!!company.website}
+                sourceUrl={company.sources?.website}
               />
             </div>
 
@@ -202,6 +206,7 @@ export function Spreadsheet({ initialCompanies }: SpreadsheetProps) {
                 value={company.description}
                 isLoading={isEnriching(company) && !company.description}
                 error={getError(company, "get-basic-info")}
+                sourceUrl={company.sources?.description}
               />
             </div>
 
@@ -218,6 +223,16 @@ export function Spreadsheet({ initialCompanies }: SpreadsheetProps) {
                 value={company.employee_count}
                 isLoading={isEnriching(company) && !company.employee_count}
                 error={getError(company, "get-employee-count")}
+                sourceUrl={company.sources?.employee_count}
+              />
+            </div>
+
+            <div className="w-[100px] shrink-0 px-3 py-2 border-r border-border">
+              <Cell
+                value={company.stage}
+                isLoading={isEnriching(company) && !company.stage}
+                error={getError(company, "get-funding-round")}
+                sourceUrl={company.sources?.funding}
               />
             </div>
 
@@ -225,7 +240,8 @@ export function Spreadsheet({ initialCompanies }: SpreadsheetProps) {
               <Cell
                 value={company.last_round_amount}
                 isLoading={isEnriching(company) && !company.last_round_amount}
-                error={getError(company, "get-funding")}
+                error={getError(company, "get-funding-round")}
+                sourceUrl={company.sources?.funding}
               />
             </div>
           </div>
@@ -295,6 +311,9 @@ export function Spreadsheet({ initialCompanies }: SpreadsheetProps) {
                 —
               </div>
               <div className="w-[140px] shrink-0 px-3 py-2 border-r border-border text-muted-foreground/20">
+                —
+              </div>
+              <div className="w-[100px] shrink-0 px-3 py-2 border-r border-border text-muted-foreground/20">
                 —
               </div>
               <div className="w-[100px] shrink-0 px-3 py-2 border-r border-border text-muted-foreground/20">

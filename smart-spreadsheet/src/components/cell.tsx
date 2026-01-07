@@ -9,6 +9,7 @@ interface CellProps {
   error?: string;
   onRetry?: () => void;
   isLink?: boolean;
+  sourceUrl?: string | null;
 }
 
 export function Cell({
@@ -17,6 +18,7 @@ export function Cell({
   error,
   onRetry,
   isLink,
+  sourceUrl,
 }: CellProps) {
   if (error) {
     return (
@@ -65,8 +67,22 @@ export function Cell({
   }
 
   return (
-    <span className="truncate block" title={value}>
-      {value}
+    <span className="inline-flex items-center gap-1.5 max-w-full group">
+      <span className="truncate" title={value}>
+        {value}
+      </span>
+      {sourceUrl && (
+        <a
+          href={sourceUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-blue-400"
+          title="View source"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <ExternalLink className="h-3 w-3" />
+        </a>
+      )}
     </span>
   );
 }
