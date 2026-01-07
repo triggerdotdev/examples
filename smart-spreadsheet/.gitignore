@@ -42,8 +42,8 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# PRD working files
 progress.txt
 .trigger
 prd.json
 ARCHITECTURE.md
+.SPEC.md
