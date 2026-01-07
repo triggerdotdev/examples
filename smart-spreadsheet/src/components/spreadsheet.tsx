@@ -76,7 +76,9 @@ export function Spreadsheet({ initialCompanies }: SpreadsheetProps) {
         description: string | null;
         industry: string | null;
         employeeCount: string | null;
-        amountRaised: string | null;
+        stage: string | null;
+        lastRoundAmount: string | null;
+        sources: Record<string, string>;
       }
     ) => {
       // Add as a company (DB persistence already happened in task)
@@ -89,7 +91,9 @@ export function Spreadsheet({ initialCompanies }: SpreadsheetProps) {
         description: data.description,
         industry: data.industry,
         employee_count: data.employeeCount,
-        amount_raised: data.amountRaised,
+        stage: data.stage,
+        last_round_amount: data.lastRoundAmount,
+        sources: data.sources,
         enrichment_status: "complete",
         enrichment_started_at: null,
         enrichment_completed_at: new Date().toISOString(),
@@ -219,8 +223,8 @@ export function Spreadsheet({ initialCompanies }: SpreadsheetProps) {
 
             <div className="w-[120px] shrink-0 px-3 py-2">
               <Cell
-                value={company.amount_raised}
-                isLoading={isEnriching(company) && !company.amount_raised}
+                value={company.last_round_amount}
+                isLoading={isEnriching(company) && !company.last_round_amount}
                 error={getError(company, "get-funding")}
               />
             </div>

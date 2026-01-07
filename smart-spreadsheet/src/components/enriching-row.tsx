@@ -3,7 +3,10 @@
 import { useRealtimeRun } from "@trigger.dev/react-hooks";
 import { Cell } from "./cell";
 import { Loader2, CheckCircle } from "lucide-react";
-import type { enrichCompany, EnrichmentMetadata } from "@/trigger/enrich-company";
+import type {
+  enrichCompany,
+  EnrichmentMetadata,
+} from "@/trigger/enrich-company";
 
 interface EnrichingRowProps {
   rowIndex: number;
@@ -16,7 +19,9 @@ interface EnrichingRowProps {
     description: string | null;
     industry: string | null;
     employeeCount: string | null;
-    amountRaised: string | null;
+    stage: string | null;
+    lastRoundAmount: string | null;
+    sources: Record<string, string>;
   }) => void;
 }
 
@@ -32,13 +37,17 @@ export function EnrichingRow({
     accessToken,
     onComplete: (completedRun) => {
       if (completedRun?.output) {
+        const data = completedRun.output.data;
         onComplete({
           companyName,
-          website: completedRun.output.data.website,
-          description: completedRun.output.data.description,
-          industry: completedRun.output.data.industry,
-          employeeCount: completedRun.output.data.employee_count,
-          amountRaised: completedRun.output.data.amount_raised,
+          website: data.website,
+          description: data.description,
+          industry: data.industry,
+          employeeCount: data.employee_count,
+          // New fields - will be populated after task updates
+          stage: data.stage ?? null,
+          lastRoundAmount: data.last_round_amount ?? null,
+          sources: data.sources ?? {},
         });
       }
     },
@@ -79,7 +88,10 @@ export function EnrichingRow({
 
       {/* Description */}
       <div className="flex-1 min-w-[250px] px-3 py-2 border-r border-border">
-        <Cell value={meta?.description ?? null} isLoading={!meta?.description} />
+        <Cell
+          value={meta?.description ?? null}
+          isLoading={!meta?.description}
+        />
       </div>
 
       {/* Industry */}
@@ -97,7 +109,10 @@ export function EnrichingRow({
 
       {/* Raised */}
       <div className="w-[120px] shrink-0 px-3 py-2">
-        <Cell value={meta?.amountRaised ?? null} isLoading={!meta?.amountRaised} />
+        <Cell
+          value={meta?.amountRaised ?? null}
+          isLoading={!meta?.amountRaised}
+        />
       </div>
     </div>
   );

@@ -1,24 +1,46 @@
 import { task, metadata } from "@trigger.dev/sdk";
+import Exa from "exa-js";
 import { generateText, Output } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
 import { z } from "zod";
 
 const schema = z.object({
   website: z.string().describe("Official company website URL"),
-  description: z.string().describe("Brief company description, 1-2 sentences"),
+  description: z
+    .string()
+    .describe("Brief company description, 1-2 sentences"),
 });
 
 export const getBasicInfo = task({
   id: "get-basic-info",
   retry: { maxAttempts: 2 },
   run: async ({ companyName }: { companyName: string }) => {
+    const exa = new Exa(process.env.EXA_API_KEY!);
+
+    // Search for the company's official website
+    const results = await exa.searchAndContents(
+      `${companyName} official website company`,
+      {
+        numResults: 3,
+        text: { maxCharacters: 2000 },
+        type: "auto",
+      }
+    );
+
+    // Get the best source URL (prefer company domains over news/wiki)
+    const sourceUrl = results.results[0]?.url ?? null;
+
     const { output } = await generateText({
       model: anthropic("claude-sonnet-4-20250514"),
-      prompt: `What is the official website URL and a brief description for the company "${companyName}"?
+      prompt: `Extract the official website URL and a brief description for "${companyName}" from these search results:
 
-Return the most likely official website (prefer .com domains) and a concise 1-2 sentence description of what the company does.
+${JSON.stringify(results.results, null, 2)}
 
-If you're not confident about the website, return your best guess with the company name as a domain (e.g., "https://companyname.com").`,
+Instructions:
+1. Website: Find the official company website URL (not LinkedIn, Wikipedia, or news articles). Look for the company's own domain.
+2. Description: Write a concise 1-2 sentence description of what the company does based on the search results.
+
+If you can't find the official website in the results, make your best guess based on the company name (e.g., "https://companyname.com").`,
       output: Output.object({ schema }),
     });
 
@@ -26,6 +48,10 @@ If you're not confident about the website, return your best guess with the compa
     metadata.parent.set("website", output.website);
     metadata.parent.set("description", output.description);
 
-    return output;
+    return {
+      website: output.website,
+      description: output.description,
+      sourceUrl,
+    };
   },
 });

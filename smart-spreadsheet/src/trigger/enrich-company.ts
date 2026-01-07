@@ -97,7 +97,9 @@ export const enrichCompany = task({
       description,
       industry,
       employee_count: employeeCount,
-      amount_raised: amountRaised,
+      stage: null as string | null, // TODO: populate in US-004
+      last_round_amount: amountRaised, // Renamed from amount_raised
+      sources: {} as Record<string, string>, // TODO: populate in US-002,003,004
     };
 
     const now = new Date().toISOString();

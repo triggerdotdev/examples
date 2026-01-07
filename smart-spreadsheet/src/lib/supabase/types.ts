@@ -19,7 +19,9 @@ export interface Database {
           description: string | null;
           industry: string | null;
           employee_count: string | null;
-          amount_raised: string | null;
+          stage: string | null;
+          last_round_amount: string | null;
+          sources: Record<string, string>;
           enrichment_status: string;
           enrichment_started_at: string | null;
           enrichment_completed_at: string | null;
@@ -34,7 +36,9 @@ export interface Database {
           description?: string | null;
           industry?: string | null;
           employee_count?: string | null;
-          amount_raised?: string | null;
+          stage?: string | null;
+          last_round_amount?: string | null;
+          sources?: Record<string, string>;
           enrichment_status?: string;
           enrichment_started_at?: string | null;
           enrichment_completed_at?: string | null;
@@ -49,7 +53,9 @@ export interface Database {
           description?: string | null;
           industry?: string | null;
           employee_count?: string | null;
-          amount_raised?: string | null;
+          stage?: string | null;
+          last_round_amount?: string | null;
+          sources?: Record<string, string>;
           enrichment_status?: string;
           enrichment_started_at?: string | null;
           enrichment_completed_at?: string | null;
