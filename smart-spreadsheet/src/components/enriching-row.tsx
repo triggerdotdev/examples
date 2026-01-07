@@ -107,11 +107,16 @@ export function EnrichingRow({
         />
       </div>
 
-      {/* Raised */}
+      {/* Stage */}
+      <div className="w-[100px] shrink-0 px-3 py-2 border-r border-border">
+        <Cell value={meta?.stage ?? null} isLoading={!meta?.stage} />
+      </div>
+
+      {/* Last Round */}
       <div className="w-[120px] shrink-0 px-3 py-2">
         <Cell
-          value={meta?.amountRaised ?? null}
-          isLoading={!meta?.amountRaised}
+          value={meta?.lastRoundAmount ?? null}
+          isLoading={!meta?.lastRoundAmount}
         />
       </div>
     </div>

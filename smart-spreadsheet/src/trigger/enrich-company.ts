@@ -3,7 +3,7 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { getBasicInfo } from "./get-basic-info";
 import { getIndustry } from "./get-industry";
 import { getEmployeeCount } from "./get-employee-count";
-import { getFunding } from "./get-funding";
+import { getFundingRound } from "./get-funding-round";
 
 // Metadata shape for realtime updates
 export type EnrichmentMetadata = {
@@ -13,7 +13,9 @@ export type EnrichmentMetadata = {
   description?: string | null;
   industry?: string | null;
   employeeCount?: string | null;
-  amountRaised?: string | null;
+  stage?: string | null;
+  lastRoundAmount?: string | null;
+  sources?: Record<string, string>;
   errors?: Record<string, string>;
 };
 
@@ -42,7 +44,7 @@ export const enrichCompany = task({
       { task: getBasicInfo, payload: { companyName } },
       { task: getIndustry, payload: { companyName } },
       { task: getEmployeeCount, payload: { companyName } },
-      { task: getFunding, payload: { companyName } },
+      { task: getFundingRound, payload: { companyName } },
     ]);
 
     const [basicInfoRun, industryRun, employeeRun, fundingRun] = runs;
@@ -52,11 +54,19 @@ export const enrichCompany = task({
     let description: string | null = null;
     let industry: string | null = null;
     let employeeCount: string | null = null;
-    let amountRaised: string | null = null;
+    let stage: string | null = null;
+    let lastRoundAmount: string | null = null;
+
+    // Collect source URLs
+    const sources: Record<string, string> = {};
 
     if (basicInfoRun.ok && basicInfoRun.output) {
       website = basicInfoRun.output.website;
       description = basicInfoRun.output.description;
+      if (basicInfoRun.output.sourceUrl) {
+        sources.website = basicInfoRun.output.sourceUrl;
+        sources.description = basicInfoRun.output.sourceUrl;
+      }
       metadata.set("website", website);
       metadata.set("description", description);
     } else {
@@ -72,16 +82,29 @@ export const enrichCompany = task({
 
     if (employeeRun.ok && employeeRun.output) {
       employeeCount = employeeRun.output.employeeCount;
+      if (employeeRun.output.sourceUrl) {
+        sources.employee_count = employeeRun.output.sourceUrl;
+      }
       metadata.set("employeeCount", employeeCount);
     } else {
       errors["get-employee-count"] = "Failed to get employee count";
     }
 
     if (fundingRun.ok && fundingRun.output) {
-      amountRaised = fundingRun.output.amountRaised;
-      metadata.set("amountRaised", amountRaised);
+      stage = fundingRun.output.stage;
+      lastRoundAmount = fundingRun.output.lastRoundAmount;
+      if (fundingRun.output.sourceUrl) {
+        sources.funding = fundingRun.output.sourceUrl;
+      }
+      metadata.set("stage", stage);
+      metadata.set("lastRoundAmount", lastRoundAmount);
     } else {
-      errors["get-funding"] = "Failed to get funding";
+      errors["get-funding-round"] = "Failed to get funding";
+    }
+
+    // Set sources metadata for realtime streaming
+    if (Object.keys(sources).length > 0) {
+      metadata.set("sources", sources);
     }
 
     const hasErrors = Object.keys(errors).length > 0;
@@ -97,9 +120,9 @@ export const enrichCompany = task({
       description,
       industry,
       employee_count: employeeCount,
-      stage: null as string | null, // TODO: populate in US-004
-      last_round_amount: amountRaised, // Renamed from amount_raised
-      sources: {} as Record<string, string>, // TODO: populate in US-002,003,004
+      stage,
+      last_round_amount: lastRoundAmount,
+      sources,
     };
 
     const now = new Date().toISOString();
