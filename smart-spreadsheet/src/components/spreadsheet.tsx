@@ -2,9 +2,10 @@
 
 import { useState, useCallback, useRef } from "react";
 import { Cell } from "./cell";
+import { CompanyLogo } from "./company-logo";
 import { EnrichingRow } from "./enriching-row";
 import type { Company } from "@/lib/supabase/types";
-import { LucideWandSparkles, Trash2, WrapText, AlignLeft, Building2 } from "lucide-react";
+import { LucideWandSparkles, Trash2, WrapText, AlignLeft, CheckCircle } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -243,7 +244,7 @@ export function Spreadsheet({ initialCompanies }: SpreadsheetProps) {
               wrapDescriptions ? "pt-2.5 items-start" : "items-center"
             }`}>
               {company.enrichment_status === "complete" ? (
-                <Building2 className="h-3.5 w-3.5 text-muted-foreground/60" />
+                <CheckCircle className="h-3.5 w-3.5 text-green-500/70" />
               ) : (
                 <button
                   onClick={() => handleEnrichRow(company)}
@@ -259,7 +260,8 @@ export function Spreadsheet({ initialCompanies }: SpreadsheetProps) {
             <div className={`w-[160px] shrink-0 px-2 flex border-r border-border font-medium relative ${
               wrapDescriptions ? "pt-2.5 items-start" : "items-center"
             }`}>
-              <span className="truncate">{company.name}</span>
+              <CompanyLogo website={company.website} size={16} />
+              <span className="truncate ml-2">{company.name}</span>
               <button
                 onClick={() => handleDeleteRow(company)}
                 className={`absolute right-1 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-red-500/10 transition-all ${

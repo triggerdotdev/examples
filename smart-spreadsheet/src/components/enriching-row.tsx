@@ -2,6 +2,7 @@
 
 import { useRealtimeRun } from "@trigger.dev/react-hooks";
 import { Cell } from "./cell";
+import { CompanyLogo } from "./company-logo";
 import { Loader2, CheckCircle } from "lucide-react";
 import type {
   enrichCompany,
@@ -74,7 +75,8 @@ export function EnrichingRow({
 
       {/* Company name */}
       <div className="w-[160px] shrink-0 px-2 flex items-center border-r border-border font-medium">
-        <span className="truncate">{companyName}</span>
+        <CompanyLogo website={meta?.website ?? null} size={16} />
+        <span className="truncate ml-2">{companyName}</span>
       </div>
 
       {/* Website */}
