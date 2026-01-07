@@ -1,36 +1,90 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Smart Spreadsheet
 
-## Getting Started
+AI-powered company enrichment tool. Enter a company name or URL, get verified data with source links.
 
-First, run the development server:
+## Features
+
+- Enter company name or website URL
+- AI enriches: website, description, industry, headcount, funding stage, last round
+- Every data point includes source link
+- Real-time streaming updates via Trigger.dev
+- Google Sheets-like interface
+
+## Tech Stack
+
+- [Next.js 16](https://nextjs.org) (App Router)
+- [Supabase](https://supabase.com) (PostgreSQL + Auth)
+- [Trigger.dev v4](https://trigger.dev) (Background tasks + Realtime Streams)
+- [Exa](https://exa.ai) (Web search API)
+- [Claude](https://anthropic.com) (AI extraction via [Vercel AI SDK](https://sdk.vercel.ai))
+- [Tailwind](https://tailwindcss.com) + [shadcn/ui](https://ui.shadcn.com)
+
+## Setup
+
+### 1. Clone and install
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone <repo-url>
+cd smart-spreadsheet
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Environment variables
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Copy `.env.example` to `.env.local` and fill in:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SECRET_KEY=
 
-## Learn More
+# Trigger.dev
+TRIGGER_SECRET_KEY=
+TRIGGER_PROJECT_REF=
 
-To learn more about Next.js, take a look at the following resources:
+# Exa
+EXA_API_KEY=
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+# Anthropic
+ANTHROPIC_API_KEY=
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### 3. Supabase setup
 
-## Deploy on Vercel
+1. Create a new Supabase project
+2. Run [`supabase/schema.sql`](./supabase/schema.sql) in the SQL Editor
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+> **Note:** The schema runs in dev mode (no auth) by default. For production, enable a Supabase auth provider and follow the RLS instructions in the schema file.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### 4. Trigger.dev setup
+
+```bash
+npx trigger.dev@latest init
+npx trigger.dev@latest dev
+```
+
+## Run locally
+
+```bash
+# Terminal 1: Next.js
+npm run dev
+
+# Terminal 2: Trigger.dev
+npx trigger.dev@latest dev
+```
+
+Open [http://localhost:3000](http://localhost:3000)
+
+## How it works
+
+1. User enters company name or URL
+2. API triggers `enrich-company` task
+3. Task runs 4 parallel subtasks:
+   - `get-basic-info` - website, description
+   - `get-industry` - industry classification
+   - `get-employee-count` - headcount estimate
+   - `get-funding-round` - stage + last round amount
+4. Each subtask uses Exa search + Claude extraction
+5. Results stream to UI via Trigger.dev Realtime
+6. Data saved to Supabase with source URLs
