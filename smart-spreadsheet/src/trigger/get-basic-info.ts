@@ -8,7 +8,7 @@ const schema = z.object({
   website: z.string().describe("Official company website URL"),
   description: z
     .string()
-    .describe("Brief company description, 1-2 sentences"),
+    .describe("Very short company tagline, max 10-15 words"),
 });
 
 export const getBasicInfo = task({
@@ -46,7 +46,7 @@ ${JSON.stringify(results.results, null, 2)}
 
 Instructions:
 1. Website: ${companyUrl ? `The user provided "${companyUrl}" - verify this is correct or find the official company website URL.` : "Find the official company website URL (not LinkedIn, Wikipedia, or news articles). Look for the company's own domain."}
-2. Description: Write a concise 1-2 sentence description of what the company does based on the search results.
+2. Description: Write a VERY short tagline (10-15 words max). Example: "Cloud infrastructure for deploying and scaling applications globally."
 
 If you can't find the official website in the results, ${companyUrl ? `use "${companyUrl}".` : "make your best guess based on the company name (e.g., \"https://companyname.com\")."}`,
       output: Output.object({ schema }),

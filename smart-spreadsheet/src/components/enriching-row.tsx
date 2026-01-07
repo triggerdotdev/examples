@@ -57,14 +57,14 @@ export function EnrichingRow({
   const isComplete = run?.status === "COMPLETED";
 
   return (
-    <div className="flex border-b border-border hover:bg-muted/5 text-sm">
+    <div className="flex border-b border-border hover:bg-blue-500/5 text-[13px] h-9">
       {/* Row number */}
-      <div className="w-10 shrink-0 px-2 py-2 border-r border-border bg-muted/20 text-center text-xs text-muted-foreground">
+      <div className="w-12 shrink-0 px-2 flex items-center justify-center border-r border-border bg-muted/20 text-xs text-muted-foreground">
         {rowIndex + 1}
       </div>
 
       {/* Status indicator */}
-      <div className="w-10 shrink-0 px-2 py-2 border-r border-border bg-muted/10 flex items-center justify-center">
+      <div className="w-10 shrink-0 px-2 flex items-center justify-center border-r border-border bg-muted/10">
         {isComplete ? (
           <CheckCircle className="h-3 w-3 text-green-500" />
         ) : (
@@ -73,12 +73,12 @@ export function EnrichingRow({
       </div>
 
       {/* Company name */}
-      <div className="w-[180px] shrink-0 px-3 py-2 border-r border-border font-medium">
-        {companyName}
+      <div className="w-[160px] shrink-0 px-2 flex items-center border-r border-border font-medium">
+        <span className="truncate">{companyName}</span>
       </div>
 
       {/* Website */}
-      <div className="w-[180px] shrink-0 px-3 py-2 border-r border-border">
+      <div className="w-[160px] shrink-0 px-2 flex items-center border-r border-border">
         <Cell
           value={meta?.website ?? null}
           isLoading={!meta?.website}
@@ -88,7 +88,7 @@ export function EnrichingRow({
       </div>
 
       {/* Description */}
-      <div className="flex-1 min-w-[250px] px-3 py-2 border-r border-border">
+      <div className="w-[300px] shrink-0 px-2 flex items-center border-r border-border overflow-hidden">
         <Cell
           value={meta?.description ?? null}
           isLoading={!meta?.description}
@@ -97,12 +97,12 @@ export function EnrichingRow({
       </div>
 
       {/* Industry */}
-      <div className="w-[140px] shrink-0 px-3 py-2 border-r border-border overflow-hidden">
+      <div className="w-[120px] shrink-0 px-2 flex items-center border-r border-border overflow-hidden">
         <Cell value={meta?.industry ?? null} isLoading={!meta?.industry} />
       </div>
 
       {/* Employees */}
-      <div className="w-[100px] shrink-0 px-3 py-2 border-r border-border">
+      <div className="w-[90px] shrink-0 px-2 flex items-center border-r border-border">
         <Cell
           value={meta?.employeeCount ?? null}
           isLoading={!meta?.employeeCount}
@@ -112,7 +112,7 @@ export function EnrichingRow({
       </div>
 
       {/* Stage */}
-      <div className="w-[100px] shrink-0 px-3 py-2 border-r border-border">
+      <div className="w-[80px] shrink-0 px-2 flex items-center border-r border-border">
         <Cell
           value={meta?.stage ?? null}
           isLoading={!meta?.stage}
@@ -122,7 +122,7 @@ export function EnrichingRow({
       </div>
 
       {/* Last Round */}
-      <div className="w-[120px] shrink-0 px-3 py-2">
+      <div className="w-[100px] shrink-0 px-2 flex items-center">
         <Cell
           value={meta?.lastRoundAmount ?? null}
           isLoading={!meta?.lastRoundAmount}
