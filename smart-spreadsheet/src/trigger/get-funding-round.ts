@@ -1,4 +1,4 @@
-import { task, metadata } from "@trigger.dev/sdk";
+import { metadata, task } from "@trigger.dev/sdk";
 import Exa from "exa-js";
 import { generateText, Output } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
@@ -10,7 +10,9 @@ const fundingStages = [
   "Series A",
   "Series B",
   "Series C",
-  "Series D+",
+  "Series D",
+  "Series E",
+  "Series F+",
   "Public",
   "Bootstrapped",
   "Unknown",
@@ -43,7 +45,7 @@ export const getFundingRound = task({
         numResults: 5,
         text: { maxCharacters: 2000 },
         type: "auto",
-      }
+      },
     );
 
     // Get the best source URL
@@ -51,7 +53,8 @@ export const getFundingRound = task({
 
     const { output } = await generateText({
       model: anthropic("claude-sonnet-4-20250514"),
-      prompt: `Find the latest funding round for "${companyName}" from these search results:
+      prompt:
+        `Find the latest funding round for "${companyName}" from these search results:
 
 ${JSON.stringify(results.results, null, 2)}
 

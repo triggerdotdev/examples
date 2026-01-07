@@ -221,7 +221,7 @@ export function Spreadsheet({ initialCompanies }: SpreadsheetProps) {
         <div className="w-[80px] shrink-0 px-2 py-2 border-r border-border">
           Stage
         </div>
-        <div className="w-[100px] shrink-0 px-2 py-2">Last Round</div>
+        <div className="w-[100px] shrink-0 px-2 py-2 border-r border-border">Last Round</div>
       </div>
 
       {/* Data rows - scrollable */}
@@ -345,7 +345,7 @@ export function Spreadsheet({ initialCompanies }: SpreadsheetProps) {
               />
             </div>
 
-            <div className={`w-[100px] shrink-0 px-2 flex ${
+            <div className={`w-[100px] shrink-0 px-2 flex border-r border-border ${
               wrapDescriptions ? "pt-2.5 items-start" : "items-center"
             }`}>
               <Cell
@@ -431,7 +431,7 @@ export function Spreadsheet({ initialCompanies }: SpreadsheetProps) {
               <div className="w-[80px] shrink-0 px-2 flex items-center border-r border-border text-muted-foreground/20">
                 —
               </div>
-              <div className="w-[100px] shrink-0 px-2 flex items-center text-muted-foreground/20">
+              <div className="w-[100px] shrink-0 px-2 flex items-center border-r border-border text-muted-foreground/20">
                 —
               </div>
             </div>

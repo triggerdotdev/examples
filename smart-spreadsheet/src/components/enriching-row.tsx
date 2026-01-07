@@ -122,7 +122,7 @@ export function EnrichingRow({
       </div>
 
       {/* Last Round */}
-      <div className="w-[100px] shrink-0 px-2 flex items-center">
+      <div className="w-[100px] shrink-0 px-2 flex items-center border-r border-border">
         <Cell
           value={meta?.lastRoundAmount ?? null}
           isLoading={!meta?.lastRoundAmount}
