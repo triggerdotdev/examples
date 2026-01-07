@@ -20,7 +20,9 @@ create table if not exists companies (
   description text,
   industry text,
   employee_count text,
-  amount_raised text,
+  stage text,                          -- Seed, Series A, B, C, etc.
+  last_round_amount text,              -- Last funding round amount
+  sources jsonb default '{}'::jsonb,   -- Source URLs per field
 
   -- Task tracking
   enrichment_status text default 'pending', -- pending, enriching, complete, error
