@@ -7,12 +7,12 @@ const navItems = ["Home", "Companies", "Reports"];
 
 export function NavBar() {
   return (
-    <nav className="shrink-0 h-14 px-4 border-b border-border flex items-center justify-between bg-background">
+    <nav className="shrink-0 h-16  px-4 border-b border-border flex items-center justify-between bg-background">
       {/* Left: Logo + Title + Nav Tabs */}
       <div className="flex items-center gap-6">
         <div className="flex items-center gap-2">
           <Table2 className="h-5 w-5 text-primary" />
-          <span className="font-semibold text-sm tracking-tight">
+          <span className="font-semibold text-md tracking-tight">
             Smart Spreadsheet
           </span>
         </div>
@@ -20,7 +20,7 @@ export function NavBar() {
           {navItems.map((label) => (
             <button
               key={label}
-              className="px-3 py-1.5 text-sm rounded-md transition-colors text-foreground hover:bg-muted/50"
+              className="px-3 text-sm text-foreground/50 hover:text-foreground hover:cursor-pointer"
             >
               {label}
             </button>
