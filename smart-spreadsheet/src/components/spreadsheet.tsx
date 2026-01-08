@@ -183,8 +183,25 @@ export function Spreadsheet({ initialCompanies }: SpreadsheetProps) {
   const getError = (company: Company, field: string) =>
     (company.errors as Record<string, string> | null)?.[field];
 
+  const columnLetters = ["A", "B", "C", "D", "E", "F", "G"];
+  const columnWidths = ["w-[160px]", "w-[160px]", "w-[300px]", "w-[120px]", "w-[90px]", "w-[80px]", "w-[100px]"];
+
   return (
     <div className="h-full flex flex-col overflow-hidden">
+      {/* Column letters row */}
+      <div className="flex bg-muted/30 border-b border-border text-[10px] font-medium text-muted-foreground/60 shrink-0">
+        <div className="w-12 shrink-0 border-r border-border" />
+        <div className="w-10 shrink-0 border-r border-border" />
+        {columnLetters.map((letter, i) => (
+          <div
+            key={letter}
+            className={`${columnWidths[i]} shrink-0 px-2 py-1 border-r border-border text-center`}
+          >
+            {letter}
+          </div>
+        ))}
+      </div>
+
       {/* Header - sticky */}
       <div className="flex bg-muted/40 border-b border-border text-[11px] font-medium text-muted-foreground uppercase tracking-wide shrink-0">
         <div className="w-12 shrink-0 px-2 py-2 border-r border-border text-center">
