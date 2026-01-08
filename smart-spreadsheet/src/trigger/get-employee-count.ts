@@ -1,4 +1,4 @@
-import { task, metadata } from "@trigger.dev/sdk";
+import { metadata, task } from "@trigger.dev/sdk";
 import Exa from "exa-js";
 import { generateText, Output } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
@@ -26,7 +26,6 @@ export const getEmployeeCount = task({
   retry: { maxAttempts: 2 },
   run: async ({
     companyName,
-    companyUrl,
   }: {
     companyName: string;
     companyUrl?: string | null;
@@ -39,7 +38,7 @@ export const getEmployeeCount = task({
         numResults: 3,
         text: { maxCharacters: 1500 },
         type: "auto",
-      }
+      },
     );
 
     // Get the best source URL
@@ -47,7 +46,8 @@ export const getEmployeeCount = task({
 
     const { output } = await generateText({
       model: anthropic("claude-sonnet-4-20250514"),
-      prompt: `Estimate the employee count for "${companyName}" based on these search results:
+      prompt:
+        `Estimate the employee count for "${companyName}" based on these search results:
 
 ${JSON.stringify(results.results, null, 2)}
 
