@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+
+# Environment
+.env
+.env.local
+.env*.local
+
+# Build
+.next/
+out/
+dist/
+build/
+
+# Logs
+*.log
+npm-debug.log*
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Trigger.dev
+.trigger/
+
+# Project working files
+progress.txt
+ship/
+prd.json
+SPEC.md
+
+# Claude
+
+.claude/
+CLAUDE.md
+
+# Test
+coverage/

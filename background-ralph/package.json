@@ -1,0 +1,37 @@
+{
+  "name": "background-ralph",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "dev:trigger": "trigger dev"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.1.0",
+    "@trigger.dev/react-hooks": "^4.1.0",
+    "@trigger.dev/sdk": "^4.1.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.562.0",
+    "next": "14.2.21",
+    "react": "^18",
+    "react-dom": "^18",
+    "tailwind-merge": "^3.4.0",
+    "tailwindcss-animate": "^1.0.7"
+  },
+  "devDependencies": {
+    "@trigger.dev/build": "^4.1.0",
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "eslint": "^8",
+    "eslint-config-next": "14.2.21",
+    "postcss": "^8",
+    "tailwindcss": "^3.4.1",
+    "trigger.dev": "^4.1.0",
+    "typescript": "^5"
+  }
+}
