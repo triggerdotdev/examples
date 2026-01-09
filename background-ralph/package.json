@@ -1,20 +1,10 @@
 {
-  "name": "background-ralph",
-  "version": "0.1.0",
-  "private": true,
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "next lint",
-    "dev:trigger": "trigger dev"
-  },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.1.0",
     "@radix-ui/react-label": "^2.1.8",
     "@radix-ui/react-slot": "^1.2.4",
-    "@trigger.dev/react-hooks": "^4.1.0",
-    "@trigger.dev/sdk": "^4.1.0",
+    "@trigger.dev/react-hooks": "4.3.1",
+    "@trigger.dev/sdk": "4.3.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.562.0",
@@ -26,7 +16,7 @@
     "zod": "^4.3.5"
   },
   "devDependencies": {
-    "@trigger.dev/build": "^4.1.0",
+    "@trigger.dev/build": "4.3.1",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
@@ -36,5 +26,15 @@
     "tailwindcss": "^3.4.1",
     "trigger.dev": "^4.1.0",
     "typescript": "^5"
-  }
+  },
+  "name": "background-ralph",
+  "private": true,
+  "scripts": {
+    "build": "next build",
+    "dev": "next dev",
+    "dev:trigger": "trigger dev",
+    "lint": "next lint",
+    "start": "next start"
+  },
+  "version": "0.1.0"
 }
