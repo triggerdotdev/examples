@@ -2,9 +2,10 @@ import { streams, InferStreamType } from "@trigger.dev/sdk"
 
 // Status updates for clone, agent loop, etc.
 export const statusStream = streams.define<{
-  type: "cloning" | "cloned" | "working" | "iteration" | "complete" | "error"
+  type: "cloning" | "cloned" | "working" | "iteration" | "diff" | "complete" | "error"
   message: string
   iteration?: number
+  diff?: string
 }>({
   id: "status",
 })
