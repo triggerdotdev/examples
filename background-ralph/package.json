@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.1.0",
+    "@radix-ui/react-label": "^2.1.8",
+    "@radix-ui/react-slot": "^1.2.4",
     "@trigger.dev/react-hooks": "^4.1.0",
     "@trigger.dev/sdk": "^4.1.0",
     "class-variance-authority": "^0.7.1",
@@ -20,7 +22,8 @@
     "react": "^18",
     "react-dom": "^18",
     "tailwind-merge": "^3.4.0",
-    "tailwindcss-animate": "^1.0.7"
+    "tailwindcss-animate": "^1.0.7",
+    "zod": "^4.3.5"
   },
   "devDependencies": {
     "@trigger.dev/build": "^4.1.0",
