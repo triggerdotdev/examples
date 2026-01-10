@@ -1,10 +1,26 @@
 "use server"
 
-import { tasks } from "@trigger.dev/sdk"
+import { auth, tasks } from "@trigger.dev/sdk"
 import type { ralphLoop } from "@/trigger/ralph-loop"
 import { submitTaskSchema } from "@/lib/schemas"
 
 type Result<T, E = string> = { ok: true; value: T } | { ok: false; error: E }
+
+export async function getPublicToken(runId: string): Promise<Result<{ token: string }>> {
+  try {
+    const token = await auth.createPublicToken({
+      scopes: {
+        read: {
+          runs: [runId],
+        },
+      },
+    })
+    return { ok: true, value: { token } }
+  } catch (e) {
+    console.error("Failed to create public token", e)
+    return { ok: false, error: "Failed to create token" }
+  }
+}
 
 export async function submitTask(
   formData: FormData
