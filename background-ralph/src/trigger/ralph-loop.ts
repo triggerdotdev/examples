@@ -145,8 +145,15 @@ export const ralphLoop = task({
 
       let iterationCount = 0
 
+      // Wrap user prompt with context about working directory
+      const systemContext = `You are working in a cloned git repository at: ${repoPath}
+All file paths should be relative to this directory (e.g., "README.md" not "/README.md").
+Use the tools available to complete the task.
+
+User task: ${prompt}`
+
       const agentResult = query({
-        prompt,
+        prompt: systemContext,
         options: {
           model: "claude-sonnet-4-20250514",
           abortController,
@@ -172,6 +179,23 @@ export const ralphLoop = task({
                 message: `Iteration ${iterationCount}/${maxIterations}`,
                 iteration: iterationCount,
               })
+              // Log tool use from assistant message
+              const toolUses = message.message.content.filter((c: { type: string }) => c.type === "tool_use")
+              if (toolUses.length > 0) {
+                logger.info("Tool calls", {
+                  tools: toolUses.map((t: { name: string; input?: unknown }) => ({ name: t.name, input: t.input }))
+                })
+              }
+            }
+
+            // Log tool results (try different property names)
+            if (message.type === "tool_result" || message.type === "tool-result") {
+              logger.info("Tool result", { message: JSON.stringify(message).slice(0, 500) })
+            }
+
+            // Log all message types we see
+            if (!["stream_event", "assistant"].includes(message.type)) {
+              logger.info("Other message type", { type: message.type, keys: Object.keys(message) })
             }
 
             // Stream text deltas for realtime output
