@@ -10,7 +10,7 @@ export type TokenUsage = {
 
 // Status object type
 export type StatusUpdate = {
-  type: "cloning" | "cloned" | "working" | "iteration" | "diff" | "pushing" | "pushed" | "push_failed" | "complete" | "error" | "waitpoint"
+  type: "cloning" | "cloned" | "working" | "iteration" | "diff" | "pushing" | "pushed" | "push_failed" | "complete" | "error" | "waitpoint" | "agent_complete" | "user_approved" | "tests_passed" | "tests_failed"
   message: string
   iteration?: number
   diff?: string

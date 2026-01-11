@@ -26,7 +26,7 @@ function ApprovalGate({
 
   console.log("[ApprovalGate] Rendering", { tokenId, publicAccessToken: publicAccessToken?.slice(0, 20) })
 
-  async function handleAction(action: "continue" | "stop") {
+  async function handleAction(action: "continue" | "stop" | "approve_complete") {
     console.log("[ApprovalGate] handleAction", action)
     setIsSubmitting(true)
     setError(undefined)
@@ -44,9 +44,12 @@ function ApprovalGate({
     <div className="space-y-3">
       <p className="text-sm text-gray-700 font-medium">⏸ {question}</p>
       {error && <p className="text-sm text-red-600">{error}</p>}
-      <div className="flex gap-2">
+      <div className="flex gap-2 flex-wrap">
         <Button onClick={() => handleAction("continue")} disabled={isSubmitting}>
           {isSubmitting ? "..." : "Continue"}
+        </Button>
+        <Button onClick={() => handleAction("approve_complete")} disabled={isSubmitting} variant="default" className="bg-green-600 hover:bg-green-700">
+          {isSubmitting ? "..." : "Approve & Complete"}
         </Button>
         <Button onClick={() => handleAction("stop")} disabled={isSubmitting} variant="outline">
           {isSubmitting ? "..." : "Stop"}
@@ -126,6 +129,18 @@ export function RunViewer({ runId, accessToken }: Props) {
             {latestStatus.type === "complete" && (
               <span className="text-green-600">Complete</span>
             )}
+            {latestStatus.type === "agent_complete" && (
+              <span className="text-green-600">Claude completed the task</span>
+            )}
+            {latestStatus.type === "user_approved" && (
+              <span className="text-green-600">Approved by user</span>
+            )}
+            {latestStatus.type === "tests_passed" && (
+              <span className="text-green-600">Tests passed</span>
+            )}
+            {latestStatus.type === "tests_failed" && (
+              <span className="text-yellow-600">Tests failed, continuing...</span>
+            )}
             {latestStatus.type === "error" && (
               <span className="text-red-600">{latestStatus.message}</span>
             )}
@@ -143,18 +158,54 @@ export function RunViewer({ runId, accessToken }: Props) {
         )}
       </div>
 
-      {/* Approval gate UI - always visible */}
-      <div className={`border-2 rounded-lg p-4 ${pendingWaitpoint ? "border-yellow-500 bg-yellow-50" : "border-gray-200 bg-gray-50"}`}>
-        {pendingWaitpoint ? (
-          <ApprovalGate
-            tokenId={pendingWaitpoint.tokenId}
-            publicAccessToken={pendingWaitpoint.publicAccessToken}
-            question={pendingWaitpoint.question}
-          />
-        ) : (
-          <p className="text-sm text-gray-500">Agent running... approval buttons will appear when paused.</p>
-        )}
-      </div>
+      {/* Approval gate UI or completion summary */}
+      {(() => {
+        const isComplete = latestStatus?.type === "complete" || latestStatus?.type === "agent_complete" || latestStatus?.type === "user_approved" || latestStatus?.type === "pushed" || latestStatus?.type === "tests_passed"
+        const diffStatus = statusParts.find(s => s.type === "diff")
+        const pushedStatus = statusParts.find(s => s.type === "pushed")
+
+        if (isComplete || run?.status === "COMPLETED") {
+          return (
+            <div className="border-2 border-green-500 bg-green-50 rounded-lg p-4 space-y-3">
+              <p className="text-sm font-medium text-green-800">✓ Task completed</p>
+              {pushedStatus?.prUrl && (
+                <a href={pushedStatus.prUrl} target="_blank" rel="noopener noreferrer" className="inline-block px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm font-medium">
+                  View Pull Request →
+                </a>
+              )}
+              {pushedStatus?.branchUrl && !pushedStatus.prUrl && (
+                <a href={pushedStatus.branchUrl} target="_blank" rel="noopener noreferrer" className="inline-block px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium">
+                  View Branch →
+                </a>
+              )}
+              {diffStatus?.diff && (
+                <details className="text-sm">
+                  <summary className="cursor-pointer text-green-700 font-medium">View diff</summary>
+                  <pre className="mt-2 p-3 bg-gray-900 text-gray-100 rounded-md overflow-auto max-h-[300px] text-xs font-mono">{diffStatus.diff}</pre>
+                </details>
+              )}
+            </div>
+          )
+        }
+
+        if (pendingWaitpoint) {
+          return (
+            <div className="border-2 border-yellow-500 bg-yellow-50 rounded-lg p-4">
+              <ApprovalGate
+                tokenId={pendingWaitpoint.tokenId}
+                publicAccessToken={pendingWaitpoint.publicAccessToken}
+                question={pendingWaitpoint.question}
+              />
+            </div>
+          )
+        }
+
+        return (
+          <div className="border-2 border-gray-200 bg-gray-50 rounded-lg p-4">
+            <p className="text-sm text-gray-500">Agent running... approval buttons will appear when paused.</p>
+          </div>
+        )
+      })()}
 
       {/* Agent output */}
       <div className="border rounded-lg bg-gray-950 p-4 min-h-[300px] max-h-[600px] overflow-auto">

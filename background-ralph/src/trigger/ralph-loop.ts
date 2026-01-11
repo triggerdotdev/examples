@@ -3,7 +3,7 @@ import { query } from "@anthropic-ai/claude-agent-sdk"
 import Anthropic from "@anthropic-ai/sdk"
 import { exec } from "child_process"
 import { promisify } from "util"
-import { mkdtemp, rm } from "fs/promises"
+import { mkdtemp, rm, readFile } from "fs/promises"
 import { tmpdir } from "os"
 import { join } from "path"
 import { appendStatus, agentOutputStream, type TokenUsage } from "./streams"
@@ -12,6 +12,40 @@ const execAsync = promisify(exec)
 const anthropic = new Anthropic()
 
 const DEFAULT_PAUSE_EVERY = 5
+
+type TestResult = { hasTests: false } | { hasTests: true; passed: boolean; output: string }
+
+async function runTestsIfExist(repoPath: string): Promise<TestResult> {
+  try {
+    const packageJsonPath = join(repoPath, "package.json")
+    const packageJson = JSON.parse(await readFile(packageJsonPath, "utf-8"))
+
+    // Check if test script exists and is meaningful
+    const testScript = packageJson.scripts?.test
+    if (!testScript || testScript.includes("no test specified")) {
+      return { hasTests: false }
+    }
+
+    logger.info("Running tests", { testScript })
+
+    try {
+      const { stdout, stderr } = await execAsync("npm test", {
+        cwd: repoPath,
+        timeout: 120000 // 2 minute timeout
+      })
+      logger.info("Tests passed", { stdout: stdout.slice(-500) })
+      return { hasTests: true, passed: true, output: stdout + stderr }
+    } catch (error) {
+      const err = error as { stdout?: string; stderr?: string; message?: string }
+      const output = (err.stdout ?? "") + (err.stderr ?? "") + (err.message ?? "")
+      logger.info("Tests failed", { output: output.slice(-500) })
+      return { hasTests: true, passed: false, output }
+    }
+  } catch {
+    // No package.json or parse error
+    return { hasTests: false }
+  }
+}
 
 export type RalphLoopPayload = {
   repoUrl: string
@@ -229,6 +263,10 @@ User task: ${prompt}${feedbackContext}`
           },
         })
 
+        // Track if Claude completed naturally vs hit turn limit
+        let claudeCompletedNaturally = false
+        let resultMessage: string | undefined
+
         // Use writer pattern for streaming agent output
         const { waitUntilComplete } = agentOutputStream.writer({
           execute: async ({ write }) => {
@@ -265,7 +303,16 @@ User task: ${prompt}${feedbackContext}`
                 }
               }
 
-              if (!["stream_event", "assistant"].includes(message.type)) {
+              // Capture result message to detect completion
+              if (message.type === "result") {
+                logger.info("Result message", { subtype: message.subtype })
+                if (message.subtype === "success") {
+                  claudeCompletedNaturally = true
+                  resultMessage = message.result
+                }
+              }
+
+              if (!["stream_event", "assistant", "result"].includes(message.type)) {
                 logger.info("Other message type", { type: message.type, keys: Object.keys(message) })
               }
 
@@ -281,6 +328,35 @@ User task: ${prompt}${feedbackContext}`
         })
 
         await waitUntilComplete()
+
+        // If Claude completed naturally, exit the loop
+        if (claudeCompletedNaturally) {
+          logger.info("Claude completed task naturally", { resultMessage })
+          await appendStatus({
+            type: "agent_complete",
+            message: "Claude completed the task",
+          })
+          break
+        }
+
+        // Run tests if they exist - exit early if they pass
+        const testResult = await runTestsIfExist(repoPath)
+        if (testResult.hasTests) {
+          if (testResult.passed) {
+            logger.info("Tests passed - exiting loop")
+            await appendStatus({
+              type: "tests_passed",
+              message: "Tests passed",
+            })
+            break
+          } else {
+            logger.info("Tests failed - continuing")
+            await appendStatus({
+              type: "tests_failed",
+              message: "Tests failed, continuing...",
+            })
+          }
+        }
 
         // Check if we should pause for approval
         const moreIterationsAvailable = totalIterations < maxIterations
@@ -311,7 +387,7 @@ User task: ${prompt}${feedbackContext}`
 
           logger.info("Waiting for approval", { tokenId: token.id, totalIterations })
 
-          const result = await wait.forToken<{ action: "continue" | "stop"; feedback?: string }>(token)
+          const result = await wait.forToken<{ action: "continue" | "stop" | "approve_complete"; feedback?: string }>(token)
 
           if (!result.ok) {
             logger.warn("Approval waitpoint timed out")
@@ -322,6 +398,16 @@ User task: ${prompt}${feedbackContext}`
           if (result.output.action === "stop") {
             logger.info("User stopped the run")
             await agentOutputStream.append("\n\n[User stopped the run]\n")
+            break
+          }
+
+          if (result.output.action === "approve_complete") {
+            logger.info("User approved and completed the run")
+            await agentOutputStream.append("\n\n[User approved and completed]\n")
+            await appendStatus({
+              type: "user_approved",
+              message: "User approved the changes",
+            })
             break
           }
 
