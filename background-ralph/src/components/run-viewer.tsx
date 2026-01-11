@@ -5,6 +5,7 @@ import { useRealtimeRun, useRealtimeStream, useWaitToken } from "@trigger.dev/re
 import { statusStream, agentOutputStream, type StatusUpdate } from "@/trigger/streams"
 import type { ralphLoop } from "@/trigger/ralph-loop"
 import { Button } from "@/components/ui/button"
+import { cancelRun } from "@/app/actions"
 
 type Props = {
   runId: string
@@ -59,10 +60,27 @@ function ApprovalGate({
   )
 }
 
+const terminalStatuses = ["COMPLETED", "CANCELED", "FAILED", "CRASHED", "SYSTEM_FAILURE", "TIMED_OUT", "EXPIRED"]
+
 export function RunViewer({ runId, accessToken }: Props) {
+  const [isCanceling, setIsCanceling] = useState(false)
+  const [cancelError, setCancelError] = useState<string>()
+
   const { run, error: runError } = useRealtimeRun<typeof ralphLoop>(runId, {
     accessToken,
   })
+
+  const isRunActive = run?.status && !terminalStatuses.includes(run.status)
+
+  async function handleCancel() {
+    setIsCanceling(true)
+    setCancelError(undefined)
+    const result = await cancelRun(runId)
+    if (!result.ok) {
+      setCancelError(result.error)
+    }
+    setIsCanceling(false)
+  }
 
   const { parts: rawStatusParts } = useRealtimeStream(statusStream, runId, {
     accessToken,
@@ -99,7 +117,7 @@ export function RunViewer({ runId, accessToken }: Props) {
 
   return (
     <div className="space-y-6">
-      {/* Run status + token usage */}
+      {/* Run status + token usage + cancel */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <div className="text-sm text-gray-500">
@@ -111,6 +129,12 @@ export function RunViewer({ runId, accessToken }: Props) {
               {(latestStatus.usage.cacheReadTokens > 0) && ` (${latestStatus.usage.cacheReadTokens.toLocaleString()} cached)`}
             </div>
           )}
+          {isRunActive && (
+            <Button variant="destructive" size="sm" onClick={handleCancel} disabled={isCanceling}>
+              {isCanceling ? "Canceling..." : "Cancel Run"}
+            </Button>
+          )}
+          {cancelError && <span className="text-xs text-red-600">{cancelError}</span>}
         </div>
         {latestStatus && (
           <div className="text-sm">
@@ -163,6 +187,22 @@ export function RunViewer({ runId, accessToken }: Props) {
         const isComplete = latestStatus?.type === "complete" || latestStatus?.type === "agent_complete" || latestStatus?.type === "user_approved" || latestStatus?.type === "pushed" || latestStatus?.type === "tests_passed"
         const diffStatus = statusParts.find(s => s.type === "diff")
         const pushedStatus = statusParts.find(s => s.type === "pushed")
+
+        if (run?.status === "CANCELED") {
+          return (
+            <div className="border-2 border-gray-400 bg-gray-100 rounded-lg p-4">
+              <p className="text-sm font-medium text-gray-700">Run canceled</p>
+            </div>
+          )
+        }
+
+        if (run?.status === "FAILED" || run?.status === "CRASHED" || run?.status === "SYSTEM_FAILURE") {
+          return (
+            <div className="border-2 border-red-400 bg-red-50 rounded-lg p-4">
+              <p className="text-sm font-medium text-red-700">Run failed ({run.status})</p>
+            </div>
+          )
+        }
 
         if (isComplete || run?.status === "COMPLETED") {
           return (

@@ -1,6 +1,6 @@
 "use server"
 
-import { auth, tasks } from "@trigger.dev/sdk"
+import { auth, tasks, runs } from "@trigger.dev/sdk"
 import type { ralphLoop } from "@/trigger/ralph-loop"
 import { submitTaskSchema } from "@/lib/schemas"
 
@@ -55,5 +55,15 @@ export async function submitTask(
   } catch (e) {
     console.error("Failed to trigger task", e)
     return { ok: false, error: "Failed to start task" }
+  }
+}
+
+export async function cancelRun(runId: string): Promise<Result<{ id: string }>> {
+  try {
+    const result = await runs.cancel(runId)
+    return { ok: true, value: { id: result.id } }
+  } catch (e) {
+    console.error("Failed to cancel run", e)
+    return { ok: false, error: "Failed to cancel run" }
   }
 }
