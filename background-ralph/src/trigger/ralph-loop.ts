@@ -6,7 +6,7 @@ import { promisify } from "util"
 import { mkdtemp, rm, readFile } from "fs/promises"
 import { tmpdir } from "os"
 import { join } from "path"
-import { appendStatus, agentOutputStream, type TokenUsage } from "./streams"
+import { appendStatus, agentOutputStream, type TokenUsage, type Prd } from "./streams"
 
 const execAsync = promisify(exec)
 const anthropic = new Anthropic()
@@ -85,6 +85,106 @@ function parseGitHubUrl(repoUrl: string): { owner: string; repo: string } | null
   const match = repoUrl.match(/github\.com\/([^/]+)\/([^/.]+)/)
   if (!match) return null
   return { owner: match[1], repo: match[2] }
+}
+
+// Shallow exploration of repo structure (token-efficient)
+async function exploreRepo(repoPath: string): Promise<string> {
+  const parts: string[] = []
+
+  // Get directory structure (top 2 levels)
+  try {
+    const { stdout } = await execAsync(`find . -maxdepth 2 -type f | head -50`, { cwd: repoPath })
+    parts.push(`Files:\n${stdout}`)
+  } catch {
+    // Fallback to ls
+    try {
+      const { stdout } = await execAsync(`ls -la`, { cwd: repoPath })
+      parts.push(`Directory:\n${stdout}`)
+    } catch {
+      parts.push("Could not list files")
+    }
+  }
+
+  // Read package.json if exists
+  try {
+    const packageJson = await readFile(join(repoPath, "package.json"), "utf-8")
+    const pkg = JSON.parse(packageJson)
+    parts.push(`package.json:\n- name: ${pkg.name}\n- scripts: ${Object.keys(pkg.scripts || {}).join(", ")}\n- deps: ${Object.keys(pkg.dependencies || {}).join(", ")}`)
+  } catch {
+    // No package.json
+  }
+
+  // Read README first 50 lines if exists
+  try {
+    const readme = await readFile(join(repoPath, "README.md"), "utf-8")
+    const lines = readme.split("\n").slice(0, 50).join("\n")
+    parts.push(`README.md (first 50 lines):\n${lines}`)
+  } catch {
+    // No README
+  }
+
+  return parts.join("\n\n")
+}
+
+// Generate PRD from exploration + user prompt
+async function generatePrd(exploration: string, prompt: string, repoName: string): Promise<Prd> {
+  const response = await anthropic.messages.create({
+    model: "claude-sonnet-4-20250514",
+    max_tokens: 2000,
+    messages: [
+      {
+        role: "user",
+        content: `You are generating a PRD (Product Requirements Document) for an autonomous coding agent.
+
+Repo exploration:
+${exploration}
+
+User task: ${prompt}
+
+Generate a PRD with 3-7 stories to accomplish this task. Each story should be small and focused.
+
+Output valid JSON only, no markdown fences:
+{
+  "name": "${repoName}",
+  "description": "brief description of the task",
+  "stories": [
+    {
+      "id": "US-001",
+      "title": "short title",
+      "acceptance": ["criterion 1", "criterion 2"],
+      "dependencies": []
+    }
+  ]
+}
+
+Rules:
+- Stories should be in dependency order (later stories can depend on earlier ones)
+- Each story should be completable in 1-3 agent iterations
+- Acceptance criteria should be verifiable
+- Use sequential IDs: US-001, US-002, etc.`,
+      },
+    ],
+  })
+
+  const text = response.content[0]
+  if (text.type !== "text") {
+    throw new Error("Failed to generate PRD: no text response")
+  }
+
+  try {
+    // Try to parse, handling potential markdown fences
+    let jsonStr = text.text.trim()
+    if (jsonStr.startsWith("```")) {
+      jsonStr = jsonStr.replace(/^```json?\n?/, "").replace(/\n?```$/, "")
+    }
+    const prd = JSON.parse(jsonStr) as Prd
+    // Ensure all stories start with passes: false
+    prd.stories = prd.stories.map(s => ({ ...s, passes: false }))
+    return prd
+  } catch (e) {
+    logger.error("Failed to parse PRD JSON", { text: text.text, error: e })
+    throw new Error("Failed to parse PRD: invalid JSON from Claude")
+  }
 }
 
 async function summarizeChanges(diff: string): Promise<string> {
@@ -219,6 +319,26 @@ export const ralphLoop = task({
     await appendStatus({ type: "cloned", message: `Cloned to ${repoPath}` })
 
     try {
+      // Phase 1: Shallow exploration
+      await appendStatus({ type: "exploring", message: "Exploring repo structure..." })
+      const exploration = await exploreRepo(repoPath)
+      logger.info("Repo exploration complete", { explorationLength: exploration.length })
+
+      // Phase 2: Generate PRD
+      const parsed = parseGitHubUrl(repoUrl)
+      const repoName = parsed?.repo ?? "task"
+      const prd = await generatePrd(exploration, prompt, repoName)
+      logger.info("PRD generated", { stories: prd.stories.length })
+
+      await appendStatus({
+        type: "prd_generated",
+        message: `Generated PRD with ${prd.stories.length} stories`,
+        prd,
+      })
+
+      // TODO (US-011): Add waitpoint here for user to edit PRD
+      // For now, proceed directly to execution
+
       // Run Claude Agent SDK loop with approval gates
       await appendStatus({ type: "working", message: "Starting agent loop..." })
 

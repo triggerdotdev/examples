@@ -8,9 +8,44 @@ export type TokenUsage = {
   cacheCreationTokens: number
 }
 
+// PRD story type (what Claude generates)
+export type PrdStory = {
+  id: string
+  title: string
+  acceptance: string[]
+  dependencies: string[]
+  passes?: boolean
+}
+
+export type Prd = {
+  name: string
+  description: string
+  stories: PrdStory[]
+}
+
 // Status object type
 export type StatusUpdate = {
-  type: "cloning" | "cloned" | "working" | "iteration" | "diff" | "pushing" | "pushed" | "push_failed" | "complete" | "error" | "waitpoint" | "agent_complete" | "user_approved" | "tests_passed" | "tests_failed"
+  type:
+    | "cloning"
+    | "cloned"
+    | "exploring"
+    | "prd_generated"
+    | "prd_review"
+    | "working"
+    | "iteration"
+    | "story_start"
+    | "story_complete"
+    | "diff"
+    | "pushing"
+    | "pushed"
+    | "push_failed"
+    | "complete"
+    | "error"
+    | "waitpoint"
+    | "agent_complete"
+    | "user_approved"
+    | "tests_passed"
+    | "tests_failed"
   message: string
   iteration?: number
   diff?: string
@@ -22,6 +57,13 @@ export type StatusUpdate = {
     question: string
   }
   usage?: TokenUsage
+  prd?: Prd
+  story?: {
+    current: number
+    total: number
+    title: string
+    acceptance: string[]
+  }
 }
 
 // Status updates - use string stream with manual JSON serialization
