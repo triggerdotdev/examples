@@ -1,4 +1,4 @@
-import { SubmitForm } from "@/components/submit-form"
+import { RalphApp } from "@/components/ralph-app"
 
 export default function Home() {
   return (
@@ -7,7 +7,7 @@ export default function Home() {
         <h1 className="text-2xl font-bold">Background Ralph</h1>
         <p className="text-gray-600 mt-2">Autonomous Claude Code agent</p>
       </div>
-      <SubmitForm />
+      <RalphApp />
     </main>
   )
 }

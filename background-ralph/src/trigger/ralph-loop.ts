@@ -1,4 +1,4 @@
-import { task, logger } from "@trigger.dev/sdk"
+import { task, logger, wait } from "@trigger.dev/sdk"
 import { query } from "@anthropic-ai/claude-agent-sdk"
 import Anthropic from "@anthropic-ai/sdk"
 import { exec } from "child_process"
@@ -6,15 +6,18 @@ import { promisify } from "util"
 import { mkdtemp, rm } from "fs/promises"
 import { tmpdir } from "os"
 import { join } from "path"
-import { statusStream, agentOutputStream } from "./streams"
+import { appendStatus, agentOutputStream, type TokenUsage } from "./streams"
 
 const execAsync = promisify(exec)
 const anthropic = new Anthropic()
+
+const DEFAULT_PAUSE_EVERY = 5
 
 export type RalphLoopPayload = {
   repoUrl: string
   prompt: string
   maxIterations?: number // Default: 10
+  pauseEvery?: number // Pause for approval every N iterations (default: 5, 0 = no pauses)
 }
 
 const DEFAULT_MAX_ITERATIONS = 10
@@ -66,11 +69,48 @@ async function summarizeChanges(diff: string): Promise<string> {
   return text.text.slice(0, 72)
 }
 
+async function createPullRequest(
+  owner: string,
+  repo: string,
+  branchName: string,
+  title: string,
+  githubToken: string
+): Promise<string | null> {
+  try {
+    const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/pulls`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${githubToken}`,
+        "Content-Type": "application/json",
+        Accept: "application/vnd.github+json",
+      },
+      body: JSON.stringify({
+        title,
+        head: branchName,
+        base: "main",
+        body: "Created by Ralph (Trigger.dev agent)",
+      }),
+    })
+
+    if (!response.ok) {
+      const error = await response.text()
+      logger.error("Failed to create PR", { status: response.status, error })
+      return null
+    }
+
+    const pr = (await response.json()) as { html_url: string }
+    return pr.html_url
+  } catch (error) {
+    logger.error("PR creation error", { error })
+    return null
+  }
+}
+
 async function commitAndPush(
   repoPath: string,
   repoUrl: string,
   githubToken: string
-): Promise<string | null> {
+): Promise<{ branchUrl: string; prUrl: string | null } | null> {
   const parsed = parseGitHubUrl(repoUrl)
   logger.info("parseGitHubUrl result", { parsed, repoUrl })
   if (!parsed) return null
@@ -105,7 +145,12 @@ async function commitAndPush(
   await execAsync(`git -C ${repoPath} remote set-url origin ${authUrl}`)
   await execAsync(`git -C ${repoPath} push -u origin ${branchName}`)
 
-  return `https://github.com/${parsed.owner}/${parsed.repo}/tree/${branchName}`
+  const branchUrl = `https://github.com/${parsed.owner}/${parsed.repo}/tree/${branchName}`
+
+  // Create PR
+  const prUrl = await createPullRequest(parsed.owner, parsed.repo, branchName, commitMessage, githubToken)
+
+  return { branchUrl, prUrl }
 }
 
 export const ralphLoop = task({
@@ -113,7 +158,7 @@ export const ralphLoop = task({
   maxDuration: 3600,
   machine: "small-2x",
   run: async (payload: RalphLoopPayload, { signal }) => {
-    const { repoUrl, prompt, maxIterations = DEFAULT_MAX_ITERATIONS } = payload
+    const { repoUrl, prompt, maxIterations = DEFAULT_MAX_ITERATIONS, pauseEvery = DEFAULT_PAUSE_EVERY } = payload
     const githubToken = process.env.GITHUB_TOKEN
     logger.info("GitHub token check", { hasToken: !!githubToken, tokenLength: githubToken?.length })
 
@@ -122,7 +167,7 @@ export const ralphLoop = task({
     signal.addEventListener("abort", () => abortController.abort())
 
     // Stream: cloning status
-    await statusStream.append({ type: "cloning", message: `Cloning ${repoUrl}...` })
+    await appendStatus({ type: "cloning", message: `Cloning ${repoUrl}...` })
 
     let repoPath: string
     let cleanup: () => Promise<void>
@@ -133,91 +178,172 @@ export const ralphLoop = task({
       cleanup = result.cleanup
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown clone error"
-      await statusStream.append({ type: "error", message: `Clone failed: ${message}` })
+      await appendStatus({ type: "error", message: `Clone failed: ${message}` })
       throw new Error(`Failed to clone repository: ${message}`)
     }
 
-    await statusStream.append({ type: "cloned", message: `Cloned to ${repoPath}` })
+    await appendStatus({ type: "cloned", message: `Cloned to ${repoPath}` })
 
     try {
-      // Run Claude Agent SDK loop
-      await statusStream.append({ type: "working", message: "Starting agent loop..." })
+      // Run Claude Agent SDK loop with approval gates
+      await appendStatus({ type: "working", message: "Starting agent loop..." })
 
-      let iterationCount = 0
+      let totalIterations = 0
+      const feedbackHistory: string[] = []
+      const shouldPause = pauseEvery > 0
 
-      // Wrap user prompt with context about working directory
-      const systemContext = `You are working in a cloned git repository at: ${repoPath}
+      // Cumulative token usage
+      const usage: TokenUsage = {
+        inputTokens: 0,
+        outputTokens: 0,
+        cacheReadTokens: 0,
+        cacheCreationTokens: 0,
+      }
+
+      // Outer loop: runs agent in segments, pausing for approval between them
+      while (totalIterations < maxIterations) {
+        const iterationsRemaining = maxIterations - totalIterations
+        const segmentSize = shouldPause ? Math.min(pauseEvery, iterationsRemaining) : iterationsRemaining
+
+        // Build prompt with feedback context
+        const feedbackContext = feedbackHistory.length > 0
+          ? `\n\nUser feedback from previous checkpoints:\n${feedbackHistory.map((f, i) => `${i + 1}. ${f}`).join("\n")}\n\nContinue with this feedback in mind.`
+          : ""
+
+        const systemContext = `You are working in a cloned git repository at: ${repoPath}
 All file paths should be relative to this directory (e.g., "README.md" not "/README.md").
 Use the tools available to complete the task.
 
-User task: ${prompt}`
+User task: ${prompt}${feedbackContext}`
 
-      const agentResult = query({
-        prompt: systemContext,
-        options: {
-          model: "claude-sonnet-4-20250514",
-          abortController,
-          cwd: repoPath,
-          maxTurns: maxIterations,
-          permissionMode: "acceptEdits",
-          includePartialMessages: true, // Enable incremental text streaming
-          allowedTools: ["Read", "Edit", "Write", "Bash", "Grep", "Glob"],
-        },
-      })
+        const agentResult = query({
+          prompt: systemContext,
+          options: {
+            model: "claude-sonnet-4-20250514",
+            abortController,
+            cwd: repoPath,
+            maxTurns: segmentSize,
+            permissionMode: "acceptEdits",
+            includePartialMessages: true,
+            allowedTools: ["Read", "Edit", "Write", "Bash", "Grep", "Glob"],
+          },
+        })
 
-      // Use writer pattern for streaming agent output
-      const { waitUntilComplete } = agentOutputStream.writer({
-        execute: async ({ write }) => {
-          for await (const message of agentResult) {
-            logger.info("Agent message", { type: message.type })
+        // Use writer pattern for streaming agent output
+        const { waitUntilComplete } = agentOutputStream.writer({
+          execute: async ({ write }) => {
+            for await (const message of agentResult) {
+              logger.info("Agent message", { type: message.type })
 
-            // Track iterations (each assistant turn is an iteration)
-            if (message.type === "assistant") {
-              iterationCount++
-              await statusStream.append({
-                type: "iteration",
-                message: `Iteration ${iterationCount}/${maxIterations}`,
-                iteration: iterationCount,
-              })
-              // Log tool use from assistant message
-              const toolUses = message.message.content.filter((c: { type: string }) => c.type === "tool_use")
-              if (toolUses.length > 0) {
-                logger.info("Tool calls", {
-                  tools: toolUses.map((t: { name: string; input?: unknown }) => ({ name: t.name, input: t.input }))
+              if (message.type === "assistant") {
+                totalIterations++
+
+                // Extract usage from this turn
+                const msgUsage = message.message.usage
+                if (msgUsage) {
+                  usage.inputTokens += msgUsage.input_tokens ?? 0
+                  usage.outputTokens += msgUsage.output_tokens ?? 0
+                  usage.cacheReadTokens += msgUsage.cache_read_input_tokens ?? 0
+                  usage.cacheCreationTokens += msgUsage.cache_creation_input_tokens ?? 0
+                }
+
+                await appendStatus({
+                  type: "iteration",
+                  message: `Iteration ${totalIterations}/${maxIterations}`,
+                  iteration: totalIterations,
+                  usage,
                 })
+
+                const toolUses = message.message.content.filter((c) => c.type === "tool_use")
+                if (toolUses.length > 0) {
+                  logger.info("Tool calls", {
+                    tools: toolUses.map((t) => {
+                      const tool = t as unknown as { name: string; input?: unknown }
+                      return { name: tool.name, input: tool.input }
+                    })
+                  })
+                }
+              }
+
+              if (!["stream_event", "assistant"].includes(message.type)) {
+                logger.info("Other message type", { type: message.type, keys: Object.keys(message) })
+              }
+
+              if (
+                message.type === "stream_event" &&
+                message.event.type === "content_block_delta" &&
+                message.event.delta.type === "text_delta"
+              ) {
+                write(message.event.delta.text)
               }
             }
+          },
+        })
 
-            // Log tool results (try different property names)
-            if (message.type === "tool_result" || message.type === "tool-result") {
-              logger.info("Tool result", { message: JSON.stringify(message).slice(0, 500) })
-            }
+        await waitUntilComplete()
 
-            // Log all message types we see
-            if (!["stream_event", "assistant"].includes(message.type)) {
-              logger.info("Other message type", { type: message.type, keys: Object.keys(message) })
-            }
-
-            // Stream text deltas for realtime output
-            if (
-              message.type === "stream_event" &&
-              message.event.type === "content_block_delta" &&
-              message.event.delta.type === "text_delta"
-            ) {
-              write(message.event.delta.text)
-            }
+        // Check if we should pause for approval
+        const moreIterationsAvailable = totalIterations < maxIterations
+        if (shouldPause && moreIterationsAvailable) {
+          // Get current diff for context
+          let currentDiff = ""
+          try {
+            const { stdout: diff } = await execAsync(`git -C ${repoPath} diff`)
+            const { stdout: status } = await execAsync(`git -C ${repoPath} status --short`)
+            currentDiff = status ? `Files changed:\n${status}\n\n${diff}` : ""
+          } catch {
+            // Git diff failed, continue without it
           }
-        },
-      })
 
-      await waitUntilComplete()
+          // Create waitpoint for approval
+          const token = await wait.createToken({ timeout: "24h" })
+
+          await appendStatus({
+            type: "waitpoint",
+            message: `Completed ${totalIterations} iterations. Continue, provide feedback, or stop?`,
+            diff: currentDiff,
+            waitpoint: {
+              tokenId: token.id,
+              publicAccessToken: token.publicAccessToken,
+              question: `Completed ${totalIterations}/${maxIterations} iterations. Review progress and choose to continue, provide feedback, or stop.`,
+            },
+          })
+
+          logger.info("Waiting for approval", { tokenId: token.id, totalIterations })
+
+          const result = await wait.forToken<{ action: "continue" | "stop"; feedback?: string }>(token)
+
+          if (!result.ok) {
+            logger.warn("Approval waitpoint timed out")
+            await appendStatus({ type: "error", message: "Approval timed out after 24h" })
+            break
+          }
+
+          if (result.output.action === "stop") {
+            logger.info("User stopped the run")
+            await agentOutputStream.append("\n\n[User stopped the run]\n")
+            break
+          }
+
+          // User chose to continue
+          if (result.output.feedback) {
+            feedbackHistory.push(result.output.feedback)
+            await agentOutputStream.append(`\n\n[User feedback: ${result.output.feedback}]\n\n`)
+          }
+
+          await appendStatus({ type: "working", message: "Resuming..." })
+        } else {
+          // No more pauses needed or max iterations reached
+          break
+        }
+      }
 
       // Show what changed before cleanup
       try {
         const { stdout: diff } = await execAsync(`git -C ${repoPath} diff`)
         const { stdout: status } = await execAsync(`git -C ${repoPath} status --short`)
         if (diff || status) {
-          await statusStream.append({
+          await appendStatus({
             type: "diff",
             message: `Changes:\n${status}`,
             diff: diff || "(no diff, possibly new files)",
@@ -229,26 +355,34 @@ User task: ${prompt}`
 
       // Commit and push if token provided
       let branchUrl: string | null = null
+      let prUrl: string | null = null
       logger.info("About to commit/push", { hasToken: !!githubToken, repoUrl })
       if (githubToken) {
         try {
-          await statusStream.append({ type: "pushing", message: "Creating branch and pushing..." })
+          await appendStatus({ type: "pushing", message: "Creating branch and PR..." })
           logger.info("Calling commitAndPush")
-          branchUrl = await commitAndPush(repoPath, repoUrl, githubToken)
-          logger.info("commitAndPush result", { branchUrl })
-          if (branchUrl) {
-            await statusStream.append({ type: "pushed", message: branchUrl, branchUrl })
+          const result = await commitAndPush(repoPath, repoUrl, githubToken)
+          logger.info("commitAndPush result", { result })
+          if (result) {
+            branchUrl = result.branchUrl
+            prUrl = result.prUrl
+            const message = prUrl ?? result.branchUrl
+            await appendStatus({ type: "pushed", message, branchUrl, prUrl: prUrl ?? undefined })
           }
         } catch (error) {
           const message = error instanceof Error ? error.message : "Unknown push error"
           logger.error("Failed to push", { error: message })
-          await statusStream.append({ type: "push_failed", message: `Push failed: ${message}` })
+          await appendStatus({ type: "push_failed", message: `Push failed: ${message}` })
         }
       }
 
-      await statusStream.append({ type: "complete", message: `Task complete after ${iterationCount} iterations` })
+      await appendStatus({
+        type: "complete",
+        message: `Task complete after ${totalIterations} iterations`,
+        usage,
+      })
 
-      return { success: true, iterations: iterationCount, branchUrl }
+      return { success: true, iterations: totalIterations, branchUrl, prUrl, usage }
     } finally {
       // Always cleanup temp directory
       await cleanup()

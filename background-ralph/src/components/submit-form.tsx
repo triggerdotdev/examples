@@ -57,6 +57,20 @@ export function SubmitForm() {
             />
           </div>
 
+          <div className="space-y-2">
+            <Label htmlFor="pauseEvery">Pause for approval every N iterations</Label>
+            <Input
+              id="pauseEvery"
+              name="pauseEvery"
+              type="number"
+              min={0}
+              max={20}
+              defaultValue={5}
+              placeholder="5"
+            />
+            <p className="text-xs text-gray-500">Set to 0 for no pauses</p>
+          </div>
+
           {error && (
             <p className="text-sm text-red-600">{error}</p>
           )}

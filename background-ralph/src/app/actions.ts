@@ -24,10 +24,11 @@ export async function getPublicToken(runId: string): Promise<Result<{ token: str
 
 export async function submitTask(
   formData: FormData
-): Promise<Result<{ runId: string }>> {
+): Promise<Result<{ runId: string; token: string }>> {
   const raw = {
     repoUrl: formData.get("repoUrl"),
     prompt: formData.get("prompt"),
+    pauseEvery: formData.get("pauseEvery") ?? "5",
   }
 
   const parsed = submitTaskSchema.safeParse(raw)
@@ -39,9 +40,18 @@ export async function submitTask(
     const handle = await tasks.trigger<typeof ralphLoop>("ralph-loop", {
       repoUrl: parsed.data.repoUrl,
       prompt: parsed.data.prompt,
+      pauseEvery: parsed.data.pauseEvery,
     })
 
-    return { ok: true, value: { runId: handle.id } }
+    // Create public token for realtime access
+    const token = await auth.createPublicToken({
+      scopes: {
+        read: { runs: [handle.id] },
+        write: { runs: [handle.id] },
+      },
+    })
+
+    return { ok: true, value: { runId: handle.id, token } }
   } catch (e) {
     console.error("Failed to trigger task", e)
     return { ok: false, error: "Failed to start task" }
