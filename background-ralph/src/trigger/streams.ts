@@ -28,6 +28,7 @@ export type StatusUpdate = {
   type:
     | "cloning"
     | "cloned"
+    | "installing"
     | "exploring"
     | "prd_generated"
     | "prd_review"

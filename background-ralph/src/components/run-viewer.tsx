@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useRealtimeRun, useRealtimeStream, useWaitToken } from "@trigger.dev/react-hooks"
-import { statusStream, agentOutputStream, type StatusUpdate } from "@/trigger/streams"
+import { statusStream, agentOutputStream, type StatusUpdate, type Prd } from "@/trigger/streams"
 import type { ralphLoop } from "@/trigger/ralph-loop"
 import { Button } from "@/components/ui/button"
 import { cancelRun } from "@/app/actions"
@@ -60,6 +60,61 @@ function ApprovalGate({
   )
 }
 
+function PRDEditor({
+  prd,
+  tokenId,
+  publicAccessToken,
+}: {
+  prd: Prd
+  tokenId: string
+  publicAccessToken: string
+}) {
+  const [prdJson, setPrdJson] = useState(() => JSON.stringify(prd, null, 2))
+  const [parseError, setParseError] = useState<string>()
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string>()
+  const { complete } = useWaitToken(tokenId, { accessToken: publicAccessToken })
+
+  function handleChange(value: string) {
+    setPrdJson(value)
+    setParseError(undefined)
+    try {
+      JSON.parse(value)
+    } catch (e) {
+      setParseError(e instanceof Error ? e.message : "Invalid JSON")
+    }
+  }
+
+  async function handleApprove() {
+    setIsSubmitting(true)
+    setSubmitError(undefined)
+    try {
+      const parsed = JSON.parse(prdJson) as Prd
+      await complete({ action: "approve_prd", prd: parsed })
+    } catch (e) {
+      setSubmitError(e instanceof Error ? e.message : "Failed to approve")
+      setIsSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      <p className="text-sm font-medium text-gray-700">Review and edit the generated PRD:</p>
+      <textarea
+        value={prdJson}
+        onChange={(e) => handleChange(e.target.value)}
+        className="w-full h-80 p-3 font-mono text-xs bg-gray-900 text-gray-100 rounded-md border-0 focus:ring-2 focus:ring-blue-500"
+        spellCheck={false}
+      />
+      {parseError && <p className="text-sm text-red-600">JSON error: {parseError}</p>}
+      {submitError && <p className="text-sm text-red-600">{submitError}</p>}
+      <Button onClick={handleApprove} disabled={isSubmitting || !!parseError} className="bg-green-600 hover:bg-green-700">
+        {isSubmitting ? "Approving..." : "Approve & Start"}
+      </Button>
+    </div>
+  )
+}
+
 const terminalStatuses = ["COMPLETED", "CANCELED", "FAILED", "CRASHED", "SYSTEM_FAILURE", "TIMED_OUT", "EXPIRED"]
 
 export function RunViewer({ runId, accessToken }: Props) {
@@ -109,6 +164,7 @@ export function RunViewer({ runId, accessToken }: Props) {
 
   // Check if we're waiting for approval
   const pendingWaitpoint = latestStatus?.type === "waitpoint" ? latestStatus.waitpoint : null
+  const pendingPrdReview = latestStatus?.type === "prd_review" ? { waitpoint: latestStatus.waitpoint, prd: latestStatus.prd } : null
 
   // Debug logging
   console.log("[RunViewer] statusParts parsed:", statusParts)
@@ -143,6 +199,24 @@ export function RunViewer({ runId, accessToken }: Props) {
             )}
             {latestStatus.type === "cloning" && (
               <span className="text-yellow-600">Cloning repo...</span>
+            )}
+            {latestStatus.type === "installing" && (
+              <span className="text-yellow-600">Installing dependencies...</span>
+            )}
+            {latestStatus.type === "exploring" && (
+              <span className="text-yellow-600">Exploring repo...</span>
+            )}
+            {latestStatus.type === "prd_review" && (
+              <span className="text-yellow-600">Waiting for PRD review...</span>
+            )}
+            {latestStatus.type === "prd_generated" && (
+              <span className="text-blue-600">PRD ready ({latestStatus.prd?.stories.length} stories)</span>
+            )}
+            {latestStatus.type === "story_start" && latestStatus.story && (
+              <span className="text-blue-600">Story {latestStatus.story.current}/{latestStatus.story.total}: {latestStatus.story.title}</span>
+            )}
+            {latestStatus.type === "story_complete" && latestStatus.story && (
+              <span className="text-green-600">✓ Story {latestStatus.story.current}/{latestStatus.story.total}</span>
             )}
             {latestStatus.type === "working" && (
               <span className="text-blue-600">Agent working...</span>
@@ -224,6 +298,18 @@ export function RunViewer({ runId, accessToken }: Props) {
                   <pre className="mt-2 p-3 bg-gray-900 text-gray-100 rounded-md overflow-auto max-h-[300px] text-xs font-mono">{diffStatus.diff}</pre>
                 </details>
               )}
+            </div>
+          )
+        }
+
+        if (pendingPrdReview && pendingPrdReview.waitpoint && pendingPrdReview.prd) {
+          return (
+            <div className="border-2 border-blue-500 bg-blue-50 rounded-lg p-4">
+              <PRDEditor
+                prd={pendingPrdReview.prd}
+                tokenId={pendingPrdReview.waitpoint.tokenId}
+                publicAccessToken={pendingPrdReview.waitpoint.publicAccessToken}
+              />
             </div>
           )
         }

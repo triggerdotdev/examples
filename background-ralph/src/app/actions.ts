@@ -28,7 +28,7 @@ export async function submitTask(
   const raw = {
     repoUrl: formData.get("repoUrl"),
     prompt: formData.get("prompt"),
-    pauseEvery: formData.get("pauseEvery") ?? "5",
+    yoloMode: formData.get("yoloMode") === "on",
   }
 
   const parsed = submitTaskSchema.safeParse(raw)
@@ -40,7 +40,7 @@ export async function submitTask(
     const handle = await tasks.trigger<typeof ralphLoop>("ralph-loop", {
       repoUrl: parsed.data.repoUrl,
       prompt: parsed.data.prompt,
-      pauseEvery: parsed.data.pauseEvery,
+      yoloMode: parsed.data.yoloMode,
     })
 
     // Create public token for realtime access

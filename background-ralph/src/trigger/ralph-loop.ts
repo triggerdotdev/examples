@@ -3,7 +3,7 @@ import { query } from "@anthropic-ai/claude-agent-sdk"
 import Anthropic from "@anthropic-ai/sdk"
 import { exec } from "child_process"
 import { promisify } from "util"
-import { mkdtemp, rm, readFile } from "fs/promises"
+import { mkdtemp, rm, readFile, access, writeFile, appendFile } from "fs/promises"
 import { tmpdir } from "os"
 import { join } from "path"
 import { appendStatus, agentOutputStream, type TokenUsage, type Prd } from "./streams"
@@ -50,11 +50,11 @@ async function runTestsIfExist(repoPath: string): Promise<TestResult> {
 export type RalphLoopPayload = {
   repoUrl: string
   prompt: string
-  maxIterations?: number // Default: 10
-  pauseEvery?: number // Pause for approval every N iterations (default: 5, 0 = no pauses)
+  yoloMode?: boolean // Skip approval gates between stories (default: false)
+  maxTurnsPerStory?: number // Max agent turns per story (default: 5)
 }
 
-const DEFAULT_MAX_ITERATIONS = 10
+const DEFAULT_MAX_TURNS_PER_STORY = 10
 
 async function cloneRepo(
   repoUrl: string
@@ -78,6 +78,40 @@ async function cloneRepo(
     cleanup: async () => {
       await rm(tempDir, { recursive: true, force: true })
     },
+  }
+}
+
+// Detect package manager and install dependencies
+async function installDeps(repoPath: string): Promise<void> {
+  // Check for lockfiles to detect package manager
+  const hasFile = async (name: string) => {
+    try {
+      await access(join(repoPath, name))
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  let cmd: string | null = null
+  if (await hasFile("pnpm-lock.yaml")) {
+    cmd = "pnpm install"
+  } else if (await hasFile("yarn.lock")) {
+    cmd = "yarn install"
+  } else if (await hasFile("package-lock.json") || await hasFile("package.json")) {
+    cmd = "npm install"
+  }
+
+  if (cmd) {
+    logger.info("Installing dependencies", { cmd })
+    try {
+      await execAsync(cmd, { cwd: repoPath, timeout: 300000 }) // 5 min timeout
+      logger.info("Dependencies installed")
+    } catch (error) {
+      const err = error as { message?: string }
+      logger.warn("Dependency install failed", { error: err.message })
+      // Don't throw - let agent continue and handle if needed
+    }
   }
 }
 
@@ -123,6 +157,14 @@ async function exploreRepo(repoPath: string): Promise<string> {
     // No README
   }
 
+  // Read .env.example if exists (for available env vars)
+  try {
+    const envExample = await readFile(join(repoPath, ".env.example"), "utf-8")
+    parts.push(`.env.example:\n${envExample}`)
+  } catch {
+    // No .env.example
+  }
+
   return parts.join("\n\n")
 }
 
@@ -161,7 +203,8 @@ Rules:
 - Stories should be in dependency order (later stories can depend on earlier ones)
 - Each story should be completable in 1-3 agent iterations
 - Acceptance criteria should be verifiable
-- Use sequential IDs: US-001, US-002, etc.`,
+- Use sequential IDs: US-001, US-002, etc.
+- For env vars: use existing ones from .env.example if present, or create new ones as needed (user will add values after merge)`,
       },
     ],
   })
@@ -292,7 +335,7 @@ export const ralphLoop = task({
   maxDuration: 3600,
   machine: "small-2x",
   run: async (payload: RalphLoopPayload, { signal }) => {
-    const { repoUrl, prompt, maxIterations = DEFAULT_MAX_ITERATIONS, pauseEvery = DEFAULT_PAUSE_EVERY } = payload
+    const { repoUrl, prompt, yoloMode = false, maxTurnsPerStory = DEFAULT_MAX_TURNS_PER_STORY } = payload
     const githubToken = process.env.GITHUB_TOKEN
     logger.info("GitHub token check", { hasToken: !!githubToken, tokenLength: githubToken?.length })
 
@@ -318,6 +361,10 @@ export const ralphLoop = task({
 
     await appendStatus({ type: "cloned", message: `Cloned to ${repoPath}` })
 
+    // Install dependencies
+    await appendStatus({ type: "installing", message: "Installing dependencies..." })
+    await installDeps(repoPath)
+
     try {
       // Phase 1: Shallow exploration
       await appendStatus({ type: "exploring", message: "Exploring repo structure..." })
@@ -330,21 +377,69 @@ export const ralphLoop = task({
       const prd = await generatePrd(exploration, prompt, repoName)
       logger.info("PRD generated", { stories: prd.stories.length })
 
+      // Phase 3: PRD review waitpoint
+      const prdToken = await wait.createToken({ timeout: "24h" })
+
       await appendStatus({
-        type: "prd_generated",
-        message: `Generated PRD with ${prd.stories.length} stories`,
+        type: "prd_review",
+        message: `Review and edit PRD (${prd.stories.length} stories)`,
         prd,
+        waitpoint: {
+          tokenId: prdToken.id,
+          publicAccessToken: prdToken.publicAccessToken,
+          question: "Review the generated PRD. Edit stories if needed, then approve to start execution.",
+        },
       })
 
-      // TODO (US-011): Add waitpoint here for user to edit PRD
-      // For now, proceed directly to execution
+      logger.info("Waiting for PRD approval", { tokenId: prdToken.id })
 
-      // Run Claude Agent SDK loop with approval gates
-      await appendStatus({ type: "working", message: "Starting agent loop..." })
+      const prdResult = await wait.forToken<{ action: "approve_prd"; prd: Prd }>(prdToken)
 
-      let totalIterations = 0
-      const feedbackHistory: string[] = []
-      const shouldPause = pauseEvery > 0
+      if (!prdResult.ok) {
+        await appendStatus({ type: "error", message: "PRD review timed out after 24h" })
+        throw new Error("PRD review timed out")
+      }
+
+      // Use the user's edited PRD
+      const approvedPrd = prdResult.output.prd
+      logger.info("PRD approved", { stories: approvedPrd.stories.length })
+
+      await appendStatus({
+        type: "prd_generated",
+        message: `PRD approved with ${approvedPrd.stories.length} stories`,
+        prd: approvedPrd,
+      })
+
+      // Configure git for commits
+      await execAsync(`git -C ${repoPath} config user.email "ralph@trigger.dev"`)
+      await execAsync(`git -C ${repoPath} config user.name "Ralph (Trigger.dev)"`)
+
+      // Ensure .gitignore exists with common patterns
+      const gitignorePath = join(repoPath, ".gitignore")
+      const defaultIgnores = `node_modules/
+.next/
+.turbo/
+dist/
+build/
+.env
+.env.local
+.DS_Store
+*.log
+`
+      try {
+        const existing = await readFile(gitignorePath, "utf-8")
+        // Append missing patterns
+        if (!existing.includes("node_modules")) {
+          await appendFile(gitignorePath, "\n" + defaultIgnores)
+        }
+      } catch {
+        // No .gitignore, create one
+        await writeFile(gitignorePath, defaultIgnores)
+      }
+
+      // Create branch for all commits
+      const branchName = `ralph-${Date.now()}`
+      await execAsync(`git -C ${repoPath} checkout -b ${branchName}`)
 
       // Cumulative token usage
       const usage: TokenUsage = {
@@ -354,49 +449,65 @@ export const ralphLoop = task({
         cacheCreationTokens: 0,
       }
 
-      // Outer loop: runs agent in segments, pausing for approval between them
-      while (totalIterations < maxIterations) {
-        const iterationsRemaining = maxIterations - totalIterations
-        const segmentSize = shouldPause ? Math.min(pauseEvery, iterationsRemaining) : iterationsRemaining
+      // Story-based execution loop
+      const stories = approvedPrd.stories.filter(s => !s.passes)
+      let completedStories = 0
+      let userStopped = false
 
-        // Build prompt with feedback context
-        const feedbackContext = feedbackHistory.length > 0
-          ? `\n\nUser feedback from previous checkpoints:\n${feedbackHistory.map((f, i) => `${i + 1}. ${f}`).join("\n")}\n\nContinue with this feedback in mind.`
+      for (let i = 0; i < stories.length && !userStopped; i++) {
+        const story = stories[i]
+        const storyNum = i + 1
+        const totalStories = stories.length
+
+        // Stream story start
+        await appendStatus({
+          type: "story_start",
+          message: `Starting story ${storyNum}/${totalStories}: ${story.title}`,
+          story: {
+            current: storyNum,
+            total: totalStories,
+            title: story.title,
+            acceptance: story.acceptance,
+          },
+        })
+
+        await agentOutputStream.append(`\n\n=== Story ${storyNum}/${totalStories}: ${story.title} ===\n\n`)
+
+        // Build story-specific prompt
+        const progressHint = storyNum > 1
+          ? `\n\nIMPORTANT: Read progress.txt first to see what previous stories accomplished. Build on that work.`
           : ""
 
-        const systemContext = `You are working in a cloned git repository at: ${repoPath}
+        const storyPrompt = `You are working in a cloned git repository at: ${repoPath}
 All file paths should be relative to this directory (e.g., "README.md" not "/README.md").
-Use the tools available to complete the task.
 
-User task: ${prompt}${feedbackContext}`
+Overall task: ${prompt}
+${progressHint}
+
+Current story (${storyNum}/${totalStories}): ${story.title}
+Acceptance criteria:
+${story.acceptance.map((c, i) => `${i + 1}. ${c}`).join("\n")}
+
+Complete this story. When done, the acceptance criteria should be met. Use Read, Write, Edit, Bash tools to make changes.`
 
         const agentResult = query({
-          prompt: systemContext,
+          prompt: storyPrompt,
           options: {
             model: "claude-sonnet-4-20250514",
             abortController,
             cwd: repoPath,
-            maxTurns: segmentSize,
+            maxTurns: maxTurnsPerStory,
             permissionMode: "acceptEdits",
             includePartialMessages: true,
             allowedTools: ["Read", "Edit", "Write", "Bash", "Grep", "Glob"],
           },
         })
 
-        // Track if Claude completed naturally vs hit turn limit
-        let claudeCompletedNaturally = false
-        let resultMessage: string | undefined
-
-        // Use writer pattern for streaming agent output
+        // Stream agent output
         const { waitUntilComplete } = agentOutputStream.writer({
           execute: async ({ write }) => {
             for await (const message of agentResult) {
-              logger.info("Agent message", { type: message.type })
-
               if (message.type === "assistant") {
-                totalIterations++
-
-                // Extract usage from this turn
                 const msgUsage = message.message.usage
                 if (msgUsage) {
                   usage.inputTokens += msgUsage.input_tokens ?? 0
@@ -404,36 +515,6 @@ User task: ${prompt}${feedbackContext}`
                   usage.cacheReadTokens += msgUsage.cache_read_input_tokens ?? 0
                   usage.cacheCreationTokens += msgUsage.cache_creation_input_tokens ?? 0
                 }
-
-                await appendStatus({
-                  type: "iteration",
-                  message: `Iteration ${totalIterations}/${maxIterations}`,
-                  iteration: totalIterations,
-                  usage,
-                })
-
-                const toolUses = message.message.content.filter((c) => c.type === "tool_use")
-                if (toolUses.length > 0) {
-                  logger.info("Tool calls", {
-                    tools: toolUses.map((t) => {
-                      const tool = t as unknown as { name: string; input?: unknown }
-                      return { name: tool.name, input: tool.input }
-                    })
-                  })
-                }
-              }
-
-              // Capture result message to detect completion
-              if (message.type === "result") {
-                logger.info("Result message", { subtype: message.subtype })
-                if (message.subtype === "success") {
-                  claudeCompletedNaturally = true
-                  resultMessage = message.result
-                }
-              }
-
-              if (!["stream_event", "assistant", "result"].includes(message.type)) {
-                logger.info("Other message type", { type: message.type, keys: Object.keys(message) })
               }
 
               if (
@@ -449,146 +530,155 @@ User task: ${prompt}${feedbackContext}`
 
         await waitUntilComplete()
 
-        // If Claude completed naturally, exit the loop
-        if (claudeCompletedNaturally) {
-          logger.info("Claude completed task naturally", { resultMessage })
-          await appendStatus({
-            type: "agent_complete",
-            message: "Claude completed the task",
-          })
-          break
+        // Check for changes and commit
+        const { stdout: status } = await execAsync(`git -C ${repoPath} status --porcelain`)
+        if (status.trim()) {
+          await execAsync(`git -C ${repoPath} add -A`)
+          await execAsync(`git -C ${repoPath} commit -m "${story.title.replace(/"/g, '\\"')}"`)
+          logger.info("Committed story", { story: story.title })
         }
 
-        // Run tests if they exist - exit early if they pass
-        const testResult = await runTestsIfExist(repoPath)
-        if (testResult.hasTests) {
-          if (testResult.passed) {
-            logger.info("Tests passed - exiting loop")
-            await appendStatus({
-              type: "tests_passed",
-              message: "Tests passed",
-            })
-            break
+        // Run build check if package.json has build script
+        try {
+          const pkgPath = join(repoPath, "package.json")
+          const pkg = JSON.parse(await readFile(pkgPath, "utf-8"))
+          if (pkg.scripts?.build) {
+            await execAsync(`npm run build`, { cwd: repoPath, timeout: 120000 })
+            logger.info("Build passed for story", { story: story.title })
+          }
+        } catch (error) {
+          const err = error as { message?: string }
+          // Only log if it's a build failure, not missing package.json
+          if (err.message?.includes("ENOENT")) {
+            logger.info("No package.json or build script, skipping build check")
           } else {
-            logger.info("Tests failed - continuing")
-            await appendStatus({
-              type: "tests_failed",
-              message: "Tests failed, continuing...",
-            })
+            logger.warn("Build failed for story", { story: story.title, error: err.message })
+            await agentOutputStream.append(`\n[Build failed: ${err.message?.slice(0, 200)}]\n`)
           }
         }
 
-        // Check if we should pause for approval
-        const moreIterationsAvailable = totalIterations < maxIterations
-        if (shouldPause && moreIterationsAvailable) {
-          // Get current diff for context
+        completedStories++
+
+        // Update progress.txt in repo
+        const progressEntry = `## ${story.title}\nCompleted: ${new Date().toISOString().split("T")[0]}\nAcceptance criteria:\n${story.acceptance.map(c => `- ${c}`).join("\n")}\n\n`
+        const progressPath = join(repoPath, "progress.txt")
+        try {
+          await appendFile(progressPath, progressEntry)
+          // Stage progress.txt
+          await execAsync(`git -C ${repoPath} add progress.txt`)
+        } catch {
+          // First story, create file
+          await writeFile(progressPath, progressEntry)
+          await execAsync(`git -C ${repoPath} add progress.txt`)
+        }
+
+        // Story complete status
+        await appendStatus({
+          type: "story_complete",
+          message: `Completed story ${storyNum}/${totalStories}: ${story.title}`,
+          story: {
+            current: storyNum,
+            total: totalStories,
+            title: story.title,
+            acceptance: story.acceptance,
+          },
+          usage,
+        })
+
+        // Approval gate (unless yolo mode or last story)
+        const isLastStory = i === stories.length - 1
+        if (!yoloMode && !isLastStory) {
+          const token = await wait.createToken({ timeout: "24h" })
+
+          // Get current diff
           let currentDiff = ""
           try {
-            const { stdout: diff } = await execAsync(`git -C ${repoPath} diff`)
-            const { stdout: status } = await execAsync(`git -C ${repoPath} status --short`)
-            currentDiff = status ? `Files changed:\n${status}\n\n${diff}` : ""
+            const { stdout: diff } = await execAsync(`git -C ${repoPath} diff HEAD~1`)
+            currentDiff = diff
           } catch {
-            // Git diff failed, continue without it
+            // No diff
           }
-
-          // Create waitpoint for approval
-          const token = await wait.createToken({ timeout: "24h" })
 
           await appendStatus({
             type: "waitpoint",
-            message: `Completed ${totalIterations} iterations. Continue, provide feedback, or stop?`,
+            message: `Story "${story.title}" complete. Continue to next story?`,
             diff: currentDiff,
             waitpoint: {
               tokenId: token.id,
               publicAccessToken: token.publicAccessToken,
-              question: `Completed ${totalIterations}/${maxIterations} iterations. Review progress and choose to continue, provide feedback, or stop.`,
+              question: `Completed ${storyNum}/${totalStories} stories. Continue to "${stories[i + 1]?.title}"?`,
             },
           })
 
-          logger.info("Waiting for approval", { tokenId: token.id, totalIterations })
+          const result = await wait.forToken<{ action: "continue" | "stop" | "approve_complete" }>(token)
 
-          const result = await wait.forToken<{ action: "continue" | "stop" | "approve_complete"; feedback?: string }>(token)
-
-          if (!result.ok) {
-            logger.warn("Approval waitpoint timed out")
-            await appendStatus({ type: "error", message: "Approval timed out after 24h" })
+          if (!result.ok || result.output.action === "stop") {
+            userStopped = true
+            await agentOutputStream.append("\n\n[User stopped after this story]\n")
+          } else if (result.output.action === "approve_complete") {
+            // Skip remaining stories, go straight to push
             break
           }
-
-          if (result.output.action === "stop") {
-            logger.info("User stopped the run")
-            await agentOutputStream.append("\n\n[User stopped the run]\n")
-            break
-          }
-
-          if (result.output.action === "approve_complete") {
-            logger.info("User approved and completed the run")
-            await agentOutputStream.append("\n\n[User approved and completed]\n")
-            await appendStatus({
-              type: "user_approved",
-              message: "User approved the changes",
-            })
-            break
-          }
-
-          // User chose to continue
-          if (result.output.feedback) {
-            feedbackHistory.push(result.output.feedback)
-            await agentOutputStream.append(`\n\n[User feedback: ${result.output.feedback}]\n\n`)
-          }
-
-          await appendStatus({ type: "working", message: "Resuming..." })
-        } else {
-          // No more pauses needed or max iterations reached
-          break
         }
       }
 
-      // Show what changed before cleanup
+      // Final diff summary
       try {
-        const { stdout: diff } = await execAsync(`git -C ${repoPath} diff`)
-        const { stdout: status } = await execAsync(`git -C ${repoPath} status --short`)
-        if (diff || status) {
+        const { stdout: diff } = await execAsync(`git -C ${repoPath} log --oneline ${branchName} ^HEAD~${completedStories}`)
+        if (diff) {
           await appendStatus({
             type: "diff",
-            message: `Changes:\n${status}`,
-            diff: diff || "(no diff, possibly new files)",
+            message: `Commits:\n${diff}`,
+            diff,
           })
         }
       } catch {
-        // Git diff failed, not critical
+        // Git log failed
       }
 
-      // Commit and push if token provided
+      // Push if token provided and we have commits
       let branchUrl: string | null = null
       let prUrl: string | null = null
-      logger.info("About to commit/push", { hasToken: !!githubToken, repoUrl })
-      if (githubToken) {
-        try {
-          await appendStatus({ type: "pushing", message: "Creating branch and PR..." })
-          logger.info("Calling commitAndPush")
-          const result = await commitAndPush(repoPath, repoUrl, githubToken)
-          logger.info("commitAndPush result", { result })
-          if (result) {
-            branchUrl = result.branchUrl
-            prUrl = result.prUrl
-            const message = prUrl ?? result.branchUrl
+
+      if (githubToken && completedStories > 0) {
+        const parsedUrl = parseGitHubUrl(repoUrl)
+        if (parsedUrl) {
+          try {
+            await appendStatus({ type: "pushing", message: "Pushing branch and creating PR..." })
+
+            // Set up authenticated remote and push
+            const authUrl = `https://${githubToken}@github.com/${parsedUrl.owner}/${parsedUrl.repo}.git`
+            await execAsync(`git -C ${repoPath} remote set-url origin ${authUrl}`)
+            await execAsync(`git -C ${repoPath} push -u origin ${branchName}`)
+
+            branchUrl = `https://github.com/${parsedUrl.owner}/${parsedUrl.repo}/tree/${branchName}`
+
+            // Create PR
+            prUrl = await createPullRequest(
+              parsedUrl.owner,
+              parsedUrl.repo,
+              branchName,
+              `${approvedPrd.name}: ${completedStories} stories`,
+              githubToken
+            )
+
+            const message = prUrl ?? branchUrl
             await appendStatus({ type: "pushed", message, branchUrl, prUrl: prUrl ?? undefined })
+          } catch (error) {
+            const message = error instanceof Error ? error.message : "Unknown push error"
+            logger.error("Failed to push", { error: message })
+            await appendStatus({ type: "push_failed", message: `Push failed: ${message}` })
           }
-        } catch (error) {
-          const message = error instanceof Error ? error.message : "Unknown push error"
-          logger.error("Failed to push", { error: message })
-          await appendStatus({ type: "push_failed", message: `Push failed: ${message}` })
         }
       }
 
       await appendStatus({
         type: "complete",
-        message: `Task complete after ${totalIterations} iterations`,
+        message: `Completed ${completedStories}/${stories.length} stories`,
         usage,
       })
 
-      return { success: true, iterations: totalIterations, branchUrl, prUrl, usage }
+      return { success: true, storiesCompleted: completedStories, branchUrl, prUrl, usage }
     } finally {
       // Always cleanup temp directory
       await cleanup()

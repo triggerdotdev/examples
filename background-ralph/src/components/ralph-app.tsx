@@ -81,19 +81,17 @@ export function RalphApp() {
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="pauseEvery">Pause for approval every N iterations</Label>
-              <Input
-                id="pauseEvery"
-                name="pauseEvery"
-                type="number"
-                min={0}
-                max={20}
-                defaultValue={5}
-                placeholder="5"
+            <div className="flex items-center space-x-2">
+              <input
+                id="yoloMode"
+                name="yoloMode"
+                type="checkbox"
+                className="h-4 w-4 rounded border-gray-300"
                 disabled={isRunning}
               />
-              <p className="text-xs text-gray-500">Set to 0 for no pauses</p>
+              <Label htmlFor="yoloMode" className="text-sm font-normal">
+                Yolo mode (skip approval between stories)
+              </Label>
             </div>
 
             {error && (
