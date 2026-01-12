@@ -60,11 +60,15 @@ export type StatusUpdate = {
   usage?: TokenUsage
   prd?: Prd
   story?: {
+    id: string
     current: number
     total: number
     title: string
     acceptance: string[]
   }
+  commitHash?: string
+  commitUrl?: string
+  progress?: string // In-memory progress log (Ralph loop pattern)
 }
 
 // Status updates - use string stream with manual JSON serialization

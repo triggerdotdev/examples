@@ -11,42 +11,6 @@ import { appendStatus, agentOutputStream, type TokenUsage, type Prd } from "./st
 const execAsync = promisify(exec)
 const anthropic = new Anthropic()
 
-const DEFAULT_PAUSE_EVERY = 5
-
-type TestResult = { hasTests: false } | { hasTests: true; passed: boolean; output: string }
-
-async function runTestsIfExist(repoPath: string): Promise<TestResult> {
-  try {
-    const packageJsonPath = join(repoPath, "package.json")
-    const packageJson = JSON.parse(await readFile(packageJsonPath, "utf-8"))
-
-    // Check if test script exists and is meaningful
-    const testScript = packageJson.scripts?.test
-    if (!testScript || testScript.includes("no test specified")) {
-      return { hasTests: false }
-    }
-
-    logger.info("Running tests", { testScript })
-
-    try {
-      const { stdout, stderr } = await execAsync("npm test", {
-        cwd: repoPath,
-        timeout: 120000 // 2 minute timeout
-      })
-      logger.info("Tests passed", { stdout: stdout.slice(-500) })
-      return { hasTests: true, passed: true, output: stdout + stderr }
-    } catch (error) {
-      const err = error as { stdout?: string; stderr?: string; message?: string }
-      const output = (err.stdout ?? "") + (err.stderr ?? "") + (err.message ?? "")
-      logger.info("Tests failed", { output: output.slice(-500) })
-      return { hasTests: true, passed: false, output }
-    }
-  } catch {
-    // No package.json or parse error
-    return { hasTests: false }
-  }
-}
-
 export type RalphLoopPayload = {
   repoUrl: string
   prompt: string
@@ -230,22 +194,6 @@ Rules:
   }
 }
 
-async function summarizeChanges(diff: string): Promise<string> {
-  const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
-    max_tokens: 100,
-    messages: [
-      {
-        role: "user",
-        content: `Summarize these git changes in one line (max 72 chars) for a commit message. Be specific about what changed, not generic. No quotes around the message.\n\n${diff.slice(0, 4000)}`,
-      },
-    ],
-  })
-  const text = response.content[0]
-  if (text.type !== "text") return "Agent changes"
-  return text.text.slice(0, 72)
-}
-
 async function createPullRequest(
   owner: string,
   repo: string,
@@ -281,53 +229,6 @@ async function createPullRequest(
     logger.error("PR creation error", { error })
     return null
   }
-}
-
-async function commitAndPush(
-  repoPath: string,
-  repoUrl: string,
-  githubToken: string
-): Promise<{ branchUrl: string; prUrl: string | null } | null> {
-  const parsed = parseGitHubUrl(repoUrl)
-  logger.info("parseGitHubUrl result", { parsed, repoUrl })
-  if (!parsed) return null
-
-  const branchName = `ralph-${Date.now()}`
-  logger.info("Creating branch", { branchName })
-
-  // Configure git user for commits
-  await execAsync(`git -C ${repoPath} config user.email "ralph@trigger.dev"`)
-  await execAsync(`git -C ${repoPath} config user.name "Ralph (Trigger.dev)"`)
-
-  // Create and checkout new branch
-  await execAsync(`git -C ${repoPath} checkout -b ${branchName}`)
-
-  // Stage all changes
-  await execAsync(`git -C ${repoPath} add -A`)
-
-  // Check if there are changes to commit
-  const { stdout: status } = await execAsync(`git -C ${repoPath} status --porcelain`)
-  logger.info("Git status", { status: status.trim() || "(empty)" })
-  if (!status.trim()) return null
-
-  // Get diff for summarization
-  const { stdout: diff } = await execAsync(`git -C ${repoPath} diff --cached`)
-  const commitMessage = await summarizeChanges(diff || status)
-
-  // Commit
-  await execAsync(`git -C ${repoPath} commit -m "${commitMessage.replace(/"/g, '\\"')}"`)
-
-  // Set up authenticated remote and push
-  const authUrl = `https://${githubToken}@github.com/${parsed.owner}/${parsed.repo}.git`
-  await execAsync(`git -C ${repoPath} remote set-url origin ${authUrl}`)
-  await execAsync(`git -C ${repoPath} push -u origin ${branchName}`)
-
-  const branchUrl = `https://github.com/${parsed.owner}/${parsed.repo}/tree/${branchName}`
-
-  // Create PR
-  const prUrl = await createPullRequest(parsed.owner, parsed.repo, branchName, commitMessage, githubToken)
-
-  return { branchUrl, prUrl }
 }
 
 export const ralphLoop = task({
@@ -453,6 +354,7 @@ build/
       const stories = approvedPrd.stories.filter(s => !s.passes)
       let completedStories = 0
       let userStopped = false
+      const progressLog: string[] = [] // In-memory progress for Ralph loop
 
       for (let i = 0; i < stories.length && !userStopped; i++) {
         const story = stories[i]
@@ -464,6 +366,7 @@ build/
           type: "story_start",
           message: `Starting story ${storyNum}/${totalStories}: ${story.title}`,
           story: {
+            id: story.id,
             current: storyNum,
             total: totalStories,
             title: story.title,
@@ -473,16 +376,16 @@ build/
 
         await agentOutputStream.append(`\n\n=== Story ${storyNum}/${totalStories}: ${story.title} ===\n\n`)
 
-        // Build story-specific prompt
-        const progressHint = storyNum > 1
-          ? `\n\nIMPORTANT: Read progress.txt first to see what previous stories accomplished. Build on that work.`
+        // Build story-specific prompt with inline progress (Ralph loop pattern)
+        const progressContext = progressLog.length > 0
+          ? `\n\n## Previous Stories Completed\n${progressLog.join('\n\n')}\n\nBuild on this work.`
           : ""
 
         const storyPrompt = `You are working in a cloned git repository at: ${repoPath}
 All file paths should be relative to this directory (e.g., "README.md" not "/README.md").
 
 Overall task: ${prompt}
-${progressHint}
+${progressContext}
 
 Current story (${storyNum}/${totalStories}): ${story.title}
 Acceptance criteria:
@@ -531,11 +434,18 @@ Complete this story. When done, the acceptance criteria should be met. Use Read,
         await waitUntilComplete()
 
         // Check for changes and commit
+        let storyCommitHash: string | undefined
+        let storyCommitUrl: string | undefined
         const { stdout: status } = await execAsync(`git -C ${repoPath} status --porcelain`)
         if (status.trim()) {
           await execAsync(`git -C ${repoPath} add -A`)
           await execAsync(`git -C ${repoPath} commit -m "${story.title.replace(/"/g, '\\"')}"`)
-          logger.info("Committed story", { story: story.title })
+          const { stdout: hash } = await execAsync(`git -C ${repoPath} rev-parse HEAD`)
+          storyCommitHash = hash.trim()
+          if (parsed) {
+            storyCommitUrl = `https://github.com/${parsed.owner}/${parsed.repo}/commit/${storyCommitHash}`
+          }
+          logger.info("Committed story", { story: story.title, commitHash: storyCommitHash })
         }
 
         // Run build check if package.json has build script
@@ -559,29 +469,23 @@ Complete this story. When done, the acceptance criteria should be met. Use Read,
 
         completedStories++
 
-        // Update progress.txt in repo
-        const progressEntry = `## ${story.title}\nCompleted: ${new Date().toISOString().split("T")[0]}\nAcceptance criteria:\n${story.acceptance.map(c => `- ${c}`).join("\n")}\n\n`
-        const progressPath = join(repoPath, "progress.txt")
-        try {
-          await appendFile(progressPath, progressEntry)
-          // Stage progress.txt
-          await execAsync(`git -C ${repoPath} add progress.txt`)
-        } catch {
-          // First story, create file
-          await writeFile(progressPath, progressEntry)
-          await execAsync(`git -C ${repoPath} add progress.txt`)
-        }
+        // Update in-memory progress (Ralph loop pattern - no file in repo)
+        progressLog.push(`### ${story.title}\n- ${story.acceptance.join('\n- ')}`)
 
         // Story complete status
         await appendStatus({
           type: "story_complete",
           message: `Completed story ${storyNum}/${totalStories}: ${story.title}`,
           story: {
+            id: story.id,
             current: storyNum,
             total: totalStories,
             title: story.title,
             acceptance: story.acceptance,
           },
+          commitHash: storyCommitHash,
+          commitUrl: storyCommitUrl,
+          progress: progressLog.join('\n\n'),
           usage,
         })
 
@@ -603,6 +507,15 @@ Complete this story. When done, the acceptance criteria should be met. Use Read,
             type: "waitpoint",
             message: `Story "${story.title}" complete. Continue to next story?`,
             diff: currentDiff,
+            story: {
+              id: story.id,
+              current: storyNum,
+              total: totalStories,
+              title: story.title,
+              acceptance: story.acceptance,
+            },
+            commitHash: storyCommitHash,
+            commitUrl: storyCommitUrl,
             waitpoint: {
               tokenId: token.id,
               publicAccessToken: token.publicAccessToken,

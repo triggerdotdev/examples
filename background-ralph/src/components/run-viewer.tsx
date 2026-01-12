@@ -60,6 +60,58 @@ function ApprovalGate({
   )
 }
 
+type StoryResult = {
+  commitHash?: string
+  commitUrl?: string
+}
+
+function StoryList({
+  prd,
+  completedStories,
+  currentStoryId,
+}: {
+  prd: Prd
+  completedStories: Map<string, StoryResult>
+  currentStoryId?: string
+}) {
+  return (
+    <details open className="text-sm">
+      <summary className="cursor-pointer font-medium text-gray-700">
+        Stories ({completedStories.size}/{prd.stories.length} complete)
+      </summary>
+      <div className="mt-2 space-y-1">
+        {prd.stories.map((story, i) => {
+          const result = completedStories.get(story.id)
+          const isComplete = !!result
+          const isCurrent = story.id === currentStoryId
+          return (
+            <div
+              key={story.id}
+              className={`flex items-center gap-2 py-1 ${isComplete ? "opacity-50" : ""} ${isCurrent ? "bg-blue-50 -mx-2 px-2 rounded" : ""}`}
+            >
+              <span className="w-5 text-right text-gray-400">
+                {isComplete ? "✓" : `${i + 1}.`}
+              </span>
+              <span className={isComplete ? "line-through" : ""}>{story.title}</span>
+              {result?.commitUrl && (
+                <a
+                  href={result.commitUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-blue-600 hover:underline"
+                >
+                  commit
+                </a>
+              )}
+              {isCurrent && <span className="text-xs text-blue-600 animate-pulse">in progress</span>}
+            </div>
+          )
+        })}
+      </div>
+    </details>
+  )
+}
+
 function PRDEditor({
   prd,
   tokenId,
@@ -165,6 +217,31 @@ export function RunViewer({ runId, accessToken }: Props) {
   // Check if we're waiting for approval
   const pendingWaitpoint = latestStatus?.type === "waitpoint" ? latestStatus.waitpoint : null
   const pendingPrdReview = latestStatus?.type === "prd_review" ? { waitpoint: latestStatus.waitpoint, prd: latestStatus.prd } : null
+
+  // Derive PRD from status events (prd_generated takes precedence over prd_review)
+  const currentPrd = statusParts.reduce<Prd | null>((acc, s) => {
+    if (s.type === "prd_generated" && s.prd) return s.prd
+    if (s.type === "prd_review" && s.prd && !acc) return s.prd
+    return acc
+  }, null)
+
+  // Derive completed stories from story_complete events
+  const completedStories = new Map<string, StoryResult>()
+  for (const s of statusParts) {
+    if (s.type === "story_complete" && s.story?.id) {
+      completedStories.set(s.story.id, {
+        commitHash: s.commitHash,
+        commitUrl: s.commitUrl,
+      })
+    }
+  }
+
+  // Derive current story from latest story_start (if not yet complete)
+  const currentStoryId = statusParts.reduce<string | undefined>((acc, s) => {
+    if (s.type === "story_start" && s.story?.id) return s.story.id
+    if (s.type === "story_complete" && s.story?.id === acc) return undefined
+    return acc
+  }, undefined)
 
   // Debug logging
   console.log("[RunViewer] statusParts parsed:", statusParts)
@@ -316,7 +393,17 @@ export function RunViewer({ runId, accessToken }: Props) {
 
         if (pendingWaitpoint) {
           return (
-            <div className="border-2 border-yellow-500 bg-yellow-50 rounded-lg p-4">
+            <div className="border-2 border-yellow-500 bg-yellow-50 rounded-lg p-4 space-y-3">
+              {latestStatus?.commitUrl && (
+                <a
+                  href={latestStatus.commitUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-sm text-blue-600 hover:underline"
+                >
+                  View commit →
+                </a>
+              )}
               <ApprovalGate
                 tokenId={pendingWaitpoint.tokenId}
                 publicAccessToken={pendingWaitpoint.publicAccessToken}
@@ -332,6 +419,17 @@ export function RunViewer({ runId, accessToken }: Props) {
           </div>
         )
       })()}
+
+      {/* Story progress list */}
+      {currentPrd && (
+        <div className="border rounded-lg bg-gray-50 p-4">
+          <StoryList
+            prd={currentPrd}
+            completedStories={completedStories}
+            currentStoryId={currentStoryId}
+          />
+        </div>
+      )}
 
       {/* Agent output */}
       <div className="border rounded-lg bg-gray-950 p-4 min-h-[300px] max-h-[600px] overflow-auto">
