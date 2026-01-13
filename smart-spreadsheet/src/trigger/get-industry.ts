@@ -1,5 +1,5 @@
 import { task, metadata } from "@trigger.dev/sdk";
-import { generateText, Output } from "ai";
+import { generateObject } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
 import { z } from "zod";
 
@@ -21,7 +21,7 @@ export const getIndustry = task({
     companyName: string;
     companyUrl?: string | null;
   }) => {
-    const { output } = await generateText({
+    const { object } = await generateObject({
       model: anthropic("claude-sonnet-4-20250514"),
       prompt: `What industry does the company "${companyName}" operate in?
 
@@ -36,12 +36,12 @@ Provide a concise industry classification using common categories like:
 - "Cloud Infrastructure"
 
 If the company spans multiple industries, pick the primary one.`,
-      output: Output.object({ schema }),
+      schema,
     });
 
     // Update parent metadata for realtime streaming
-    metadata.parent.set("industry", output.industry);
+    metadata.parent.set("industry", object.industry);
 
-    return output;
+    return object;
   },
 });

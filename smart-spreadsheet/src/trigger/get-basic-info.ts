@@ -1,6 +1,6 @@
 import { task, metadata } from "@trigger.dev/sdk";
 import Exa from "exa-js";
-import { generateText, Output } from "ai";
+import { generateObject } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
 import { z } from "zod";
 
@@ -38,7 +38,7 @@ export const getBasicInfo = task({
     // Get the best source URL (prefer company domains over news/wiki)
     const sourceUrl = results.results[0]?.url ?? null;
 
-    const { output } = await generateText({
+    const { object } = await generateObject({
       model: anthropic("claude-sonnet-4-20250514"),
       prompt: `Extract the official website URL and a brief description for "${companyName}" from these search results:
 
@@ -49,16 +49,16 @@ Instructions:
 2. Description: Write a VERY short tagline (10-15 words max). Example: "Cloud infrastructure for deploying and scaling applications globally."
 
 If you can't find the official website in the results, ${companyUrl ? `use "${companyUrl}".` : "make your best guess based on the company name (e.g., \"https://companyname.com\")."}`,
-      output: Output.object({ schema }),
+      schema,
     });
 
     // Update parent metadata for realtime streaming
-    metadata.parent.set("website", output.website);
-    metadata.parent.set("description", output.description);
+    metadata.parent.set("website", object.website);
+    metadata.parent.set("description", object.description);
 
     return {
-      website: output.website,
-      description: output.description,
+      website: object.website,
+      description: object.description,
       sourceUrl,
     };
   },

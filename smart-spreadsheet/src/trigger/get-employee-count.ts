@@ -1,6 +1,6 @@
 import { metadata, task } from "@trigger.dev/sdk";
 import Exa from "exa-js";
-import { generateText, Output } from "ai";
+import { generateObject } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
 import { z } from "zod";
 
@@ -44,7 +44,7 @@ export const getEmployeeCount = task({
     // Get the best source URL
     const sourceUrl = results.results[0]?.url ?? null;
 
-    const { output } = await generateText({
+    const { object } = await generateObject({
       model: anthropic("claude-sonnet-4-20250514"),
       prompt:
         `Estimate the employee count for "${companyName}" based on these search results:
@@ -54,14 +54,14 @@ ${JSON.stringify(results.results, null, 2)}
 Pick the closest range from: ${employeeRanges.join(", ")}
 
 If you find a specific number, pick the range it falls into. If no data, estimate based on company size/stage.`,
-      output: Output.object({ schema }),
+      schema,
     });
 
     // Update parent metadata for realtime streaming
-    metadata.parent.set("employeeCount", output.employeeCount);
+    metadata.parent.set("employeeCount", object.employeeCount);
 
     return {
-      employeeCount: output.employeeCount,
+      employeeCount: object.employeeCount,
       sourceUrl,
     };
   },

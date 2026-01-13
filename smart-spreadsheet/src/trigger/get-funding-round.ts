@@ -1,6 +1,6 @@
 import { metadata, task } from "@trigger.dev/sdk";
 import Exa from "exa-js";
-import { generateText, Output } from "ai";
+import { generateObject } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
 import { z } from "zod";
 
@@ -51,7 +51,7 @@ export const getFundingRound = task({
     // Get the best source URL
     const sourceUrl = results.results[0]?.url ?? null;
 
-    const { output } = await generateText({
+    const { object } = await generateObject({
       model: anthropic("claude-sonnet-4-20250514"),
       prompt:
         `Find the latest funding round for "${companyName}" from these search results:
@@ -64,16 +64,16 @@ Extract:
 
 If bootstrapped with no funding, use stage "Bootstrapped" and amount "N/A".
 If you can't find funding info, use stage "Unknown" and amount "N/A".`,
-      output: Output.object({ schema }),
+      schema,
     });
 
     // Update parent metadata for realtime streaming
-    metadata.parent.set("stage", output.stage);
-    metadata.parent.set("lastRoundAmount", output.lastRoundAmount);
+    metadata.parent.set("stage", object.stage);
+    metadata.parent.set("lastRoundAmount", object.lastRoundAmount);
 
     return {
-      stage: output.stage,
-      lastRoundAmount: output.lastRoundAmount,
+      stage: object.stage,
+      lastRoundAmount: object.lastRoundAmount,
       sourceUrl,
     };
   },
