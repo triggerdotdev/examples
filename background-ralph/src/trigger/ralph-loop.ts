@@ -300,6 +300,8 @@ export const ralphLoop = task({
         publicAccessToken: prdToken.publicAccessToken,
         question: `Generated ${prd.stories.length} stories. Review and edit in the kanban board, then approve to start.`,
         variant: "prd",
+        createdAt: Date.now(),
+        timeoutMs: 24 * 60 * 60 * 1000, // 24h
       })
 
       logger.info("Waiting for PRD approval", { tokenId: prdToken.id })
@@ -595,6 +597,8 @@ Complete this story. When done, the acceptance criteria should be met. Use Read,
             publicAccessToken: token.publicAccessToken,
             question: `Story "${story.title}" complete. Continue to "${stories[i + 1]?.title}"?`,
             variant: "story",
+            createdAt: Date.now(),
+            timeoutMs: 24 * 60 * 60 * 1000, // 24h
           })
 
           const result = await wait.forToken<{ action: "continue" | "stop" | "approve_complete" }>(token)

@@ -18,7 +18,7 @@ type MessageBlock =
   | { type: "text"; content: string }
   | { type: "tool"; id: string; name: string; input: string; complete: boolean }
   | { type: "story_separator"; storyNum: number; totalStories: number; title: string }
-  | { type: "approval"; id: string; tokenId: string; publicAccessToken: string; question: string; variant: "story" | "prd" }
+  | { type: "approval"; id: string; tokenId: string; publicAccessToken: string; question: string; variant: "story" | "prd"; createdAt?: number; timeoutMs?: number }
   | { type: "approval_response"; id: string; action: string }
 
 // Parse NDJSON output into structured message blocks
@@ -108,6 +108,8 @@ function parseMessages(raw: string): MessageBlock[] {
             publicAccessToken: msg.publicAccessToken,
             question: msg.question,
             variant: msg.variant,
+            createdAt: msg.createdAt,
+            timeoutMs: msg.timeoutMs,
           })
           break
 
@@ -183,17 +185,55 @@ function getToolSummary(name: string, input: string): string {
   return ""
 }
 
+// Format remaining time as "Xh Ym"
+function formatTimeRemaining(ms: number): string {
+  if (ms <= 0) return "Expired"
+  const hours = Math.floor(ms / (1000 * 60 * 60))
+  const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60))
+  if (hours > 0) return `${hours}h ${minutes}m`
+  return `${minutes}m`
+}
+
+// Countdown display component
+function Countdown({ createdAt, timeoutMs }: { createdAt?: number; timeoutMs?: number }) {
+  const [remaining, setRemaining] = useState<number | null>(null)
+
+  useEffect(() => {
+    if (!createdAt || !timeoutMs) return
+    const deadline = createdAt + timeoutMs
+
+    function update() {
+      setRemaining(Math.max(0, deadline - Date.now()))
+    }
+    update()
+    const interval = setInterval(update, 60000) // Update every minute
+    return () => clearInterval(interval)
+  }, [createdAt, timeoutMs])
+
+  if (remaining === null) return null
+
+  return (
+    <span className="text-[10px] text-slate-500 font-mono">
+      {formatTimeRemaining(remaining)} remaining
+    </span>
+  )
+}
+
 // Inline approval buttons for story approvals
 function StoryApprovalButtons({
   tokenId,
   publicAccessToken,
   question,
   responded,
+  createdAt,
+  timeoutMs,
 }: {
   tokenId: string
   publicAccessToken: string
   question: string
   responded: boolean
+  createdAt?: number
+  timeoutMs?: number
 }) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string>()
@@ -214,7 +254,10 @@ function StoryApprovalButtons({
 
   return (
     <div className="my-3 p-3 border border-yellow-500/30 bg-yellow-500/5 rounded-md">
-      <p className="text-[12px] text-slate-300 mb-3">{question}</p>
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-[12px] text-slate-300">{question}</p>
+        {!responded && <Countdown createdAt={createdAt} timeoutMs={timeoutMs} />}
+      </div>
       {error && <p className="text-[11px] text-red-400 mb-2">{error}</p>}
       <div className="flex gap-2 flex-wrap">
         <Button
@@ -254,12 +297,16 @@ function PrdApprovalButton({
   question,
   prd,
   responded,
+  createdAt,
+  timeoutMs,
 }: {
   tokenId: string
   publicAccessToken: string
   question: string
   prd: Prd
   responded: boolean
+  createdAt?: number
+  timeoutMs?: number
 }) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string>()
@@ -280,7 +327,10 @@ function PrdApprovalButton({
 
   return (
     <div className="my-3 p-3 border border-blue-500/30 bg-blue-500/5 rounded-md">
-      <p className="text-[12px] text-slate-300 mb-3">{question}</p>
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-[12px] text-slate-300">{question}</p>
+        {!responded && <Countdown createdAt={createdAt} timeoutMs={timeoutMs} />}
+      </div>
       {error && <p className="text-[11px] text-red-400 mb-2">{error}</p>}
       <Button
         size="sm"
@@ -496,6 +546,8 @@ export function Chat({ runId, accessToken }: Props) {
                     question={block.question}
                     prd={currentPrd}
                     responded={respondedApprovals.has(block.id)}
+                    createdAt={block.createdAt}
+                    timeoutMs={block.timeoutMs}
                   />
                 )
               }
@@ -506,6 +558,8 @@ export function Chat({ runId, accessToken }: Props) {
                   publicAccessToken={block.publicAccessToken}
                   question={block.question}
                   responded={respondedApprovals.has(block.id)}
+                  createdAt={block.createdAt}
+                  timeoutMs={block.timeoutMs}
                 />
               )
 
