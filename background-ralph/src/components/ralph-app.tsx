@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { RunViewer } from "@/components/run-viewer"
 import { Chat } from "@/components/chat"
+import { AsciiLogo } from "@/components/ascii-logo"
 
 type RunState = {
   runId: string
@@ -57,16 +58,18 @@ export function RalphApp() {
     <div className="flex h-screen">
       {/* Left sidebar */}
       <aside className="w-80 shrink-0 border-r bg-card flex flex-col">
-        <div className="shrink-0 bg-card p-6 space-y-6">
-          {/* Header */}
-          <div className="flex items-center justify-between">
-            <h1 className="text-[16px] font-semibold tracking-tight">Background Ralph</h1>
-            {isRunning && (
-              <Button variant="outline" size="sm" onClick={handleNewTask} className="text-[12px] h-7">
-                New
-              </Button>
-            )}
-          </div>
+        {/* ASCII Logo */}
+        <div className="shrink-0 border-b">
+          <AsciiLogo />
+        </div>
+
+        <div className="shrink-0 bg-card p-6 space-y-4">
+          {/* New task button */}
+          {isRunning && (
+            <Button variant="outline" size="sm" onClick={handleNewTask} className="text-[12px] h-7">
+              New task
+            </Button>
+          )}
 
           {/* Form */}
           <form action={handleSubmit} className="space-y-4">
