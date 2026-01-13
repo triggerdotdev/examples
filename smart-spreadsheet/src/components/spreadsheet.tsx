@@ -408,7 +408,7 @@ export function Spreadsheet({ initialCompanies }: SpreadsheetProps) {
                 {hasText && (
                   <button
                     onClick={() => handleEnrichDraft(rowIndex)}
-                    className="p-1 hover:bg-muted rounded transition-colors"
+                    className="p-1 hover:bg-muted rounded transition-colors cursor-pointer"
                     title="Enrich with AI"
                   >
                     <LucideWandSparkles className="h-3 w-3 text-blue-400" />
