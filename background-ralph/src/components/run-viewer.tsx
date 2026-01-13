@@ -99,6 +99,14 @@ export function RunViewer({ runId, accessToken }: Props) {
     return acc
   }, undefined)
 
+  // Debug: log kanban state (remove after fixing)
+  console.log("[Kanban Debug]", {
+    currentStoryId,
+    completedIds: Array.from(completedStoryIds),
+    prdIds: currentPrd?.stories.map(s => s.id),
+    storyEvents: statusParts.filter(s => s.type === "story_start" || s.type === "story_complete").map(s => ({ type: s.type, storyId: s.story?.id })),
+  })
+
   // Get pending stories for keyboard navigation
   const pendingStories = currentPrd?.stories.filter(s =>
     !completedStoryIds.has(s.id) && s.id !== currentStoryId
@@ -180,8 +188,8 @@ export function RunViewer({ runId, accessToken }: Props) {
         <div className="flex items-center gap-3">
           {isRunActive && (
             <>
-              <span className="inline-block w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-              <span className="text-[12px] text-muted-foreground">Running</span>
+              <span className="inline-block w-2 h-2 rounded-full bg-blue-500 animate-blink" />
+              <span className="text-[12px] font-mono text-foreground">{runId.slice(0, 12)}...</span>
             </>
           )}
           {!isRunActive && run?.status === "COMPLETED" && (

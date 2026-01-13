@@ -93,3 +93,19 @@
     background: hsl(var(--muted-foreground) / 0.5);
   }
 }
+
+/* Animated blink for status dot */
+@keyframes blink {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(0.85);
+  }
+}
+
+.animate-blink {
+  animation: blink 1.2s ease-in-out infinite;
+}

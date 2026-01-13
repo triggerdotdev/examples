@@ -306,19 +306,19 @@ function ToolBlock({ name, input, complete }: { name: string; input: string; com
         <span className="text-[12px]">{getToolIcon(name)}</span>
         <span className="text-[12px] font-medium text-slate-300">{name}</span>
         {summary && (
-          <span className="text-[11px] text-slate-500 font-mono truncate flex-1">
+          <span className="text-[11px] text-slate-400 font-mono truncate flex-1">
             {summary}
           </span>
         )}
         {!complete && (
           <span className="text-[10px] text-blue-400 animate-pulse">running...</span>
         )}
-        <span className="text-[10px] text-slate-600">
+        <span className="text-[10px] text-slate-500">
           {expanded ? "▲" : "▼"}
         </span>
       </button>
       {expanded && input && (
-        <pre className="px-3 py-2 text-[10px] font-mono text-slate-400 border-t border-slate-700 overflow-x-auto max-h-[200px] overflow-y-auto">
+        <pre className="px-3 py-2 text-[10px] font-mono text-slate-300 border-t border-slate-700 overflow-x-auto max-h-[200px] overflow-y-auto">
           {input}
         </pre>
       )}
@@ -421,7 +421,7 @@ export function Chat({ runId, accessToken }: Props) {
               return (
                 <div
                   key={i}
-                  className="text-[11px] font-mono text-muted-foreground leading-relaxed whitespace-pre-wrap"
+                  className="text-[11px] font-mono text-slate-400 leading-relaxed whitespace-pre-wrap"
                 >
                   {block.content}
                 </div>
