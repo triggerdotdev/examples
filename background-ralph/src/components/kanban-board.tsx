@@ -7,6 +7,7 @@ type Props = {
   currentStoryId?: string
   storyDiffs?: Map<string, string>
   onEditStory?: (story: Story) => void
+  onDeleteStory?: (story: Story) => void
 }
 
 function KanbanColumn({
@@ -16,6 +17,7 @@ function KanbanColumn({
   emptyText,
   diffs,
   onEdit,
+  onDelete,
 }: {
   title: string
   stories: Story[]
@@ -23,6 +25,7 @@ function KanbanColumn({
   emptyText: string
   diffs?: Map<string, string>
   onEdit?: (story: Story) => void
+  onDelete?: (story: Story) => void
 }) {
   const headerStyle = {
     pending: "text-slate-500",
@@ -60,6 +63,7 @@ function KanbanColumn({
               status={status}
               diff={diffs?.get(story.id)}
               onEdit={status === "pending" ? onEdit : undefined}
+              onDelete={status === "pending" ? onDelete : undefined}
             />
           ))
         )}
@@ -68,7 +72,7 @@ function KanbanColumn({
   )
 }
 
-export function KanbanBoard({ prd, completedStoryIds, currentStoryId, storyDiffs, onEditStory }: Props) {
+export function KanbanBoard({ prd, completedStoryIds, currentStoryId, storyDiffs, onEditStory, onDeleteStory }: Props) {
   const pendingStories: Story[] = []
   const inProgressStories: Story[] = []
   const doneStories: Story[] = []
@@ -91,6 +95,7 @@ export function KanbanBoard({ prd, completedStoryIds, currentStoryId, storyDiffs
         status="pending"
         emptyText="No pending stories"
         onEdit={onEditStory}
+        onDelete={onDeleteStory}
       />
       <KanbanColumn
         title="In progress"

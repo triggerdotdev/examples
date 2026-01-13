@@ -10,9 +10,10 @@ type Props = {
   status: StoryStatus
   diff?: string
   onEdit?: (story: Story) => void
+  onDelete?: (story: Story) => void
 }
 
-export function StoryCard({ story, status, diff, onEdit }: Props) {
+export function StoryCard({ story, status, diff, onEdit, onDelete }: Props) {
   const [isDiffOpen, setIsDiffOpen] = useState(false)
 
   const indicator = {
@@ -70,6 +71,14 @@ export function StoryCard({ story, status, diff, onEdit }: Props) {
             className="text-[11px] px-2 py-1 rounded border border-slate-300 text-slate-500 hover:text-slate-700 hover:border-slate-400 transition-colors"
           >
             Edit
+          </button>
+        )}
+        {status === "pending" && onDelete && (
+          <button
+            onClick={() => onDelete(story)}
+            className="text-[11px] px-2 py-1 rounded border border-red-200 text-red-400 hover:text-red-600 hover:border-red-300 transition-colors"
+          >
+            Delete
           </button>
         )}
         {status === "done" && diff && (

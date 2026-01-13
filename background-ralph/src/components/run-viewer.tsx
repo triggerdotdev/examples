@@ -80,6 +80,12 @@ export function RunViewer({ runId, accessToken }: Props) {
     setEditingStory(null)
   }
 
+  function handleDeleteStory(story: Story) {
+    if (!currentPrd) return
+    const updatedStories = currentPrd.stories.filter(s => s.id !== story.id)
+    setLocalPrdOverride({ ...currentPrd, stories: updatedStories })
+  }
+
   // Derive completed stories and per-story diffs from story_complete events
   const completedStoryIds = new Set<string>()
   const storyDiffs = new Map<string, string>()
@@ -220,6 +226,7 @@ export function RunViewer({ runId, accessToken }: Props) {
             currentStoryId={currentStoryId}
             storyDiffs={storyDiffs}
             onEditStory={handleEditStory}
+            onDeleteStory={handleDeleteStory}
           />
         </div>
       )}
