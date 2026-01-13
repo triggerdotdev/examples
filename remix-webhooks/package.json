@@ -11,16 +11,16 @@
     "typecheck": "tsc"
   },
   "dependencies": {
-    "@remix-run/node": "^2.12.1",
+    "@remix-run/node": "^2.17.3",
     "@remix-run/react": "^2.12.1",
-    "@remix-run/serve": "^2.17.0",
+    "@remix-run/serve": "^2.17.3",
     "@trigger.dev/sdk": "^3.0.11",
     "isbot": "^4.1.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },
   "devDependencies": {
-    "@remix-run/dev": "^2.12.1",
+    "@remix-run/dev": "^2.17.3",
     "@trigger.dev/build": "^3.0.11",
     "@types/react": "^18.2.20",
     "@types/react-dom": "^18.2.7",
