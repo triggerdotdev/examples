@@ -99,14 +99,6 @@ export function RunViewer({ runId, accessToken }: Props) {
     return acc
   }, undefined)
 
-  // Debug: log kanban state (remove after fixing)
-  console.log("[Kanban Debug]", {
-    currentStoryId,
-    completedIds: Array.from(completedStoryIds),
-    prdIds: currentPrd?.stories.map(s => s.id),
-    storyEvents: statusParts.filter(s => s.type === "story_start" || s.type === "story_complete").map(s => ({ type: s.type, storyId: s.story?.id })),
-  })
-
   // Get pending stories for keyboard navigation
   const pendingStories = currentPrd?.stories.filter(s =>
     !completedStoryIds.has(s.id) && s.id !== currentStoryId
