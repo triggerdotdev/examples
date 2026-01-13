@@ -2,6 +2,10 @@
 
 AI-powered company enrichment tool. Enter a company name or URL, get verified data with source links.
 
+## Video 
+
+https://github.com/user-attachments/assets/92668bd4-6cbc-4356-abd5-c45c52005778
+
 ## Features
 
 - Enter company name or website URL
