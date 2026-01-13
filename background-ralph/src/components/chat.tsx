@@ -2,6 +2,7 @@
 
 import { useRef, useEffect, useState, useMemo } from "react"
 import { useRealtimeStream, useWaitToken } from "@trigger.dev/react-hooks"
+import { useKeyboardShortcuts } from "@/components/keyboard-handler"
 import { Streamdown } from "streamdown"
 import { agentOutputStream, statusStream, type ChatMessage, type Prd, type StatusUpdate } from "@/trigger/streams"
 import { Button } from "@/components/ui/button"
@@ -368,6 +369,30 @@ export function Chat({ runId, accessToken }: Props) {
     }
     return responded
   }, [blocks])
+
+  // Find the latest pending story approval for keyboard shortcuts
+  const pendingStoryApproval = useMemo(() => {
+    for (let i = blocks.length - 1; i >= 0; i--) {
+      const block = blocks[i]
+      if (block.type === "approval" && block.variant === "story" && !respondedApprovals.has(block.id)) {
+        return { tokenId: block.tokenId, publicAccessToken: block.publicAccessToken }
+      }
+    }
+    return null
+  }, [blocks, respondedApprovals])
+
+  // Hook for keyboard-triggered approvals
+  const { complete: keyboardComplete } = useWaitToken(
+    pendingStoryApproval?.tokenId ?? "",
+    { accessToken: pendingStoryApproval?.publicAccessToken ?? "" }
+  )
+
+  // Keyboard shortcuts for C (continue) and S (stop)
+  useKeyboardShortcuts({
+    onHelp: () => {}, // Handled by RalphApp
+    onContinue: pendingStoryApproval ? () => keyboardComplete({ action: "continue" }) : undefined,
+    onStop: pendingStoryApproval ? () => keyboardComplete({ action: "stop" }) : undefined,
+  })
 
   // Auto-scroll when new content arrives (if not paused)
   useEffect(() => {
