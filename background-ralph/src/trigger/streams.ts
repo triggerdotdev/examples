@@ -17,6 +17,9 @@ export type PrdStory = {
   passes?: boolean
 }
 
+// Alias for component usage
+export type Story = PrdStory
+
 export type Prd = {
   name: string
   description: string
@@ -65,6 +68,7 @@ export type StatusUpdate = {
     total: number
     title: string
     acceptance: string[]
+    diff?: string // Per-story git diff
   }
   commitHash?: string
   commitUrl?: string

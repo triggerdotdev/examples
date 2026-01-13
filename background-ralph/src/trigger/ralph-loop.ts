@@ -338,8 +338,9 @@ build/
         await writeFile(gitignorePath, defaultIgnores)
       }
 
-      // Create branch for all commits
-      const branchName = `ralph-${Date.now()}`
+      // Create branch for all commits (slugify PRD name)
+      const slug = approvedPrd.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 40)
+      const branchName = `ralph/${slug}`
       await execAsync(`git -C ${repoPath} checkout -b ${branchName}`)
 
       // Cumulative token usage
@@ -435,16 +436,12 @@ Complete this story. When done, the acceptance criteria should be met. Use Read,
 
         // Check for changes and commit
         let storyCommitHash: string | undefined
-        let storyCommitUrl: string | undefined
         const { stdout: status } = await execAsync(`git -C ${repoPath} status --porcelain`)
         if (status.trim()) {
           await execAsync(`git -C ${repoPath} add -A`)
           await execAsync(`git -C ${repoPath} commit -m "${story.title.replace(/"/g, '\\"')}"`)
           const { stdout: hash } = await execAsync(`git -C ${repoPath} rev-parse HEAD`)
           storyCommitHash = hash.trim()
-          if (parsed) {
-            storyCommitUrl = `https://github.com/${parsed.owner}/${parsed.repo}/commit/${storyCommitHash}`
-          }
           logger.info("Committed story", { story: story.title, commitHash: storyCommitHash })
         }
 
@@ -472,7 +469,18 @@ Complete this story. When done, the acceptance criteria should be met. Use Read,
         // Update in-memory progress (Ralph loop pattern - no file in repo)
         progressLog.push(`### ${story.title}\n- ${story.acceptance.join('\n- ')}`)
 
-        // Story complete status
+        // Capture per-story diff for UI
+        let storyDiff = ""
+        if (storyCommitHash) {
+          try {
+            const { stdout: diff } = await execAsync(`git -C ${repoPath} diff HEAD~1`)
+            storyDiff = diff
+          } catch {
+            // No diff available
+          }
+        }
+
+        // Story complete status (commit URLs only available after push)
         await appendStatus({
           type: "story_complete",
           message: `Completed story ${storyNum}/${totalStories}: ${story.title}`,
@@ -482,9 +490,9 @@ Complete this story. When done, the acceptance criteria should be met. Use Read,
             total: totalStories,
             title: story.title,
             acceptance: story.acceptance,
+            diff: storyDiff || undefined,
           },
           commitHash: storyCommitHash,
-          commitUrl: storyCommitUrl,
           progress: progressLog.join('\n\n'),
           usage,
         })
@@ -515,7 +523,6 @@ Complete this story. When done, the acceptance criteria should be met. Use Read,
               acceptance: story.acceptance,
             },
             commitHash: storyCommitHash,
-            commitUrl: storyCommitUrl,
             waitpoint: {
               tokenId: token.id,
               publicAccessToken: token.publicAccessToken,

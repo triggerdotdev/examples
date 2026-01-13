@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { RunViewer } from "@/components/run-viewer"
 
 type RunState = {
@@ -45,78 +44,86 @@ export function RalphApp() {
 
   return (
     <div className="w-full max-w-4xl space-y-8">
-      {/* Form - greyed out when running */}
-      <Card className={isRunning ? "opacity-50 pointer-events-none" : ""}>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Start a task</CardTitle>
+      {/* Form section */}
+      <div className={`bg-card border rounded-md p-6 ${isRunning ? "opacity-50 pointer-events-none" : ""}`}>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-[16px] font-semibold tracking-tight">Start a task</h2>
           {isRunning && (
-            <Button variant="outline" size="sm" onClick={handleNewTask}>
+            <Button variant="outline" size="sm" onClick={handleNewTask} className="text-[13px]">
               New task
             </Button>
           )}
-        </CardHeader>
-        <CardContent>
-          <form action={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="repoUrl">GitHub repository URL</Label>
-              <Input
-                id="repoUrl"
-                name="repoUrl"
-                type="url"
-                placeholder="https://github.com/owner/repo"
-                required
-                disabled={isRunning}
-              />
-            </div>
+        </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="prompt">Prompt</Label>
-              <Textarea
-                id="prompt"
-                name="prompt"
-                placeholder="Describe what you want the agent to do..."
-                rows={4}
-                required
-                disabled={isRunning}
-              />
-            </div>
+        <form action={handleSubmit} className="space-y-6">
+          <div className="space-y-2">
+            <Label htmlFor="repoUrl" className="text-[13px]">
+              GitHub repository URL
+            </Label>
+            <Input
+              id="repoUrl"
+              name="repoUrl"
+              type="url"
+              placeholder="https://github.com/owner/repo"
+              required
+              disabled={isRunning}
+              className="text-[14px]"
+            />
+          </div>
 
-            <div className="flex items-center space-x-2">
-              <input
-                id="yoloMode"
-                name="yoloMode"
-                type="checkbox"
-                className="h-4 w-4 rounded border-gray-300"
-                disabled={isRunning}
-              />
-              <Label htmlFor="yoloMode" className="text-sm font-normal">
-                Yolo mode (skip approval between stories)
-              </Label>
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="prompt" className="text-[13px]">
+              Prompt
+            </Label>
+            <Textarea
+              id="prompt"
+              name="prompt"
+              placeholder="Describe what you want the agent to do..."
+              rows={4}
+              required
+              disabled={isRunning}
+              className="text-[14px] resize-none"
+            />
+          </div>
 
-            {error && (
-              <p className="text-sm text-red-600">{error}</p>
-            )}
+          <div className="flex items-center gap-3">
+            <input
+              id="yoloMode"
+              name="yoloMode"
+              type="checkbox"
+              className="h-4 w-4 rounded border-border accent-primary"
+              disabled={isRunning}
+            />
+            <Label htmlFor="yoloMode" className="text-[13px] font-normal text-muted-foreground">
+              Yolo mode (skip approval between stories)
+            </Label>
+          </div>
 
-            <Button type="submit" disabled={isPending || isRunning} className="w-full">
-              {isPending ? "Starting..." : "Start task"}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+          {error && (
+            <p className="text-[13px] text-destructive">{error}</p>
+          )}
 
-      {/* Run viewer - inline below form */}
+          <Button
+            type="submit"
+            disabled={isPending || isRunning}
+            className="w-full text-[14px] font-medium"
+          >
+            {isPending ? "Starting..." : "Start task"}
+          </Button>
+        </form>
+      </div>
+
+      {/* Run viewer */}
       {runState && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base font-medium">
-              Run: <span className="font-mono text-sm">{runState.runId}</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+        <div className="bg-card border rounded-md overflow-hidden">
+          <div className="px-6 py-4 border-b bg-muted/30">
+            <span className="text-[13px] text-muted-foreground">Run </span>
+            <span className="text-[13px] font-mono">{runState.runId}</span>
+          </div>
+          <div className="p-6">
             <RunViewer runId={runState.runId} accessToken={runState.accessToken} />
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
     </div>
   )

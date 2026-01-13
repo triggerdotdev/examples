@@ -2,7 +2,13 @@
 
 import { useState } from "react"
 import { useRealtimeRun, useRealtimeStream, useWaitToken } from "@trigger.dev/react-hooks"
-import { statusStream, agentOutputStream, type StatusUpdate, type Prd } from "@/trigger/streams"
+import { statusStream, agentOutputStream, type StatusUpdate, type Prd, type Story } from "@/trigger/streams"
+import { KanbanBoard } from "./kanban-board"
+import { AgentOutput } from "./agent-output"
+import { StoryEditor } from "./story-editor"
+import { HelpModal } from "./help-modal"
+import { ShortcutFooter } from "./shortcut-footer"
+import { useKeyboardShortcuts } from "./keyboard-handler"
 import type { ralphLoop } from "@/trigger/ralph-loop"
 import { Button } from "@/components/ui/button"
 import { cancelRun } from "@/app/actions"
@@ -60,57 +66,6 @@ function ApprovalGate({
   )
 }
 
-type StoryResult = {
-  commitHash?: string
-  commitUrl?: string
-}
-
-function StoryList({
-  prd,
-  completedStories,
-  currentStoryId,
-}: {
-  prd: Prd
-  completedStories: Map<string, StoryResult>
-  currentStoryId?: string
-}) {
-  return (
-    <details open className="text-sm">
-      <summary className="cursor-pointer font-medium text-gray-700">
-        Stories ({completedStories.size}/{prd.stories.length} complete)
-      </summary>
-      <div className="mt-2 space-y-1">
-        {prd.stories.map((story, i) => {
-          const result = completedStories.get(story.id)
-          const isComplete = !!result
-          const isCurrent = story.id === currentStoryId
-          return (
-            <div
-              key={story.id}
-              className={`flex items-center gap-2 py-1 ${isComplete ? "opacity-50" : ""} ${isCurrent ? "bg-blue-50 -mx-2 px-2 rounded" : ""}`}
-            >
-              <span className="w-5 text-right text-gray-400">
-                {isComplete ? "✓" : `${i + 1}.`}
-              </span>
-              <span className={isComplete ? "line-through" : ""}>{story.title}</span>
-              {result?.commitUrl && (
-                <a
-                  href={result.commitUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-blue-600 hover:underline"
-                >
-                  commit
-                </a>
-              )}
-              {isCurrent && <span className="text-xs text-blue-600 animate-pulse">in progress</span>}
-            </div>
-          )
-        })}
-      </div>
-    </details>
-  )
-}
 
 function PRDEditor({
   prd,
@@ -172,6 +127,10 @@ const terminalStatuses = ["COMPLETED", "CANCELED", "FAILED", "CRASHED", "SYSTEM_
 export function RunViewer({ runId, accessToken }: Props) {
   const [isCanceling, setIsCanceling] = useState(false)
   const [cancelError, setCancelError] = useState<string>()
+  const [editingStory, setEditingStory] = useState<Story | null>(null)
+  const [localPrdOverride, setLocalPrdOverride] = useState<Prd | null>(null)
+  const [showHelp, setShowHelp] = useState(false)
+  const [selectedStoryIndex, setSelectedStoryIndex] = useState(0)
 
   const { run, error: runError } = useRealtimeRun<typeof ralphLoop>(runId, {
     accessToken,
@@ -197,10 +156,6 @@ export function RunViewer({ runId, accessToken }: Props) {
     accessToken,
   })
 
-  if (runError) {
-    return <div className="text-red-600">Error: {runError.message}</div>
-  }
-
   // Parse JSON strings back to objects
   const statusParts: StatusUpdate[] = (rawStatusParts ?? []).map(part => {
     try {
@@ -219,20 +174,37 @@ export function RunViewer({ runId, accessToken }: Props) {
   const pendingPrdReview = latestStatus?.type === "prd_review" ? { waitpoint: latestStatus.waitpoint, prd: latestStatus.prd } : null
 
   // Derive PRD from status events (prd_generated takes precedence over prd_review)
-  const currentPrd = statusParts.reduce<Prd | null>((acc, s) => {
+  // Use local override if user has edited stories
+  const serverPrd = statusParts.reduce<Prd | null>((acc, s) => {
     if (s.type === "prd_generated" && s.prd) return s.prd
     if (s.type === "prd_review" && s.prd && !acc) return s.prd
     return acc
   }, null)
+  const currentPrd = localPrdOverride ?? serverPrd
 
-  // Derive completed stories from story_complete events
-  const completedStories = new Map<string, StoryResult>()
+  // Handle story editing
+  function handleEditStory(story: Story) {
+    setEditingStory(story)
+  }
+
+  function handleSaveStory(updated: Story) {
+    if (!currentPrd) return
+    const updatedStories = currentPrd.stories.map(s =>
+      s.id === updated.id ? updated : s
+    )
+    setLocalPrdOverride({ ...currentPrd, stories: updatedStories })
+    setEditingStory(null)
+  }
+
+  // Derive completed stories and per-story diffs from story_complete events
+  const completedStoryIds = new Set<string>()
+  const storyDiffs = new Map<string, string>()
   for (const s of statusParts) {
     if (s.type === "story_complete" && s.story?.id) {
-      completedStories.set(s.story.id, {
-        commitHash: s.commitHash,
-        commitUrl: s.commitUrl,
-      })
+      completedStoryIds.add(s.story.id)
+      if (s.story.diff) {
+        storyDiffs.set(s.story.id, s.story.diff)
+      }
     }
   }
 
@@ -247,6 +219,37 @@ export function RunViewer({ runId, accessToken }: Props) {
   console.log("[RunViewer] statusParts parsed:", statusParts)
   console.log("[RunViewer] latestStatus:", latestStatus)
   console.log("[RunViewer] pendingWaitpoint:", pendingWaitpoint)
+
+  // Get pending stories for keyboard navigation
+  const pendingStories = currentPrd?.stories.filter(s =>
+    !completedStoryIds.has(s.id) && s.id !== currentStoryId
+  ) ?? []
+
+  // Keyboard shortcuts
+  useKeyboardShortcuts({
+    onHelp: () => setShowHelp(true),
+    onEdit: () => {
+      const story = pendingStories[selectedStoryIndex]
+      if (story) setEditingStory(story)
+    },
+    onNavigateUp: () => {
+      setSelectedStoryIndex(Math.max(0, selectedStoryIndex - 1))
+    },
+    onNavigateDown: () => {
+      setSelectedStoryIndex(Math.min(pendingStories.length - 1, selectedStoryIndex + 1))
+    },
+    disabled: !!editingStory || showHelp,
+  })
+
+  // Handle run error
+  if (runError) {
+    return (
+      <div className="p-6">
+        <p className="text-red-600">Error loading run: {runError.message}</p>
+        <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -393,17 +396,7 @@ export function RunViewer({ runId, accessToken }: Props) {
 
         if (pendingWaitpoint) {
           return (
-            <div className="border-2 border-yellow-500 bg-yellow-50 rounded-lg p-4 space-y-3">
-              {latestStatus?.commitUrl && (
-                <a
-                  href={latestStatus.commitUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-sm text-blue-600 hover:underline"
-                >
-                  View commit →
-                </a>
-              )}
+            <div className="border-2 border-yellow-500 bg-yellow-50 rounded-lg p-4">
               <ApprovalGate
                 tokenId={pendingWaitpoint.tokenId}
                 publicAccessToken={pendingWaitpoint.publicAccessToken}
@@ -420,23 +413,26 @@ export function RunViewer({ runId, accessToken }: Props) {
         )
       })()}
 
-      {/* Story progress list */}
+      {/* Kanban board */}
       {currentPrd && (
-        <div className="border rounded-lg bg-gray-50 p-4">
-          <StoryList
+        <div className="border rounded-lg bg-white p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold text-gray-700">
+              Stories ({completedStoryIds.size}/{currentPrd.stories.length} complete)
+            </h2>
+          </div>
+          <KanbanBoard
             prd={currentPrd}
-            completedStories={completedStories}
+            completedStoryIds={completedStoryIds}
             currentStoryId={currentStoryId}
+            storyDiffs={storyDiffs}
+            onEditStory={handleEditStory}
           />
         </div>
       )}
 
       {/* Agent output */}
-      <div className="border rounded-lg bg-gray-950 p-4 min-h-[300px] max-h-[600px] overflow-auto">
-        <pre className="text-sm text-gray-100 whitespace-pre-wrap font-mono">
-          {agentOutput || "Waiting for agent output..."}
-        </pre>
-      </div>
+      <AgentOutput content={agentOutput} />
 
       {/* Status history */}
       {statusParts.length > 0 && (
@@ -451,6 +447,29 @@ export function RunViewer({ runId, accessToken }: Props) {
           </ul>
         </details>
       )}
+
+      {/* Footer with shortcuts */}
+      {currentPrd && (
+        <ShortcutFooter
+          completedCount={completedStoryIds.size}
+          totalCount={currentPrd.stories.length}
+          onHelp={() => setShowHelp(true)}
+        />
+      )}
+
+      {/* Modals */}
+      {editingStory && (
+        <StoryEditor
+          story={editingStory}
+          onSave={handleSaveStory}
+          onCancel={() => setEditingStory(null)}
+        />
+      )}
+
+      <HelpModal
+        isOpen={showHelp}
+        onClose={() => setShowHelp(false)}
+      />
     </div>
   )
 }
