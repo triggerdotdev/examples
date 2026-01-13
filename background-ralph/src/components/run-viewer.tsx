@@ -2,9 +2,8 @@
 
 import { useState } from "react"
 import { useRealtimeRun, useRealtimeStream, useWaitToken } from "@trigger.dev/react-hooks"
-import { statusStream, agentOutputStream, type StatusUpdate, type Prd, type Story } from "@/trigger/streams"
+import { statusStream, type StatusUpdate, type Prd, type Story } from "@/trigger/streams"
 import { KanbanBoard } from "./kanban-board"
-import { AgentOutput } from "./agent-output"
 import { StoryEditor } from "./story-editor"
 import { HelpModal } from "./help-modal"
 import { ShortcutFooter } from "./shortcut-footer"
@@ -67,56 +66,42 @@ function ApprovalGate({
 }
 
 
-function PRDEditor({
-  prd,
+function PrdApprovalButton({
   tokenId,
   publicAccessToken,
+  prd,
 }: {
-  prd: Prd
   tokenId: string
   publicAccessToken: string
+  prd: Prd
 }) {
-  const [prdJson, setPrdJson] = useState(() => JSON.stringify(prd, null, 2))
-  const [parseError, setParseError] = useState<string>()
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [submitError, setSubmitError] = useState<string>()
+  const [error, setError] = useState<string>()
   const { complete } = useWaitToken(tokenId, { accessToken: publicAccessToken })
-
-  function handleChange(value: string) {
-    setPrdJson(value)
-    setParseError(undefined)
-    try {
-      JSON.parse(value)
-    } catch (e) {
-      setParseError(e instanceof Error ? e.message : "Invalid JSON")
-    }
-  }
 
   async function handleApprove() {
     setIsSubmitting(true)
-    setSubmitError(undefined)
+    setError(undefined)
     try {
-      const parsed = JSON.parse(prdJson) as Prd
-      await complete({ action: "approve_prd", prd: parsed })
+      await complete({ action: "approve_prd", prd })
     } catch (e) {
-      setSubmitError(e instanceof Error ? e.message : "Failed to approve")
+      setError(e instanceof Error ? e.message : "Failed to approve")
       setIsSubmitting(false)
     }
   }
 
   return (
     <div className="space-y-3">
-      <p className="text-sm font-medium text-gray-700">Review and edit the generated PRD:</p>
-      <textarea
-        value={prdJson}
-        onChange={(e) => handleChange(e.target.value)}
-        className="w-full h-80 p-3 font-mono text-xs bg-gray-900 text-gray-100 rounded-md border-0 focus:ring-2 focus:ring-blue-500"
-        spellCheck={false}
-      />
-      {parseError && <p className="text-sm text-red-600">JSON error: {parseError}</p>}
-      {submitError && <p className="text-sm text-red-600">{submitError}</p>}
-      <Button onClick={handleApprove} disabled={isSubmitting || !!parseError} className="bg-green-600 hover:bg-green-700">
-        {isSubmitting ? "Approving..." : "Approve & Start"}
+      <p className="text-sm font-medium text-gray-700">
+        Review stories below, then approve to start
+      </p>
+      {error && <p className="text-sm text-red-600">{error}</p>}
+      <Button
+        onClick={handleApprove}
+        disabled={isSubmitting}
+        className="bg-green-600 hover:bg-green-700"
+      >
+        {isSubmitting ? "Starting..." : "Approve & Start"}
       </Button>
     </div>
   )
@@ -152,10 +137,6 @@ export function RunViewer({ runId, accessToken }: Props) {
     accessToken,
   })
 
-  const { parts: outputParts } = useRealtimeStream(agentOutputStream, runId, {
-    accessToken,
-  })
-
   // Parse JSON strings back to objects
   const statusParts: StatusUpdate[] = (rawStatusParts ?? []).map(part => {
     try {
@@ -167,11 +148,11 @@ export function RunViewer({ runId, accessToken }: Props) {
   })
 
   const latestStatus = statusParts[statusParts.length - 1]
-  const agentOutput = outputParts?.join("") ?? ""
 
   // Check if we're waiting for approval
   const pendingWaitpoint = latestStatus?.type === "waitpoint" ? latestStatus.waitpoint : null
   const pendingPrdReview = latestStatus?.type === "prd_review" ? { waitpoint: latestStatus.waitpoint, prd: latestStatus.prd } : null
+
 
   // Derive PRD from status events (prd_generated takes precedence over prd_review)
   // Use local override if user has edited stories
@@ -359,9 +340,13 @@ export function RunViewer({ runId, accessToken }: Props) {
         }
 
         if (isComplete || run?.status === "COMPLETED") {
+          const storyCount = currentPrd?.stories.length ?? 0
+          const doneCount = completedStoryIds.size
           return (
             <div className="border-2 border-green-500 bg-green-50 rounded-lg p-4 space-y-3">
-              <p className="text-sm font-medium text-green-800">✓ Task completed</p>
+              <p className="text-sm font-medium text-green-800">
+                {doneCount}/{storyCount} stories complete
+              </p>
               {pushedStatus?.prUrl && (
                 <a href={pushedStatus.prUrl} target="_blank" rel="noopener noreferrer" className="inline-block px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm font-medium">
                   View Pull Request →
@@ -385,10 +370,10 @@ export function RunViewer({ runId, accessToken }: Props) {
         if (pendingPrdReview && pendingPrdReview.waitpoint && pendingPrdReview.prd) {
           return (
             <div className="border-2 border-blue-500 bg-blue-50 rounded-lg p-4">
-              <PRDEditor
-                prd={pendingPrdReview.prd}
+              <PrdApprovalButton
                 tokenId={pendingPrdReview.waitpoint.tokenId}
                 publicAccessToken={pendingPrdReview.waitpoint.publicAccessToken}
+                prd={currentPrd ?? pendingPrdReview.prd}
               />
             </div>
           )
@@ -430,9 +415,6 @@ export function RunViewer({ runId, accessToken }: Props) {
           />
         </div>
       )}
-
-      {/* Agent output */}
-      <AgentOutput content={agentOutput} />
 
       {/* Status history */}
       {statusParts.length > 0 && (

@@ -1,12 +1,14 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { submitTask } from "@/app/actions"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { RunViewer } from "@/components/run-viewer"
+import { Chat } from "@/components/chat"
 
 type RunState = {
   runId: string
@@ -14,9 +16,17 @@ type RunState = {
 } | null
 
 export function RalphApp() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const [error, setError] = useState<string>()
   const [isPending, setIsPending] = useState(false)
-  const [runState, setRunState] = useState<RunState>(null)
+
+  // Derive run state from URL
+  const runIdFromUrl = searchParams.get("runId")
+  const tokenFromUrl = searchParams.get("token")
+  const runState: RunState = runIdFromUrl && tokenFromUrl
+    ? { runId: runIdFromUrl, accessToken: tokenFromUrl }
+    : null
 
   async function handleSubmit(formData: FormData) {
     setError(undefined)
@@ -25,10 +35,11 @@ export function RalphApp() {
     const result = await submitTask(formData)
 
     if (result.ok) {
-      setRunState({
-        runId: result.value.runId,
-        accessToken: result.value.token,
-      })
+      // Update URL with run state
+      const params = new URLSearchParams()
+      params.set("runId", result.value.runId)
+      params.set("token", result.value.token)
+      router.push(`?${params.toString()}`)
     } else {
       setError(result.error)
     }
@@ -36,7 +47,7 @@ export function RalphApp() {
   }
 
   function handleNewTask() {
-    setRunState(null)
+    router.push("/")
     setError(undefined)
   }
 
@@ -45,8 +56,8 @@ export function RalphApp() {
   return (
     <div className="flex h-screen">
       {/* Left sidebar */}
-      <aside className="w-80 shrink-0 border-r bg-card overflow-y-auto">
-        <div className="sticky top-0 bg-card p-6 space-y-6">
+      <aside className="w-80 shrink-0 border-r bg-card flex flex-col">
+        <div className="shrink-0 bg-card p-6 space-y-6">
           {/* Header */}
           <div className="flex items-center justify-between">
             <h1 className="text-[16px] font-semibold tracking-tight">Background Ralph</h1>
@@ -106,13 +117,15 @@ export function RalphApp() {
               <p className="text-[12px] text-destructive">{error}</p>
             )}
 
-            <Button
-              type="submit"
-              disabled={isPending || isRunning}
-              className="w-full text-[13px] font-medium h-9"
-            >
-              {isPending ? "Starting..." : "Start"}
-            </Button>
+            {!isRunning && (
+              <Button
+                type="submit"
+                disabled={isPending}
+                className="w-full text-[13px] font-medium h-9"
+              >
+                {isPending ? "Starting..." : "Start"}
+              </Button>
+            )}
           </form>
 
           {/* Run info */}
@@ -125,12 +138,10 @@ export function RalphApp() {
           )}
         </div>
 
-        {/* Chat interface placeholder (US-021) */}
+        {/* Chat interface */}
         {runState && (
-          <div className="p-6 pt-0">
-            <div className="text-[11px] text-muted-foreground">
-              Chat interface coming in US-021
-            </div>
+          <div className="flex-1 min-h-0 border-t">
+            <Chat runId={runState.runId} accessToken={runState.accessToken} />
           </div>
         )}
       </aside>

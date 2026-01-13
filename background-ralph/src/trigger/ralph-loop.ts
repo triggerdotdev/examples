@@ -6,7 +6,7 @@ import { promisify } from "util"
 import { mkdtemp, rm, readFile, access, writeFile, appendFile } from "fs/promises"
 import { tmpdir } from "os"
 import { join } from "path"
-import { appendStatus, agentOutputStream, type TokenUsage, type Prd } from "./streams"
+import { appendStatus, agentOutputStream, appendChatMessage, type TokenUsage, type Prd, type ChatMessage } from "./streams"
 
 const execAsync = promisify(exec)
 const anthropic = new Anthropic()
@@ -375,7 +375,12 @@ build/
           },
         })
 
-        await agentOutputStream.append(`\n\n=== Story ${storyNum}/${totalStories}: ${story.title} ===\n\n`)
+        await appendChatMessage({
+          type: "story_separator",
+          storyNum,
+          totalStories,
+          title: story.title,
+        })
 
         // Build story-specific prompt with inline progress (Ralph loop pattern)
         const progressContext = progressLog.length > 0
@@ -407,9 +412,12 @@ Complete this story. When done, the acceptance criteria should be met. Use Read,
           },
         })
 
-        // Stream agent output
+        // Stream agent output with structured messages
         const { waitUntilComplete } = agentOutputStream.writer({
           execute: async ({ write }) => {
+            // Track current content block for tool use
+            let currentToolId: string | undefined
+
             for await (const message of agentResult) {
               if (message.type === "assistant") {
                 const msgUsage = message.message.usage
@@ -421,12 +429,44 @@ Complete this story. When done, the acceptance criteria should be met. Use Read,
                 }
               }
 
-              if (
-                message.type === "stream_event" &&
-                message.event.type === "content_block_delta" &&
-                message.event.delta.type === "text_delta"
-              ) {
-                write(message.event.delta.text)
+              if (message.type === "stream_event") {
+                const event = message.event
+
+                // Content block start - track tool use
+                if (event.type === "content_block_start") {
+                  const block = event.content_block
+                  if (block.type === "tool_use") {
+                    currentToolId = block.id
+                    const toolMsg: ChatMessage = {
+                      type: "tool_start",
+                      id: block.id,
+                      name: block.name,
+                    }
+                    write(JSON.stringify(toolMsg) + "\n")
+                  }
+                }
+
+                // Content block delta - text or tool input
+                if (event.type === "content_block_delta") {
+                  const delta = event.delta
+                  if (delta.type === "text_delta") {
+                    const textMsg: ChatMessage = { type: "text", delta: delta.text }
+                    write(JSON.stringify(textMsg) + "\n")
+                  } else if (delta.type === "thinking_delta") {
+                    const thinkMsg: ChatMessage = { type: "thinking", delta: delta.thinking }
+                    write(JSON.stringify(thinkMsg) + "\n")
+                  } else if (delta.type === "input_json_delta" && currentToolId) {
+                    const inputMsg: ChatMessage = { type: "tool_input", id: currentToolId, delta: delta.partial_json }
+                    write(JSON.stringify(inputMsg) + "\n")
+                  }
+                }
+
+                // Content block stop - end tool use
+                if (event.type === "content_block_stop" && currentToolId) {
+                  const endMsg: ChatMessage = { type: "tool_end", id: currentToolId }
+                  write(JSON.stringify(endMsg) + "\n")
+                  currentToolId = undefined
+                }
               }
             }
           },
@@ -460,7 +500,7 @@ Complete this story. When done, the acceptance criteria should be met. Use Read,
             logger.info("No package.json or build script, skipping build check")
           } else {
             logger.warn("Build failed for story", { story: story.title, error: err.message })
-            await agentOutputStream.append(`\n[Build failed: ${err.message?.slice(0, 200)}]\n`)
+            await appendChatMessage({ type: "text", delta: `\n[Build failed: ${err.message?.slice(0, 200)}]\n` })
           }
         }
 
@@ -534,7 +574,7 @@ Complete this story. When done, the acceptance criteria should be met. Use Read,
 
           if (!result.ok || result.output.action === "stop") {
             userStopped = true
-            await agentOutputStream.append("\n\n[User stopped after this story]\n")
+            await appendChatMessage({ type: "text", delta: "\n\n[User stopped after this story]\n" })
           } else if (result.output.action === "approve_complete") {
             // Skip remaining stories, go straight to push
             break

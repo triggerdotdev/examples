@@ -85,10 +85,24 @@ export async function appendStatus(status: StatusUpdate) {
   await statusStream.append(JSON.stringify(status))
 }
 
-// Agent output stream for Claude responses
+// Chat message types for structured output
+export type ChatMessage =
+  | { type: "thinking"; delta: string }
+  | { type: "text"; delta: string }
+  | { type: "tool_start"; id: string; name: string; file?: string; command?: string }
+  | { type: "tool_input"; id: string; delta: string }
+  | { type: "tool_end"; id: string }
+  | { type: "story_separator"; storyNum: number; totalStories: number; title: string }
+
+// Agent output stream for Claude responses (now carries NDJSON ChatMessages)
 export const agentOutputStream = streams.define<string>({
   id: "agent-output",
 })
+
+// Helper to append chat message (JSON stringify + newline)
+export async function appendChatMessage(msg: ChatMessage) {
+  await agentOutputStream.append(JSON.stringify(msg) + "\n")
+}
 
 export type StatusStreamPart = InferStreamType<typeof statusStream>
 export type AgentOutputStreamPart = InferStreamType<typeof agentOutputStream>
