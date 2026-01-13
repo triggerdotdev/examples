@@ -69,7 +69,7 @@ export function RalphApp() {
           </div>
 
           {/* Form */}
-          <form action={handleSubmit} className={`space-y-4 ${isRunning ? "opacity-50 pointer-events-none" : ""}`}>
+          <form action={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="repoUrl" className="text-[12px]">
                 Repository URL

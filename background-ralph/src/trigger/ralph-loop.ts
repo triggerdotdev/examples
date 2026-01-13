@@ -292,6 +292,16 @@ export const ralphLoop = task({
         },
       })
 
+      // Stream approval prompt to chat
+      await appendChatMessage({
+        type: "approval",
+        id: `prd-${prdToken.id}`,
+        tokenId: prdToken.id,
+        publicAccessToken: prdToken.publicAccessToken,
+        question: `Generated ${prd.stories.length} stories. Review and edit in the kanban board, then approve to start.`,
+        variant: "prd",
+      })
+
       logger.info("Waiting for PRD approval", { tokenId: prdToken.id })
 
       const prdResult = await wait.forToken<{ action: "approve_prd"; prd: Prd }>(prdToken)
@@ -300,6 +310,13 @@ export const ralphLoop = task({
         await appendStatus({ type: "error", message: "PRD review timed out after 24h" })
         throw new Error("PRD review timed out")
       }
+
+      // Stream approval response to chat
+      await appendChatMessage({
+        type: "approval_response",
+        id: `prd-${prdToken.id}`,
+        action: "Approved & Started",
+      })
 
       // Use the user's edited PRD
       const approvedPrd = prdResult.output.prd
@@ -570,14 +587,40 @@ Complete this story. When done, the acceptance criteria should be met. Use Read,
             },
           })
 
+          // Stream approval prompt to chat
+          await appendChatMessage({
+            type: "approval",
+            id: `story-${token.id}`,
+            tokenId: token.id,
+            publicAccessToken: token.publicAccessToken,
+            question: `Story "${story.title}" complete. Continue to "${stories[i + 1]?.title}"?`,
+            variant: "story",
+          })
+
           const result = await wait.forToken<{ action: "continue" | "stop" | "approve_complete" }>(token)
 
           if (!result.ok || result.output.action === "stop") {
             userStopped = true
-            await appendChatMessage({ type: "text", delta: "\n\n[User stopped after this story]\n" })
+            await appendChatMessage({
+              type: "approval_response",
+              id: `story-${token.id}`,
+              action: "Stopped",
+            })
           } else if (result.output.action === "approve_complete") {
+            await appendChatMessage({
+              type: "approval_response",
+              id: `story-${token.id}`,
+              action: "Approved & Completed",
+            })
             // Skip remaining stories, go straight to push
             break
+          } else {
+            // Continue
+            await appendChatMessage({
+              type: "approval_response",
+              id: `story-${token.id}`,
+              action: "Continue",
+            })
           }
         }
       }

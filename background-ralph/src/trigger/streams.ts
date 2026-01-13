@@ -93,6 +93,8 @@ export type ChatMessage =
   | { type: "tool_input"; id: string; delta: string }
   | { type: "tool_end"; id: string }
   | { type: "story_separator"; storyNum: number; totalStories: number; title: string }
+  | { type: "approval"; id: string; tokenId: string; publicAccessToken: string; question: string; variant: "story" | "prd" }
+  | { type: "approval_response"; id: string; action: string }
 
 // Agent output stream for Claude responses (now carries NDJSON ChatMessages)
 export const agentOutputStream = streams.define<string>({

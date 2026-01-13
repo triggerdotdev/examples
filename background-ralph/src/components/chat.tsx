@@ -1,9 +1,10 @@
 "use client"
 
 import { useRef, useEffect, useState, useMemo } from "react"
-import { useRealtimeStream } from "@trigger.dev/react-hooks"
+import { useRealtimeStream, useWaitToken } from "@trigger.dev/react-hooks"
 import { Streamdown } from "streamdown"
-import { agentOutputStream, type ChatMessage } from "@/trigger/streams"
+import { agentOutputStream, statusStream, type ChatMessage, type Prd, type StatusUpdate } from "@/trigger/streams"
+import { Button } from "@/components/ui/button"
 
 type Props = {
   runId: string
@@ -16,6 +17,8 @@ type MessageBlock =
   | { type: "text"; content: string }
   | { type: "tool"; id: string; name: string; input: string; complete: boolean }
   | { type: "story_separator"; storyNum: number; totalStories: number; title: string }
+  | { type: "approval"; id: string; tokenId: string; publicAccessToken: string; question: string; variant: "story" | "prd" }
+  | { type: "approval_response"; id: string; action: string }
 
 // Parse NDJSON output into structured message blocks
 function parseMessages(raw: string): MessageBlock[] {
@@ -93,6 +96,29 @@ function parseMessages(raw: string): MessageBlock[] {
             title: msg.title,
           })
           break
+
+        case "approval":
+          flushThinking()
+          flushText()
+          blocks.push({
+            type: "approval",
+            id: msg.id,
+            tokenId: msg.tokenId,
+            publicAccessToken: msg.publicAccessToken,
+            question: msg.question,
+            variant: msg.variant,
+          })
+          break
+
+        case "approval_response":
+          flushThinking()
+          flushText()
+          blocks.push({
+            type: "approval_response",
+            id: msg.id,
+            action: msg.action,
+          })
+          break
       }
     } catch {
       // Invalid JSON line, skip
@@ -156,6 +182,117 @@ function getToolSummary(name: string, input: string): string {
   return ""
 }
 
+// Inline approval buttons for story approvals
+function StoryApprovalButtons({
+  tokenId,
+  publicAccessToken,
+  question,
+  responded,
+}: {
+  tokenId: string
+  publicAccessToken: string
+  question: string
+  responded: boolean
+}) {
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string>()
+  const { complete } = useWaitToken(tokenId, { accessToken: publicAccessToken })
+
+  async function handleAction(action: "continue" | "stop" | "approve_complete") {
+    setIsSubmitting(true)
+    setError(undefined)
+    try {
+      await complete({ action })
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed")
+      setIsSubmitting(false)
+    }
+  }
+
+  const isDisabled = isSubmitting || responded
+
+  return (
+    <div className="my-3 p-3 border border-yellow-500/30 bg-yellow-500/5 rounded-md">
+      <p className="text-[12px] text-slate-300 mb-3">{question}</p>
+      {error && <p className="text-[11px] text-red-400 mb-2">{error}</p>}
+      <div className="flex gap-2 flex-wrap">
+        <Button
+          size="sm"
+          onClick={() => handleAction("continue")}
+          disabled={isDisabled}
+          className="h-7 text-[11px] px-3"
+        >
+          {isSubmitting ? "..." : "Continue"}
+        </Button>
+        <Button
+          size="sm"
+          onClick={() => handleAction("approve_complete")}
+          disabled={isDisabled}
+          className="h-7 text-[11px] px-3 bg-green-600 hover:bg-green-700"
+        >
+          {isSubmitting ? "..." : "Approve & Complete"}
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => handleAction("stop")}
+          disabled={isDisabled}
+          className="h-7 text-[11px] px-3"
+        >
+          {isSubmitting ? "..." : "Stop"}
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+// Inline approval button for PRD review
+function PrdApprovalButton({
+  tokenId,
+  publicAccessToken,
+  question,
+  prd,
+  responded,
+}: {
+  tokenId: string
+  publicAccessToken: string
+  question: string
+  prd: Prd
+  responded: boolean
+}) {
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string>()
+  const { complete } = useWaitToken(tokenId, { accessToken: publicAccessToken })
+
+  async function handleApprove() {
+    setIsSubmitting(true)
+    setError(undefined)
+    try {
+      await complete({ action: "approve_prd", prd })
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed")
+      setIsSubmitting(false)
+    }
+  }
+
+  const isDisabled = isSubmitting || responded
+
+  return (
+    <div className="my-3 p-3 border border-blue-500/30 bg-blue-500/5 rounded-md">
+      <p className="text-[12px] text-slate-300 mb-3">{question}</p>
+      {error && <p className="text-[11px] text-red-400 mb-2">{error}</p>}
+      <Button
+        size="sm"
+        onClick={handleApprove}
+        disabled={isDisabled}
+        className="h-7 text-[11px] px-3 bg-green-600 hover:bg-green-700"
+      >
+        {isSubmitting ? "Starting..." : "Approve & Start"}
+      </Button>
+    </div>
+  )
+}
+
 function ToolBlock({ name, input, complete }: { name: string; input: string; complete: boolean }) {
   const [expanded, setExpanded] = useState(false)
   const summary = getToolSummary(name, input)
@@ -197,8 +334,40 @@ export function Chat({ runId, accessToken }: Props) {
     accessToken,
   })
 
+  // Subscribe to status stream to get PRD
+  const { parts: rawStatusParts } = useRealtimeStream(statusStream, runId, {
+    accessToken,
+  })
+
+  // Parse status updates and derive PRD
+  const currentPrd = useMemo(() => {
+    if (!rawStatusParts) return null
+    let prd: Prd | null = null
+    for (const part of rawStatusParts) {
+      try {
+        const status = JSON.parse(part) as StatusUpdate
+        if (status.type === "prd_generated" && status.prd) prd = status.prd
+        if (status.type === "prd_review" && status.prd && !prd) prd = status.prd
+      } catch {
+        // Ignore parse errors
+      }
+    }
+    return prd
+  }, [rawStatusParts])
+
   const rawOutput = outputParts?.join("") ?? ""
   const blocks = useMemo(() => parseMessages(rawOutput), [rawOutput])
+
+  // Track which approvals have been responded to
+  const respondedApprovals = useMemo(() => {
+    const responded = new Set<string>()
+    for (const block of blocks) {
+      if (block.type === "approval_response") {
+        responded.add(block.id)
+      }
+    }
+    return responded
+  }, [blocks])
 
   // Auto-scroll when new content arrives (if not paused)
   useEffect(() => {
@@ -289,6 +458,39 @@ export function Chat({ runId, accessToken }: Props) {
                     Story {block.storyNum}/{block.totalStories}: {block.title}
                   </span>
                   <div className="flex-1 h-px bg-border" />
+                </div>
+              )
+
+            case "approval":
+              if (block.variant === "prd" && currentPrd) {
+                return (
+                  <PrdApprovalButton
+                    key={block.id}
+                    tokenId={block.tokenId}
+                    publicAccessToken={block.publicAccessToken}
+                    question={block.question}
+                    prd={currentPrd}
+                    responded={respondedApprovals.has(block.id)}
+                  />
+                )
+              }
+              return (
+                <StoryApprovalButtons
+                  key={block.id}
+                  tokenId={block.tokenId}
+                  publicAccessToken={block.publicAccessToken}
+                  question={block.question}
+                  responded={respondedApprovals.has(block.id)}
+                />
+              )
+
+            case "approval_response":
+              return (
+                <div
+                  key={i}
+                  className="my-2 px-3 py-2 text-[11px] text-green-400 bg-green-500/10 border border-green-500/20 rounded"
+                >
+                  ✓ {block.action}
                 </div>
               )
           }

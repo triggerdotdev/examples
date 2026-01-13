@@ -67,7 +67,7 @@ export function StoryCard({ story, status, diff, onEdit }: Props) {
         {status === "pending" && onEdit && (
           <button
             onClick={() => onEdit(story)}
-            className="text-[11px] text-slate-500 hover:text-slate-700 font-medium"
+            className="text-[11px] px-2 py-1 rounded border border-slate-300 text-slate-500 hover:text-slate-700 hover:border-slate-400 transition-colors"
           >
             Edit
           </button>
