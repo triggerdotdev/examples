@@ -25,6 +25,8 @@ export function RalphApp() {
   // Derive run state from URL
   const runIdFromUrl = searchParams.get("runId")
   const tokenFromUrl = searchParams.get("token")
+  const repoFromUrl = searchParams.get("repo")
+  const promptFromUrl = searchParams.get("prompt")
   const runState: RunState = runIdFromUrl && tokenFromUrl
     ? { runId: runIdFromUrl, accessToken: tokenFromUrl }
     : null
@@ -40,6 +42,8 @@ export function RalphApp() {
       const params = new URLSearchParams()
       params.set("runId", result.value.runId)
       params.set("token", result.value.token)
+      params.set("repo", formData.get("repoUrl") as string)
+      params.set("prompt", formData.get("prompt") as string)
       router.push(`?${params.toString()}`)
     } else {
       setError(result.error)
@@ -63,64 +67,89 @@ export function RalphApp() {
           <AsciiLogo />
         </div>
 
-        <div className="shrink-0 bg-card p-6 space-y-4">
-          {/* New task button */}
-          {isRunning && (
-            <Button variant="outline" size="sm" onClick={handleNewTask} className="text-[12px] h-7">
-              New task
-            </Button>
-          )}
-
-          {/* Form */}
-          <form action={handleSubmit} className="space-y-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="repoUrl" className="text-[12px]">
-                Repository URL
-              </Label>
-              <Input
-                id="repoUrl"
-                name="repoUrl"
-                type="url"
-                placeholder="https://github.com/owner/repo"
-                required
-                disabled={isRunning}
-                className="text-[13px] h-9"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="prompt" className="text-[12px]">
-                Prompt
-              </Label>
-              <Textarea
-                id="prompt"
-                name="prompt"
-                placeholder="What should the agent do?"
-                rows={3}
-                required
-                disabled={isRunning}
-                className="text-[13px] resize-none"
-              />
-            </div>
-
-            <div className="flex items-center gap-2">
-              <input
-                id="yoloMode"
-                name="yoloMode"
-                type="checkbox"
-                className="h-3.5 w-3.5 rounded border-border accent-primary"
-                disabled={isRunning}
-              />
-              <Label htmlFor="yoloMode" className="text-[12px] font-normal text-muted-foreground">
-                Yolo mode
-              </Label>
-            </div>
-
-            {error && (
-              <p className="text-[12px] text-destructive">{error}</p>
+        {isRunning ? (
+          /* Compact header when running */
+          <div className="shrink-0 bg-card p-4 space-y-3 border-b">
+            {/* Repo link */}
+            {repoFromUrl && (
+              <a
+                href={repoFromUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 text-[13px] font-medium text-foreground hover:text-primary transition-colors"
+              >
+                <span className="truncate">{repoFromUrl.replace("https://github.com/", "")}</span>
+                <svg className="w-3 h-3 shrink-0 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+              </a>
             )}
 
-            {!isRunning && (
+            {/* Prompt summary */}
+            {promptFromUrl && (
+              <p className="text-[12px] text-slate-600 line-clamp-2" title={promptFromUrl}>
+                {promptFromUrl}
+              </p>
+            )}
+
+            {/* Run ID and new task */}
+            <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+              <p className="text-[11px] text-muted-foreground">
+                <span className="font-mono">{runState.runId.slice(0, 12)}...</span>
+              </p>
+              <Button variant="ghost" size="sm" onClick={handleNewTask} className="text-[11px] h-6 px-2">
+                New task
+              </Button>
+            </div>
+          </div>
+        ) : (
+          /* Form when not running */
+          <div className="shrink-0 bg-card p-6 space-y-4">
+            <form action={handleSubmit} className="space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="repoUrl" className="text-[12px]">
+                  Repository URL
+                </Label>
+                <Input
+                  id="repoUrl"
+                  name="repoUrl"
+                  type="url"
+                  placeholder="https://github.com/owner/repo"
+                  required
+                  className="text-[13px] h-9"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="prompt" className="text-[12px]">
+                  Prompt
+                </Label>
+                <Textarea
+                  id="prompt"
+                  name="prompt"
+                  placeholder="What should the agent do?"
+                  rows={3}
+                  required
+                  className="text-[13px] resize-none"
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  id="yoloMode"
+                  name="yoloMode"
+                  type="checkbox"
+                  className="h-3.5 w-3.5 rounded border-border accent-primary"
+                />
+                <Label htmlFor="yoloMode" className="text-[12px] font-normal text-muted-foreground">
+                  Yolo mode
+                </Label>
+              </div>
+
+              {error && (
+                <p className="text-[12px] text-destructive">{error}</p>
+              )}
+
               <Button
                 type="submit"
                 disabled={isPending}
@@ -128,18 +157,9 @@ export function RalphApp() {
               >
                 {isPending ? "Starting..." : "Start"}
               </Button>
-            )}
-          </form>
-
-          {/* Run info */}
-          {runState && (
-            <div className="pt-4 border-t">
-              <p className="text-[11px] text-muted-foreground">
-                Run <span className="font-mono">{runState.runId.slice(0, 12)}...</span>
-              </p>
-            </div>
-          )}
-        </div>
+            </form>
+          </div>
+        )}
 
         {/* Chat interface */}
         {runState && (

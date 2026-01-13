@@ -22,9 +22,9 @@ export function StoryCard({ story, status, diff, onEdit }: Props) {
   }[status]
 
   const cardStyle = {
-    pending: "bg-white border-slate-200 hover:border-slate-300",
+    pending: "bg-white border-slate-200 hover:border-slate-300 shadow-sm",
     in_progress: "bg-blue-50/50 border-blue-200 shadow-sm shadow-blue-100",
-    done: "bg-slate-50 border-slate-200",
+    done: "bg-slate-50 border-slate-200 shadow-sm",
   }[status]
 
   return (
@@ -50,13 +50,13 @@ export function StoryCard({ story, status, diff, onEdit }: Props) {
       {/* Acceptance criteria */}
       <ul className="space-y-1 mb-3">
         {story.acceptance.slice(0, 2).map((criterion, i) => (
-          <li key={i} className="text-[11px] text-slate-500 truncate leading-relaxed">
+          <li key={i} className="text-[12px] text-slate-600 truncate leading-relaxed">
             <span className="text-slate-400 mr-1.5">•</span>
             {criterion}
           </li>
         ))}
         {story.acceptance.length > 2 && (
-          <li className="text-[11px] text-slate-400 pt-0.5">
+          <li className="text-[12px] text-slate-500 pt-0.5">
             +{story.acceptance.length - 2} more
           </li>
         )}

@@ -130,7 +130,7 @@ function parseMessages(raw: string): MessageBlock[] {
   flushText()
 
   // Add incomplete tool blocks
-  for (const [id, tool] of toolBlocks) {
+  Array.from(toolBlocks.entries()).forEach(([id, tool]) => {
     blocks.push({
       type: "tool",
       id,
@@ -138,7 +138,7 @@ function parseMessages(raw: string): MessageBlock[] {
       input: tool.input,
       complete: false,
     })
-  }
+  })
 
   return blocks
 }
