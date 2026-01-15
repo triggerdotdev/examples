@@ -40,7 +40,7 @@ export function AsciiLogo({ isRunning = false }: Props) {
       <pre
         className={`font-mono text-muted-foreground select-none whitespace-pre transition-all duration-500 ease-out origin-center ${
           isRunning
-            ? "text-[5px] leading-[5px] scale-75 opacity-60 rotate-360"
+            ? "text-[5px] leading-[5px] scale-0 rotate-360"
             : "text-[10px] leading-[10px]"
         }`}
       >

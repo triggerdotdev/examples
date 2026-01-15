@@ -235,8 +235,9 @@ async function createPullRequest(
   repo: string,
   branchName: string,
   title: string,
+  body: string,
   githubToken: string,
-): Promise<string | null> {
+): Promise<{ url: string; title: string } | null> {
   try {
     const response = await fetch(
       `https://api.github.com/repos/${owner}/${repo}/pulls`,
@@ -251,7 +252,7 @@ async function createPullRequest(
           title,
           head: branchName,
           base: "main",
-          body: "Created by Ralph (Trigger.dev agent)",
+          body,
         }),
       },
     );
@@ -262,8 +263,8 @@ async function createPullRequest(
       return null;
     }
 
-    const pr = (await response.json()) as { html_url: string };
-    return pr.html_url;
+    const pr = (await response.json()) as { html_url: string; title: string };
+    return { url: pr.html_url, title: pr.title };
   } catch (error) {
     logger.error("PR creation error", { error });
     return null;
@@ -458,7 +459,7 @@ build/
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/^-|-$/g, "")
-        .slice(0, 40);
+        .slice(0, 42);
       const branchName = `ralph/${promptSlug}`;
       await execAsync(`git -C ${repoPath} checkout -b ${branchName}`);
 
@@ -894,6 +895,7 @@ Complete this story. When done, the acceptance criteria should be met.`;
       // Push if token provided and we have commits
       let branchUrl: string | null = null;
       let prUrl: string | null = null;
+      let prTitle: string | null = null;
 
       if (githubToken && completedStories > 0) {
         const parsedUrl = parseGitHubUrl(repoUrl);
@@ -915,14 +917,32 @@ Complete this story. When done, the acceptance criteria should be met.`;
             branchUrl =
               `https://github.com/${parsedUrl.owner}/${parsedUrl.repo}/tree/${branchName}`;
 
-            // Create PR
-            prUrl = await createPullRequest(
+            // Create PR with descriptive title and body
+            const completedStoryTitles = progressLog
+              .map((log) => log.split("\n")[0].replace("### ", ""))
+              .filter(Boolean);
+            const prBody = `## Summary
+${approvedPrd.description}
+
+## Completed Stories
+${completedStoryTitles.map((t) => `- ${t}`).join("\n")}
+
+---
+*Created by Ralph (Trigger.dev agent) 🍩*`;
+
+            const prTitleDraft = prompt.length > 50
+              ? prompt.slice(0, 47) + "..."
+              : prompt;
+            const prResult = await createPullRequest(
               parsedUrl.owner,
               parsedUrl.repo,
               branchName,
-              `${approvedPrd.name}: ${completedStories} stories`,
+              prTitleDraft,
+              prBody,
               githubToken,
             );
+            prUrl = prResult?.url ?? null;
+            prTitle = prResult?.title ?? prTitleDraft;
 
             const message = prUrl ?? branchUrl;
             await appendStatus({
@@ -930,6 +950,7 @@ Complete this story. When done, the acceptance criteria should be met.`;
               message,
               branchUrl,
               prUrl: prUrl ?? undefined,
+              prTitle: prTitle ?? undefined,
             });
           } catch (error) {
             const rawMessage = error instanceof Error
@@ -965,6 +986,14 @@ Complete this story. When done, the acceptance criteria should be met.`;
         type: "complete",
         message: `Completed ${completedStories}/${stories.length} stories`,
         usage,
+      });
+
+      // Stream completion to chat
+      await appendChatMessage({
+        type: "complete",
+        prUrl: prUrl ?? undefined,
+        prTitle: prTitle ?? undefined,
+        branchUrl: branchUrl ?? undefined,
       });
 
       return {

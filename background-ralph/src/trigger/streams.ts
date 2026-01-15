@@ -57,6 +57,7 @@ export type StatusUpdate = {
   diff?: string
   branchUrl?: string
   prUrl?: string
+  prTitle?: string
   waitpoint?: {
     tokenId: string
     publicAccessToken: string
@@ -97,6 +98,7 @@ export type ChatMessage =
   | { type: "story_separator"; storyNum: number; totalStories: number; title: string }
   | { type: "approval"; id: string; tokenId: string; publicAccessToken: string; question: string; variant: "story" | "prd"; createdAt: number; timeoutMs: number }
   | { type: "approval_response"; id: string; action: string }
+  | { type: "complete"; prUrl?: string; prTitle?: string; branchUrl?: string }
 
 // Agent output stream for Claude responses (now carries NDJSON ChatMessages)
 export const agentOutputStream = streams.define<string>({

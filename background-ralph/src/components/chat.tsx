@@ -39,7 +39,19 @@ type MessageBlock =
       createdAt?: number;
       timeoutMs?: number;
     }
-  | { type: "approval_response"; id: string; action: string };
+  | { type: "approval_response"; id: string; action: string }
+  | { type: "complete"; prUrl?: string; prTitle?: string; branchUrl?: string };
+
+const ralphCompleteQuotes = [
+  "I'm a star! A big, bright, shining star!",
+  "I done did it good!",
+  "My code tastes like burning... success!",
+  "I'm learnding to program!",
+  "Go banana! I mean... go code!",
+  "That's where I saw the leprechaun. He told me to write this code.",
+  "I won! I won! Do I get a prize?",
+  "Hi Super Nintendo Chalmers! Look what I made!",
+];
 
 // Parse NDJSON output into structured message blocks
 function parseMessages(raw: string): MessageBlock[] {
@@ -148,6 +160,17 @@ function parseMessages(raw: string): MessageBlock[] {
             type: "approval_response",
             id: msg.id,
             action: msg.action,
+          });
+          break;
+
+        case "complete":
+          flushThinking();
+          flushText();
+          blocks.push({
+            type: "complete",
+            prUrl: msg.prUrl,
+            prTitle: msg.prTitle,
+            branchUrl: msg.branchUrl,
           });
           break;
       }
@@ -650,6 +673,42 @@ export function Chat({ runId, accessToken }: Props) {
                   className="my-2 px-3 py-2 text-[11px] text-green-600 bg-green-50 border border-green-200 rounded"
                 >
                   ✓ {block.action}
+                </div>
+              );
+
+            case "complete":
+              const quote = ralphCompleteQuotes[(block.prUrl || block.branchUrl || "")
+                .split("").reduce((a, c) => a + c.charCodeAt(0), 0) % ralphCompleteQuotes.length];
+              return (
+                <div key={i} className="my-4 border border-green-400 bg-green-50 rounded-md p-4">
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[13px] font-medium text-green-800">Changes complete</p>
+                      {block.prUrl && (
+                        <a
+                          href={block.prUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[12px] px-3 py-1.5 bg-green-600 text-white rounded font-medium hover:bg-green-700 transition-colors"
+                        >
+                          {block.prTitle || "View PR"} →
+                        </a>
+                      )}
+                      {!block.prUrl && block.branchUrl && (
+                        <a
+                          href={block.branchUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[12px] px-3 py-1.5 bg-blue-600 text-white rounded font-medium hover:bg-blue-700 transition-colors"
+                        >
+                          View Branch →
+                        </a>
+                      )}
+                    </div>
+                    <p className="text-[12px] text-green-600 italic">
+                      &ldquo;{quote}&rdquo;
+                    </p>
+                  </div>
                 </div>
               );
           }
