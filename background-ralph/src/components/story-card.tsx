@@ -88,7 +88,7 @@ export function StoryCard({ story, status, diff, error, onEdit, onDelete, onRetr
         {status === "pending" && onEdit && (
           <button
             onClick={() => onEdit(story)}
-            className="text-[11px] px-2.5 py-1 min-h-6 rounded border-2 border-slate-300 bg-slate-700 text-white hover:bg-slate-600 transition-colors font-medium"
+            className="text-[11px] px-2.5 py-1 min-h-6 rounded border-2 border-slate-300 bg-slate-200 text-slate-900 hover:bg-slate-300 transition-colors font-medium"
           >
             Edit
           </button>
@@ -96,7 +96,7 @@ export function StoryCard({ story, status, diff, error, onEdit, onDelete, onRetr
         {status === "pending" && onDelete && (
           <button
             onClick={() => onDelete(story)}
-            className="text-[11px] px-2.5 py-1 min-h-6 rounded border-2 border-red-300 bg-red-800 text-white hover:bg-red-700 transition-colors font-medium"
+            className="text-[11px] px-2.5 py-1 min-h-6 rounded border-2 border-rose-300 bg-rose-200 text-rose-900 hover:bg-rose-300 transition-colors font-medium"
           >
             Delete
           </button>
@@ -105,7 +105,7 @@ export function StoryCard({ story, status, diff, error, onEdit, onDelete, onRetr
           <button
             onClick={() => onRetry(story)}
             title="Re-run this story (start a new run)"
-            className="text-[11px] px-2.5 py-1 min-h-6 rounded border-2 border-yellow-300 bg-yellow-700 text-white hover:bg-yellow-600 transition-colors font-medium"
+            className="text-[11px] px-2.5 py-1 min-h-6 rounded border-2 border-yellow-300 bg-yellow-200 text-yellow-900 hover:bg-yellow-300 transition-colors font-medium"
           >
             Retry
           </button>
@@ -113,7 +113,7 @@ export function StoryCard({ story, status, diff, error, onEdit, onDelete, onRetr
         {status === "failed" && error && (
           <button
             onClick={() => setIsErrorOpen(!isErrorOpen)}
-            className="text-[11px] px-2.5 py-1 min-h-6 rounded border-2 border-red-300 text-red-700 hover:bg-red-100 font-medium flex items-center gap-1 transition-colors"
+            className="text-[11px] px-2.5 py-1 min-h-6 rounded border-2 border-rose-300 bg-rose-200 text-rose-900 hover:bg-rose-300 font-medium flex items-center gap-1 transition-colors"
           >
             Error {isErrorOpen ? "▲" : "▼"}
           </button>
@@ -121,7 +121,7 @@ export function StoryCard({ story, status, diff, error, onEdit, onDelete, onRetr
         {status === "done" && diff && (
           <button
             onClick={() => setIsDiffOpen(!isDiffOpen)}
-            className="text-[11px] px-2.5 py-1 min-h-6 rounded border-2 border-slate-300 text-slate-600 hover:bg-slate-100 font-medium flex items-center gap-1 transition-colors"
+            className="text-[11px] px-2.5 py-1 min-h-6 rounded border-2 border-slate-900 bg-slate-200 text-slate-900 hover:bg-slate-300 font-medium flex items-center gap-1 transition-colors"
           >
             Diff {isDiffOpen ? "▲" : "▼"}
           </button>

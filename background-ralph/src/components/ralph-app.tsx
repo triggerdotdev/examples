@@ -198,7 +198,7 @@ export function RalphApp() {
               </div>
               {isRunActive ? (
                 <Button
-                  variant="outline"
+                  variant="destructive"
                   size="sm"
                   onClick={handleCancel}
                   disabled={isCanceling}

@@ -321,7 +321,7 @@ function StoryApprovalButtons({
           size="sm"
           onClick={() => handleAction("approve_complete")}
           disabled={isDisabled}
-          className="h-7 min-h-7 text-[11px] px-3 bg-green-800 border-green-300 hover:bg-green-700"
+          className="h-7 min-h-7 text-[11px] px-3 bg-green-200 text-green-900 border-green-300 hover:bg-green-300"
         >
           {isSubmitting ? "..." : "Approve & Complete"}
         </Button>
@@ -395,7 +395,7 @@ function PrdApprovalButton({
           size="sm"
           onClick={handleApprove}
           disabled={isDisabled}
-          className="h-7 min-h-7 text-[11px] px-3 bg-green-800 border-green-300 hover:bg-green-700"
+          className="h-7 min-h-7 text-[11px] px-3 bg-green-200 text-green-900 border-green-300 hover:bg-green-300"
         >
           {isSubmitting ? "Starting..." : "Approve & Start"}
         </Button>

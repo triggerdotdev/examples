@@ -9,17 +9,17 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        // Simpsons-style: 800 base with 200 highlight/border
+        // Simpsons-style: 200 base, 300 border, 900 text, hover +100
         default:
-          "bg-yellow-700 text-white border-2 border-yellow-300 shadow-sm hover:bg-yellow-600 focus-visible:ring-yellow-400",
+          "bg-yellow-200 text-yellow-900 border-2 border-yellow-300 shadow-sm hover:bg-yellow-300 focus-visible:ring-yellow-400",
         destructive:
-          "bg-red-800 text-white border-2 border-red-300 shadow-sm hover:bg-red-700 focus-visible:ring-red-400",
+          "bg-rose-200 text-rose-900 border-2 border-rose-300 shadow-sm hover:bg-rose-300 focus-visible:ring-rose-400",
         outline:
-          "border-2 border-yellow-600 bg-transparent text-yellow-800 shadow-sm hover:bg-yellow-100 hover:border-yellow-700",
+          "border-2 border-yellow-300 bg-transparent text-yellow-900 shadow-sm hover:bg-yellow-200",
         secondary:
-          "bg-slate-700 text-white border-2 border-slate-300 shadow-sm hover:bg-slate-600",
-        ghost: "hover:bg-yellow-100 hover:text-yellow-800",
-        link: "text-yellow-700 underline-offset-4 hover:underline hover:text-yellow-800",
+          "bg-slate-200 text-slate-900 border-2 border-slate-300 shadow-sm hover:bg-slate-300",
+        ghost: "hover:bg-yellow-200 hover:text-yellow-900",
+        link: "text-yellow-900 underline-offset-4 hover:underline",
       },
       size: {
         default: "h-9 min-h-9 px-4 py-2",
