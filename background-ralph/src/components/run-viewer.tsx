@@ -10,38 +10,28 @@ import { ShortcutFooter } from "./shortcut-footer"
 import { useKeyboardShortcuts } from "./keyboard-handler"
 import type { ralphLoop } from "@/trigger/ralph-loop"
 import { Button } from "@/components/ui/button"
-import { cancelRun } from "@/app/actions"
 
 type Props = {
   runId: string
   accessToken: string
+  onCancel?: () => void
 }
 
 const terminalStatuses = ["COMPLETED", "CANCELED", "FAILED", "CRASHED", "SYSTEM_FAILURE", "TIMED_OUT", "EXPIRED"]
 
-export function RunViewer({ runId, accessToken }: Props) {
-  const [isCanceling, setIsCanceling] = useState(false)
-  const [cancelError, setCancelError] = useState<string>()
+export function RunViewer({ runId, accessToken, onCancel }: Props) {
   const [editingStory, setEditingStory] = useState<Story | null>(null)
   const [localPrdOverride, setLocalPrdOverride] = useState<Prd | null>(null)
   const [showHelp, setShowHelp] = useState(false)
   const [selectedStoryIndex, setSelectedStoryIndex] = useState(0)
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false)
+  const [pendingDeleteStory, setPendingDeleteStory] = useState<Story | null>(null)
 
   const { run, error: runError } = useRealtimeRun<typeof ralphLoop>(runId, {
     accessToken,
   })
 
   const isRunActive = run?.status && !terminalStatuses.includes(run.status)
-
-  async function handleCancel() {
-    setIsCanceling(true)
-    setCancelError(undefined)
-    const result = await cancelRun(runId)
-    if (!result.ok) {
-      setCancelError(result.error)
-    }
-    setIsCanceling(false)
-  }
 
   const { parts: rawStatusParts } = useRealtimeStream(statusStream, runId, {
     accessToken,
@@ -82,8 +72,23 @@ export function RunViewer({ runId, accessToken }: Props) {
 
   function handleDeleteStory(story: Story) {
     if (!currentPrd) return
-    const updatedStories = currentPrd.stories.filter(s => s.id !== story.id)
-    setLocalPrdOverride({ ...currentPrd, stories: updatedStories })
+    const remainingStories = currentPrd.stories.filter(s => s.id !== story.id)
+    // If deleting last story, show confirmation
+    if (remainingStories.length === 0) {
+      setPendingDeleteStory(story)
+      setShowCancelConfirm(true)
+      return
+    }
+    setLocalPrdOverride({ ...currentPrd, stories: remainingStories })
+  }
+
+  function confirmCancelRun() {
+    if (!currentPrd || !pendingDeleteStory) return
+    const remainingStories = currentPrd.stories.filter(s => s.id !== pendingDeleteStory.id)
+    setLocalPrdOverride({ ...currentPrd, stories: remainingStories })
+    setShowCancelConfirm(false)
+    setPendingDeleteStory(null)
+    onCancel?.()
   }
 
   // Derive completed stories and per-story diffs from story_complete events
@@ -143,8 +148,10 @@ export function RunViewer({ runId, accessToken }: Props) {
     <div className="space-y-6">
       {/* Terminal state banners */}
       {run?.status === "CANCELED" && (
-        <div className="border border-slate-300 bg-slate-50 rounded-md p-3">
-          <p className="text-[12px] font-medium text-slate-600">Run canceled</p>
+        <div className="border border-yellow-400 bg-yellow-50 rounded-md p-4 text-center space-y-2">
+          <p className="text-[24px]">🍩</p>
+          <p className="text-[13px] font-medium text-yellow-800">Run canceled</p>
+          <p className="text-[12px] text-yellow-700 italic">&ldquo;Me fail English? That&apos;s unpossible!&rdquo;</p>
         </div>
       )}
       {(run?.status === "FAILED" || run?.status === "CRASHED" || run?.status === "SYSTEM_FAILURE") && (
@@ -181,39 +188,25 @@ export function RunViewer({ runId, accessToken }: Props) {
         )
       })()}
 
-      {/* Minimal status bar */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          {isRunActive && (
-            <>
-              <span className="inline-block w-2 h-2 rounded-full bg-blue-500 animate-blink" />
-              <span className="text-[12px] font-mono text-foreground">{runId.slice(0, 12)}...</span>
-            </>
-          )}
-          {!isRunActive && run?.status === "COMPLETED" && (
-            <span className="text-[12px] text-green-600 font-medium">Complete</span>
-          )}
-          {pushedStatus?.prUrl && (
-            <a href={pushedStatus.prUrl} target="_blank" rel="noopener noreferrer" className="text-[12px] text-blue-500 hover:underline">
-              View PR →
-            </a>
-          )}
-          {pushedStatus?.branchUrl && !pushedStatus.prUrl && (
-            <a href={pushedStatus.branchUrl} target="_blank" rel="noopener noreferrer" className="text-[12px] text-blue-500 hover:underline">
-              View branch →
-            </a>
-          )}
-          {cancelError && <span className="text-[11px] text-red-500">{cancelError}</span>}
-        </div>
-        {isRunActive && (
-          <Button variant="outline" size="sm" onClick={handleCancel} disabled={isCanceling} className="h-7 text-[11px]">
-            {isCanceling ? "..." : "Cancel"}
-          </Button>
+      {/* Status bar - links only (dot + cancel moved to sidebar) */}
+      <div className="flex items-center gap-3">
+        {!isRunActive && run?.status === "COMPLETED" && (
+          <span className="text-[12px] text-green-600 font-medium">Complete</span>
+        )}
+        {pushedStatus?.prUrl && (
+          <a href={pushedStatus.prUrl} target="_blank" rel="noopener noreferrer" className="text-[12px] text-blue-500 hover:underline">
+            View PR →
+          </a>
+        )}
+        {pushedStatus?.branchUrl && !pushedStatus.prUrl && (
+          <a href={pushedStatus.branchUrl} target="_blank" rel="noopener noreferrer" className="text-[12px] text-blue-500 hover:underline">
+            View branch →
+          </a>
         )}
       </div>
 
-      {/* Kanban board */}
-      {currentPrd && (
+      {/* Kanban board or placeholder */}
+      {currentPrd ? (
         <div className="border rounded-md bg-card p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-[13px] font-semibold text-foreground">
@@ -229,7 +222,16 @@ export function RunViewer({ runId, accessToken }: Props) {
             onDeleteStory={handleDeleteStory}
           />
         </div>
-      )}
+      ) : isRunActive ? (
+        <div className="border rounded-md bg-card p-6">
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center space-y-3">
+              <div className="inline-block w-3 h-3 rounded-full bg-yellow-400 animate-blink" />
+              <p className="text-[13px] text-slate-500">Generating stories...</p>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {/* Status history */}
       {statusParts.length > 0 && (
@@ -267,6 +269,42 @@ export function RunViewer({ runId, accessToken }: Props) {
         isOpen={showHelp}
         onClose={() => setShowHelp(false)}
       />
+
+      {/* Cancel confirmation modal */}
+      {showCancelConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-card border rounded-lg p-6 max-w-sm mx-4 space-y-4 text-center">
+            <p className="text-[32px]">🍩</p>
+            <h3 className="text-[14px] font-semibold text-foreground">
+              Delete last story?
+            </h3>
+            <p className="text-[12px] text-muted-foreground">
+              &ldquo;I bent my wookie!&rdquo; — This will cancel the run.
+            </p>
+            <div className="flex gap-3 justify-center pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setShowCancelConfirm(false)
+                  setPendingDeleteStory(null)
+                }}
+                className="text-[12px]"
+              >
+                Keep going
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={confirmCancelRun}
+                className="text-[12px]"
+              >
+                Cancel run
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

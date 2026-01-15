@@ -2,7 +2,8 @@
 
 import { useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { submitTask } from "@/app/actions"
+import { useRealtimeRun } from "@trigger.dev/react-hooks"
+import { submitTask, cancelRun } from "@/app/actions"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -12,6 +13,9 @@ import { Chat } from "@/components/chat"
 import { AsciiLogo } from "@/components/ascii-logo"
 import { HelpModal } from "@/components/help-modal"
 import { useKeyboardShortcuts } from "@/components/keyboard-handler"
+import type { ralphLoop } from "@/trigger/ralph-loop"
+
+const terminalStatuses = ["COMPLETED", "CANCELED", "FAILED", "CRASHED", "SYSTEM_FAILURE", "TIMED_OUT", "EXPIRED"]
 
 type RunState = {
   runId: string
@@ -24,6 +28,8 @@ export function RalphApp() {
   const [error, setError] = useState<string>()
   const [isPending, setIsPending] = useState(false)
   const [isHelpOpen, setIsHelpOpen] = useState(false)
+  const [isCanceling, setIsCanceling] = useState(false)
+  const [cancelError, setCancelError] = useState<string>()
 
   // Keyboard shortcut for ? (help modal)
   useKeyboardShortcuts({
@@ -38,6 +44,24 @@ export function RalphApp() {
   const runState: RunState = runIdFromUrl && tokenFromUrl
     ? { runId: runIdFromUrl, accessToken: tokenFromUrl }
     : null
+
+  // Track run status for sidebar controls
+  const { run } = useRealtimeRun<typeof ralphLoop>(runState?.runId ?? "", {
+    accessToken: runState?.accessToken ?? "",
+    enabled: !!runState,
+  })
+  const isRunActive = run?.status && !terminalStatuses.includes(run.status)
+
+  async function handleCancel() {
+    if (!runState) return
+    setIsCanceling(true)
+    setCancelError(undefined)
+    const result = await cancelRun(runState.runId)
+    if (!result.ok) {
+      setCancelError(result.error)
+    }
+    setIsCanceling(false)
+  }
 
   async function handleSubmit(formData: FormData) {
     setError(undefined)
@@ -72,7 +96,7 @@ export function RalphApp() {
       <aside className="w-80 shrink-0 border-r bg-card flex flex-col">
         {/* ASCII Logo */}
         <div className="shrink-0 border-b">
-          <AsciiLogo />
+          <AsciiLogo isRunning={isRunning} />
         </div>
 
         {isRunning ? (
@@ -100,15 +124,40 @@ export function RalphApp() {
               </p>
             )}
 
-            {/* Run ID and new task */}
+            {/* Run status + cancel */}
             <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-              <p className="text-[11px] text-muted-foreground">
-                <span className="font-mono">{runState.runId.slice(0, 12)}...</span>
-              </p>
-              <Button variant="ghost" size="sm" onClick={handleNewTask} className="text-[11px] h-6 px-2">
-                New task
-              </Button>
+              <div className="flex items-center gap-2">
+                {isRunActive && (
+                  <span className="inline-block text-[14px] animate-blink" title="Ralph is working...">🍩</span>
+                )}
+                <span className="text-[11px] font-mono text-slate-500">
+                  {runState.runId.slice(0, 12)}...
+                </span>
+              </div>
+              {isRunActive ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCancel}
+                  disabled={isCanceling}
+                  className="h-6 text-[11px] px-2"
+                >
+                  {isCanceling ? "..." : "Cancel"}
+                </Button>
+              ) : (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleNewTask}
+                  className="h-6 text-[11px] px-2"
+                >
+                  New task
+                </Button>
+              )}
             </div>
+            {cancelError && (
+              <p className="text-[11px] text-red-500">{cancelError}</p>
+            )}
           </div>
         ) : (
           /* Form when not running */
@@ -181,7 +230,7 @@ export function RalphApp() {
       <main className="flex-1 overflow-y-auto bg-background">
         {runState ? (
           <div className="p-6">
-            <RunViewer runId={runState.runId} accessToken={runState.accessToken} />
+            <RunViewer runId={runState.runId} accessToken={runState.accessToken} onCancel={handleCancel} />
           </div>
         ) : (
           <div className="flex items-center justify-center h-full">

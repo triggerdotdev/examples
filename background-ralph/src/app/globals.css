@@ -4,29 +4,29 @@
 
 @layer base {
   :root {
-    /* Slate-based palette (Linear-inspired) */
-    --background: 210 20% 98%;
+    /* Simpsons-inspired palette */
+    --background: 48 33% 97%; /* Warm off-white */
     --foreground: 222 47% 11%;
     --card: 0 0% 100%;
     --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
-    --primary: 222 47% 11%;
-    --primary-foreground: 210 20% 98%;
-    --secondary: 214 32% 91%;
+    --primary: 51 100% 50%; /* Simpsons Yellow #FFD90F */
+    --primary-foreground: 222 47% 11%;
+    --secondary: 48 30% 92%; /* Warm gray */
     --secondary-foreground: 222 47% 11%;
-    --muted: 214 32% 91%;
-    --muted-foreground: 215 16% 47%;
-    --accent: 214 32% 91%;
+    --muted: 48 30% 92%;
+    --muted-foreground: 30 10% 40%; /* Warmer muted text */
+    --accent: 199 89% 70%; /* Simpsons sky blue */
     --accent-foreground: 222 47% 11%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 98%;
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 222 47% 11%;
+    --border: 48 20% 88%; /* Warm border */
+    --input: 48 20% 88%;
+    --ring: 51 100% 50%;
 
-    /* Consistent 6px radius (subtle) */
-    --radius: 0.375rem;
+    /* Slightly rounded (playful but not cartoonish) */
+    --radius: 0.5rem;
   }
 
   .dark {
@@ -66,6 +66,11 @@
   h1, h2, h3, h4, h5, h6 {
     @apply tracking-tight;
   }
+}
+
+/* Display font for playful headings */
+.font-display {
+  font-family: var(--font-display), system-ui, sans-serif;
 }
 
 /* Custom scrollbar (subtle) */
