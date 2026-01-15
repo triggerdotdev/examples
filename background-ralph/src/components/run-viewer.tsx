@@ -257,34 +257,22 @@ export function RunViewer({ runId, accessToken, onCancel }: Props) {
           </div>
         </div>
       )}
-      {run?.status === "COMPLETED" && (() => {
-        const diffStatus = statusParts.find(s => s.type === "diff")
-        const storyCount = currentPrd?.stories.length ?? 0
-        const doneCount = completedStoryIds.size
-        return (
-          <div className="border border-green-400 bg-green-50 rounded-md p-4 space-y-3">
-            <p className="text-[13px] font-medium text-green-800">
-              {doneCount}/{storyCount} stories complete
-            </p>
-            {pushedStatus?.prUrl && (
-              <a href={pushedStatus.prUrl} target="_blank" rel="noopener noreferrer" className="inline-block px-3 py-1.5 bg-green-600 text-white rounded text-[12px] font-medium hover:bg-green-700">
-                View Pull Request →
+      {run?.status === "COMPLETED" && (
+        <div className="border border-green-400 bg-green-50 rounded-md p-4">
+          <div className="flex items-center justify-between">
+            <p className="text-[13px] font-medium text-green-800">Changes complete</p>
+            {pushedStatus?.prUrl ? (
+              <a href={pushedStatus.prUrl} target="_blank" rel="noopener noreferrer" className="text-[12px] text-green-700 hover:text-green-900 font-medium">
+                View PR →
               </a>
-            )}
-            {pushedStatus?.branchUrl && !pushedStatus.prUrl && (
-              <a href={pushedStatus.branchUrl} target="_blank" rel="noopener noreferrer" className="inline-block px-3 py-1.5 bg-blue-600 text-white rounded text-[12px] font-medium hover:bg-blue-700">
+            ) : pushedStatus?.branchUrl ? (
+              <a href={pushedStatus.branchUrl} target="_blank" rel="noopener noreferrer" className="text-[12px] text-blue-600 hover:text-blue-800 font-medium">
                 View Branch →
               </a>
-            )}
-            {diffStatus?.diff && (
-              <details className="text-[12px]">
-                <summary className="cursor-pointer text-green-700 font-medium">View diff</summary>
-                <pre className="mt-2 p-3 bg-slate-900 text-slate-100 rounded overflow-auto max-h-[300px] text-[10px] font-mono">{diffStatus.diff}</pre>
-              </details>
-            )}
+            ) : null}
           </div>
-        )
-      })()}
+        </div>
+      )}
 
       {/* Status bar - links only (dot + cancel moved to sidebar) */}
       <div className="flex items-center gap-3">
@@ -319,7 +307,6 @@ export function RunViewer({ runId, accessToken, onCancel }: Props) {
             storyDiffs={storyDiffs}
             storyErrors={storyErrors}
             onEditStory={handleEditStory}
-            onDeleteStory={handleDeleteStory}
           />
         </div>
       ) : isRunActive ? (

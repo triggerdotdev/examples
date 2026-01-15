@@ -273,9 +273,10 @@ export const ralphLoop = task({
     const {
       repoUrl,
       prompt,
-      yoloMode = false,
+      yoloMode: initialYoloMode = false,
       maxTurnsPerStory = DEFAULT_MAX_TURNS_PER_STORY,
     } = payload;
+    let yoloMode = initialYoloMode;
     const githubToken = process.env.GITHUB_TOKEN;
     logger.info("GitHub token check", {
       hasToken: !!githubToken,
@@ -447,10 +448,13 @@ build/
         await writeFile(gitignorePath, defaultIgnores);
       }
 
-      // Create branch for all commits (slugify PRD name)
-      const slug = approvedPrd.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")
+      // Create branch from shortened prompt
+      const promptSlug = prompt
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "")
         .slice(0, 40);
-      const branchName = `ralph/${slug}`;
+      const branchName = `ralph/${promptSlug}`;
       await execAsync(`git -C ${repoPath} checkout -b ${branchName}`);
 
       // Cumulative token usage
@@ -835,7 +839,7 @@ Complete this story. When done, the acceptance criteria should be met.`;
           });
 
           const result = await wait.forToken<
-            { action: "continue" | "stop" | "approve_complete" }
+            { action: "continue" | "stop" | "yolo" }
           >(token);
 
           if (!result.ok || result.output.action === "stop") {
@@ -843,22 +847,22 @@ Complete this story. When done, the acceptance criteria should be met.`;
             await appendChatMessage({
               type: "approval_response",
               id: `story-${token.id}`,
-              action: "Stopped",
+              action: "Cancelled",
             });
-          } else if (result.output.action === "approve_complete") {
+          } else if (result.output.action === "yolo") {
             await appendChatMessage({
               type: "approval_response",
               id: `story-${token.id}`,
-              action: "Approved & Completed",
+              action: "Yolo mode enabled",
             });
-            // Skip remaining stories, go straight to push
-            break;
+            // Enable yolo mode for remaining stories
+            yoloMode = true;
           } else {
-            // Continue
+            // Continue to next story
             await appendChatMessage({
               type: "approval_response",
               id: `story-${token.id}`,
-              action: "Continue",
+              action: "Next story",
             });
           }
         }

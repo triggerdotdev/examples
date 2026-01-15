@@ -285,7 +285,7 @@ function StoryApprovalButtons({
   });
 
   async function handleAction(
-    action: "continue" | "stop" | "approve_complete"
+    action: "continue" | "stop" | "yolo"
   ) {
     setIsSubmitting(true);
     setError(undefined);
@@ -297,8 +297,6 @@ function StoryApprovalButtons({
     }
   }
 
-  const isDisabled = isSubmitting || responded;
-
   return (
     <div className="my-3 p-3 border border-yellow-500/30 bg-yellow-500/5 rounded-md">
       <div className="flex items-center justify-between mb-3">
@@ -308,33 +306,35 @@ function StoryApprovalButtons({
         )}
       </div>
       {error && <p className="text-[11px] text-red-400 mb-2">{error}</p>}
-      <div className="flex gap-2 flex-wrap">
-        <Button
-          size="sm"
-          onClick={() => handleAction("continue")}
-          disabled={isDisabled}
-          className="h-7 min-h-7 text-[11px] px-3"
-        >
-          {isSubmitting ? "..." : "Continue"}
-        </Button>
-        <Button
-          size="sm"
-          onClick={() => handleAction("approve_complete")}
-          disabled={isDisabled}
-          className="h-7 min-h-7 text-[11px] px-3 bg-green-200 text-green-900 border-green-300 hover:bg-green-300"
-        >
-          {isSubmitting ? "..." : "Approve & Complete"}
-        </Button>
-        <Button
-          size="sm"
-          variant="destructive"
-          onClick={() => handleAction("stop")}
-          disabled={isDisabled}
-          className="h-7 min-h-7 text-[11px] px-3"
-        >
-          {isSubmitting ? "..." : "Stop"}
-        </Button>
-      </div>
+      {!responded && (
+        <div className="flex gap-2 flex-wrap">
+          <Button
+            size="sm"
+            onClick={() => handleAction("continue")}
+            disabled={isSubmitting}
+            className="h-7 min-h-7 text-[11px] px-3"
+          >
+            {isSubmitting ? "..." : "Next story"}
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => handleAction("yolo")}
+            disabled={isSubmitting}
+            className="h-7 min-h-7 text-[11px] px-3 bg-green-200 text-green-900 border-green-300 hover:bg-green-300"
+          >
+            {isSubmitting ? "..." : "Yolo mode"}
+          </Button>
+          <Button
+            size="sm"
+            variant="destructive"
+            onClick={() => handleAction("stop")}
+            disabled={isSubmitting}
+            className="h-7 min-h-7 text-[11px] px-3"
+          >
+            {isSubmitting ? "..." : "Cancel"}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

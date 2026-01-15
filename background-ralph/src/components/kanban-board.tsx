@@ -9,7 +9,6 @@ type Props = {
   storyDiffs?: Map<string, string>
   storyErrors?: Map<string, string>
   onEditStory?: (story: Story) => void
-  onDeleteStory?: (story: Story) => void
   onRetryStory?: (story: Story) => void
 }
 
@@ -21,7 +20,6 @@ function KanbanColumn({
   diffs,
   errors,
   onEdit,
-  onDelete,
   onRetry,
 }: {
   title: string
@@ -31,7 +29,6 @@ function KanbanColumn({
   diffs?: Map<string, string>
   errors?: Map<string, string>
   onEdit?: (story: Story) => void
-  onDelete?: (story: Story) => void
   onRetry?: (story: Story) => void
 }) {
   const headerStyle = {
@@ -73,7 +70,6 @@ function KanbanColumn({
               diff={diffs?.get(story.id)}
               error={errors?.get(story.id)}
               onEdit={status === "pending" ? onEdit : undefined}
-              onDelete={status === "pending" ? onDelete : undefined}
               onRetry={status === "failed" ? onRetry : undefined}
             />
           ))
@@ -91,7 +87,6 @@ export function KanbanBoard({
   storyDiffs,
   storyErrors,
   onEditStory,
-  onDeleteStory,
   onRetryStory,
 }: Props) {
   const pendingStories: Story[] = []
@@ -119,7 +114,6 @@ export function KanbanBoard({
         status="pending"
         emptyText="No pending stories"
         onEdit={onEditStory}
-        onDelete={onDeleteStory}
       />
       <KanbanColumn
         title="In progress"

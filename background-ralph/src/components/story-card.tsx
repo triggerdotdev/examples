@@ -11,11 +11,10 @@ type Props = {
   diff?: string
   error?: string
   onEdit?: (story: Story) => void
-  onDelete?: (story: Story) => void
   onRetry?: (story: Story) => void
 }
 
-export function StoryCard({ story, status, diff, error, onEdit, onDelete, onRetry }: Props) {
+export function StoryCard({ story, status, diff, error, onEdit, onRetry }: Props) {
   const [isDiffOpen, setIsDiffOpen] = useState(false)
   const [isErrorOpen, setIsErrorOpen] = useState(false)
   const [isJsonOpen, setIsJsonOpen] = useState(false)
@@ -88,17 +87,9 @@ export function StoryCard({ story, status, diff, error, onEdit, onDelete, onRetr
         {status === "pending" && onEdit && (
           <button
             onClick={() => onEdit(story)}
-            className="text-[11px] px-2.5 py-1 min-h-6 rounded border-2 border-slate-300 bg-slate-200 text-slate-900 hover:bg-slate-300 transition-colors font-medium"
+            className="text-[11px] px-2.5 py-1 min-h-6 rounded border border-slate-300 text-slate-500 hover:text-slate-700 hover:border-slate-400 transition-colors font-medium"
           >
             Edit
-          </button>
-        )}
-        {status === "pending" && onDelete && (
-          <button
-            onClick={() => onDelete(story)}
-            className="text-[11px] px-2.5 py-1 min-h-6 rounded border-2 border-rose-300 bg-rose-200 text-rose-900 hover:bg-rose-300 transition-colors font-medium"
-          >
-            Delete
           </button>
         )}
         {status === "failed" && onRetry && (
@@ -121,7 +112,7 @@ export function StoryCard({ story, status, diff, error, onEdit, onDelete, onRetr
         {status === "done" && diff && (
           <button
             onClick={() => setIsDiffOpen(!isDiffOpen)}
-            className="text-[11px] px-2.5 py-1 min-h-6 rounded border-2 border-slate-900 bg-slate-200 text-slate-900 hover:bg-slate-300 font-medium flex items-center gap-1 transition-colors"
+            className="text-[11px] px-2.5 py-1 min-h-6 rounded border border-slate-200 text-slate-400 hover:text-slate-600 hover:border-slate-300 font-medium flex items-center gap-1 transition-colors"
           >
             Diff {isDiffOpen ? "▲" : "▼"}
           </button>

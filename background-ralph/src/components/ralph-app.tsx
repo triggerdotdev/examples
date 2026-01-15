@@ -274,7 +274,12 @@ export function RalphApp() {
                 disabled={isPending}
                 className="w-full text-[13px] font-medium h-9"
               >
-                {isPending ? "Starting..." : "Start"}
+                {isPending ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <span className="h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                    Preparing Ralph
+                  </span>
+                ) : "Start"}
               </Button>
             </form>
           </div>
