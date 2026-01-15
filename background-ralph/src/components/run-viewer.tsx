@@ -101,9 +101,11 @@ export function RunViewer({ runId, accessToken, onCancel }: Props) {
     onCancel?.()
   }
 
-  // Derive completed stories and per-story diffs from story_complete events
+  // Derive completed/failed stories and per-story diffs from status events
   const completedStoryIds = new Set<string>()
+  const failedStoryIds = new Set<string>()
   const storyDiffs = new Map<string, string>()
+  const storyErrors = new Map<string, string>()
   for (const s of statusParts) {
     if (s.type === "story_complete" && s.story?.id) {
       completedStoryIds.add(s.story.id)
@@ -111,12 +113,22 @@ export function RunViewer({ runId, accessToken, onCancel }: Props) {
         storyDiffs.set(s.story.id, s.story.diff)
       }
     }
+    if (s.type === "story_failed" && s.story?.id) {
+      failedStoryIds.add(s.story.id)
+      if (s.story.diff) {
+        storyDiffs.set(s.story.id, s.story.diff)
+      }
+      if (s.storyError) {
+        storyErrors.set(s.story.id, s.storyError)
+      }
+    }
   }
 
-  // Derive current story from latest story_start (if not yet complete)
+  // Derive current story from latest story_start (if not yet complete/failed)
   const currentStoryId = statusParts.reduce<string | undefined>((acc, s) => {
     if (s.type === "story_start" && s.story?.id) return s.story.id
     if (s.type === "story_complete" && s.story?.id === acc) return undefined
+    if (s.type === "story_failed" && s.story?.id === acc) return undefined
     return acc
   }, undefined)
 
@@ -226,8 +238,10 @@ export function RunViewer({ runId, accessToken, onCancel }: Props) {
           <KanbanBoard
             prd={currentPrd}
             completedStoryIds={completedStoryIds}
+            failedStoryIds={failedStoryIds}
             currentStoryId={currentStoryId}
             storyDiffs={storyDiffs}
+            storyErrors={storyErrors}
             onEditStory={handleEditStory}
             onDeleteStory={handleDeleteStory}
           />

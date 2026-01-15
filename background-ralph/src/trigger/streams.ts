@@ -39,6 +39,7 @@ export type StatusUpdate = {
     | "iteration"
     | "story_start"
     | "story_complete"
+    | "story_failed"
     | "diff"
     | "pushing"
     | "pushed"
@@ -51,6 +52,7 @@ export type StatusUpdate = {
     | "tests_passed"
     | "tests_failed"
   message: string
+  storyError?: string
   iteration?: number
   diff?: string
   branchUrl?: string

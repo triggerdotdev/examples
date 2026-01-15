@@ -4,10 +4,13 @@ import { StoryCard } from "./story-card"
 type Props = {
   prd: Prd
   completedStoryIds: Set<string>
+  failedStoryIds?: Set<string>
   currentStoryId?: string
   storyDiffs?: Map<string, string>
+  storyErrors?: Map<string, string>
   onEditStory?: (story: Story) => void
   onDeleteStory?: (story: Story) => void
+  onRetryStory?: (story: Story) => void
 }
 
 function KanbanColumn({
@@ -16,27 +19,33 @@ function KanbanColumn({
   status,
   emptyText,
   diffs,
+  errors,
   onEdit,
   onDelete,
+  onRetry,
 }: {
   title: string
   stories: Story[]
-  status: "pending" | "in_progress" | "done"
+  status: "pending" | "in_progress" | "done" | "failed"
   emptyText: string
   diffs?: Map<string, string>
+  errors?: Map<string, string>
   onEdit?: (story: Story) => void
   onDelete?: (story: Story) => void
+  onRetry?: (story: Story) => void
 }) {
   const headerStyle = {
     pending: "text-slate-500",
     in_progress: "text-blue-600",
     done: "text-emerald-600",
+    failed: "text-red-600",
   }[status]
 
   const countStyle = {
     pending: "bg-slate-100 text-slate-500",
     in_progress: "bg-blue-100 text-blue-600",
     done: "bg-emerald-100 text-emerald-600",
+    failed: "bg-red-100 text-red-600",
   }[status]
 
   return (
@@ -62,8 +71,10 @@ function KanbanColumn({
               story={story}
               status={status}
               diff={diffs?.get(story.id)}
+              error={errors?.get(story.id)}
               onEdit={status === "pending" ? onEdit : undefined}
               onDelete={status === "pending" ? onDelete : undefined}
+              onRetry={status === "failed" ? onRetry : undefined}
             />
           ))
         )}
@@ -72,14 +83,27 @@ function KanbanColumn({
   )
 }
 
-export function KanbanBoard({ prd, completedStoryIds, currentStoryId, storyDiffs, onEditStory, onDeleteStory }: Props) {
+export function KanbanBoard({
+  prd,
+  completedStoryIds,
+  failedStoryIds = new Set(),
+  currentStoryId,
+  storyDiffs,
+  storyErrors,
+  onEditStory,
+  onDeleteStory,
+  onRetryStory,
+}: Props) {
   const pendingStories: Story[] = []
   const inProgressStories: Story[] = []
   const doneStories: Story[] = []
+  const failedStories: Story[] = []
 
   for (const story of prd.stories) {
     if (completedStoryIds.has(story.id)) {
       doneStories.push(story)
+    } else if (failedStoryIds.has(story.id)) {
+      failedStories.push(story)
     } else if (story.id === currentStoryId) {
       inProgressStories.push(story)
     } else {
@@ -103,6 +127,17 @@ export function KanbanBoard({ prd, completedStoryIds, currentStoryId, storyDiffs
         status="in_progress"
         emptyText="No active story"
       />
+      {failedStories.length > 0 && (
+        <KanbanColumn
+          title="Failed"
+          stories={failedStories}
+          status="failed"
+          emptyText="No failed stories"
+          diffs={storyDiffs}
+          errors={storyErrors}
+          onRetry={onRetryStory}
+        />
+      )}
       <KanbanColumn
         title="Done"
         stories={doneStories}

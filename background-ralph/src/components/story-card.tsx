@@ -3,29 +3,34 @@
 import { useState } from "react"
 import type { Story } from "@/trigger/streams"
 
-type StoryStatus = "pending" | "in_progress" | "done"
+type StoryStatus = "pending" | "in_progress" | "done" | "failed"
 
 type Props = {
   story: Story
   status: StoryStatus
   diff?: string
+  error?: string
   onEdit?: (story: Story) => void
   onDelete?: (story: Story) => void
+  onRetry?: (story: Story) => void
 }
 
-export function StoryCard({ story, status, diff, onEdit, onDelete }: Props) {
+export function StoryCard({ story, status, diff, error, onEdit, onDelete, onRetry }: Props) {
   const [isDiffOpen, setIsDiffOpen] = useState(false)
+  const [isErrorOpen, setIsErrorOpen] = useState(false)
 
   const indicator = {
     pending: { icon: "○", color: "text-slate-400" },
     in_progress: { icon: "●", color: "text-blue-500" },
     done: { icon: "✓", color: "text-emerald-500" },
+    failed: { icon: "✕", color: "text-red-500" },
   }[status]
 
   const cardStyle = {
     pending: "bg-white border-slate-200 hover:border-slate-300 shadow-sm",
     in_progress: "bg-blue-50/50 border-blue-200 shadow-sm shadow-blue-100",
     done: "bg-slate-50 border-slate-200 shadow-sm",
+    failed: "bg-red-50/50 border-red-200 shadow-sm shadow-red-100",
   }[status]
 
   return (
@@ -39,11 +44,16 @@ export function StoryCard({ story, status, diff, onEdit, onDelete }: Props) {
             working
           </span>
         )}
+        {status === "failed" && (
+          <span className="ml-auto text-[11px] text-red-500 font-medium">
+            failed
+          </span>
+        )}
       </div>
 
       {/* Title */}
       <h4 className={`text-[13px] font-medium leading-snug mb-3 ${
-        status === "done" ? "text-slate-500" : "text-slate-800"
+        status === "done" ? "text-slate-500" : status === "failed" ? "text-red-800" : "text-slate-800"
       }`}>
         {story.title}
       </h4>
@@ -64,7 +74,7 @@ export function StoryCard({ story, status, diff, onEdit, onDelete }: Props) {
       </ul>
 
       {/* Actions */}
-      <div className="flex gap-2 pt-2 border-t border-slate-100">
+      <div className="flex gap-2 pt-2 border-t border-slate-100 flex-wrap">
         {status === "pending" && onEdit && (
           <button
             onClick={() => onEdit(story)}
@@ -81,6 +91,23 @@ export function StoryCard({ story, status, diff, onEdit, onDelete }: Props) {
             Delete
           </button>
         )}
+        {status === "failed" && onRetry && (
+          <button
+            onClick={() => onRetry(story)}
+            title="Re-run this story (start a new run)"
+            className="text-[11px] px-2 py-1 rounded border border-primary bg-primary/10 text-primary hover:bg-primary/20 transition-colors font-medium"
+          >
+            Retry
+          </button>
+        )}
+        {status === "failed" && error && (
+          <button
+            onClick={() => setIsErrorOpen(!isErrorOpen)}
+            className="text-[11px] text-red-500 hover:text-red-700 font-medium flex items-center gap-1"
+          >
+            Error {isErrorOpen ? "▲" : "▼"}
+          </button>
+        )}
         {status === "done" && diff && (
           <button
             onClick={() => setIsDiffOpen(!isDiffOpen)}
@@ -90,6 +117,15 @@ export function StoryCard({ story, status, diff, onEdit, onDelete }: Props) {
           </button>
         )}
       </div>
+
+      {/* Error viewer (collapsed by default) */}
+      {isErrorOpen && error && (
+        <div className="mt-3 pt-3 border-t border-red-100">
+          <pre className="text-[10px] font-mono text-red-700 bg-red-100 p-2 rounded overflow-x-auto max-h-48 whitespace-pre-wrap">
+            {error}
+          </pre>
+        </div>
+      )}
 
       {/* Diff viewer (collapsed by default) */}
       {isDiffOpen && diff && (

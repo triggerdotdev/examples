@@ -505,6 +505,8 @@ Complete this story. When done, the acceptance criteria should be met. Use Read,
         }
 
         // Run build check if package.json has build script
+        let buildFailed = false
+        let buildError = ""
         try {
           const pkgPath = join(repoPath, "package.json")
           const pkg = JSON.parse(await readFile(pkgPath, "utf-8"))
@@ -513,14 +515,49 @@ Complete this story. When done, the acceptance criteria should be met. Use Read,
             logger.info("Build passed for story", { story: story.title })
           }
         } catch (error) {
-          const err = error as { message?: string }
-          // Only log if it's a build failure, not missing package.json
-          if (err.message?.includes("ENOENT")) {
-            logger.info("No package.json or build script, skipping build check")
-          } else {
+          const err = error as { message?: string; stderr?: string; stdout?: string }
+          // Only mark as build failure if it's not missing package.json
+          if (!err.message?.includes("ENOENT")) {
+            buildFailed = true
+            // Capture build output for error display
+            buildError = err.stderr || err.stdout || err.message || "Build failed"
+            buildError = buildError.slice(-500) // Keep last 500 chars
             logger.warn("Build failed for story", { story: story.title, error: err.message })
-            await appendChatMessage({ type: "text", delta: `\n[Build failed: ${err.message?.slice(0, 200)}]\n` })
+            await appendChatMessage({ type: "text", delta: `\n[Build failed: ${buildError.slice(0, 200)}]\n` })
           }
+        }
+
+        // Handle story failure (build failed)
+        if (buildFailed) {
+          // Capture per-story diff for UI even on failure
+          let storyDiff = ""
+          if (storyCommitHash) {
+            try {
+              const { stdout: diff } = await execAsync(`git -C ${repoPath} diff HEAD~1`)
+              storyDiff = diff
+            } catch {
+              // No diff available
+            }
+          }
+
+          await appendStatus({
+            type: "story_failed",
+            message: `Story ${storyNum}/${totalStories} failed: ${story.title}`,
+            storyError: buildError,
+            story: {
+              id: story.id,
+              current: storyNum,
+              total: totalStories,
+              title: story.title,
+              acceptance: story.acceptance,
+              diff: storyDiff || undefined,
+            },
+            commitHash: storyCommitHash,
+            usage,
+          })
+
+          // Continue to next story (don't block on failure)
+          continue
         }
 
         completedStories++
