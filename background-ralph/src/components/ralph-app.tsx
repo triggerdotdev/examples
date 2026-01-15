@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { useRealtimeRun } from "@trigger.dev/react-hooks"
+import { useRealtimeRun, useRealtimeStream } from "@trigger.dev/react-hooks"
 import { submitTask, cancelRun } from "@/app/actions"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -14,7 +14,29 @@ import { AsciiLogo } from "@/components/ascii-logo"
 import { HelpModal } from "@/components/help-modal"
 import { useKeyboardShortcuts } from "@/components/keyboard-handler"
 import { useResizableSidebar } from "@/hooks/use-resizable-sidebar"
+import { statusStream, type StatusUpdate, type TokenUsage } from "@/trigger/streams"
 import type { ralphLoop } from "@/trigger/ralph-loop"
+
+// Claude Sonnet 4 pricing (per 1M tokens)
+const PRICING = {
+  input: 3.0,       // $3/MTok
+  output: 15.0,     // $15/MTok
+  cacheRead: 0.3,   // $0.30/MTok (10% of input)
+}
+
+function formatTokens(count: number): string {
+  if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(1)}M`
+  if (count >= 1_000) return `${(count / 1_000).toFixed(1)}K`
+  return count.toString()
+}
+
+function calculateCost(usage: TokenUsage): number {
+  const inputCost = (usage.inputTokens / 1_000_000) * PRICING.input
+  const outputCost = (usage.outputTokens / 1_000_000) * PRICING.output
+  const cacheReadCost = (usage.cacheReadTokens / 1_000_000) * PRICING.cacheRead
+  // Cache creation tokens are charged at input rate (included in inputTokens)
+  return inputCost + outputCost + cacheReadCost
+}
 
 const terminalStatuses = ["COMPLETED", "CANCELED", "FAILED", "CRASHED", "SYSTEM_FAILURE", "TIMED_OUT", "EXPIRED"]
 
@@ -55,6 +77,23 @@ export function RalphApp() {
     enabled: !!runState,
   })
   const isRunActive = run?.status && !terminalStatuses.includes(run.status)
+
+  // Get status stream for token usage
+  const { parts: rawStatusParts } = useRealtimeStream(statusStream, runState?.runId ?? "", {
+    accessToken: runState?.accessToken ?? "",
+    enabled: !!runState,
+  })
+
+  // Derive latest token usage from status updates (story_complete, story_failed, complete have usage)
+  const latestUsage = (rawStatusParts ?? []).reduce<TokenUsage | null>((acc, part) => {
+    try {
+      const status = JSON.parse(part) as StatusUpdate
+      if (status.usage) return status.usage
+      return acc
+    } catch {
+      return acc
+    }
+  }, null)
 
   async function handleCancel() {
     if (!runState) return
@@ -129,6 +168,22 @@ export function RalphApp() {
               <p className="text-[12px] text-slate-600 line-clamp-2" title={promptFromUrl}>
                 {promptFromUrl}
               </p>
+            )}
+
+            {/* Token usage + cost */}
+            {latestUsage && (
+              <div className="flex items-center justify-between text-[11px] pt-2 border-t border-slate-100">
+                <div className="flex items-center gap-3 text-slate-500">
+                  <span title="Input tokens">↓ {formatTokens(latestUsage.inputTokens)}</span>
+                  <span title="Output tokens">↑ {formatTokens(latestUsage.outputTokens)}</span>
+                  {latestUsage.cacheReadTokens > 0 && (
+                    <span title="Cache reads" className="text-slate-400">⚡ {formatTokens(latestUsage.cacheReadTokens)}</span>
+                  )}
+                </div>
+                <span className="font-mono text-slate-600" title="Estimated cost">
+                  ${calculateCost(latestUsage).toFixed(3)}
+                </span>
+              </div>
             )}
 
             {/* Run status + cancel */}
