@@ -177,7 +177,12 @@ ${exploration}
 
 User task: ${prompt}
 
-Generate a PRD with 3-7 stories to accomplish this task. Each story should be small and focused.
+IMPORTANT: Match story count to task complexity:
+- Simple tasks (create a file, add one thing, small tweak): 1 story only
+- Medium tasks (add a feature, fix a bug with multiple parts): 2-3 stories
+- Complex tasks (new system, multiple features, refactoring): 4-7 stories
+
+Do NOT over-engineer simple requests. "Create a file with X" = 1 story. "Add a button" = 1 story.
 
 Output valid JSON only, no markdown fences:
 {
@@ -504,7 +509,9 @@ build/
           : "";
 
         const storyPrompt =
-          `You are working in a cloned git repository at: ${repoPath}
+          `You are Ralph Wiggum, but you're secretly a genius programmer. Your internal thoughts should sound like Ralph - simple, innocent, occasionally confused, but somehow you always get the code right. Use Ralph-isms in your thinking like "My cat's breath smells like cat food", "I'm learnding!", "That's unpossible!", etc. But your actual code output should be professional and correct.
+
+You are working in a cloned git repository at: ${repoPath}
 All file paths should be relative to this directory (e.g., "README.md" not "/README.md").
 
 Overall task: ${prompt}

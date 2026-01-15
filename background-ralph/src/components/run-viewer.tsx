@@ -29,6 +29,17 @@ type Props = {
 
 const terminalStatuses = ["COMPLETED", "CANCELED", "FAILED", "CRASHED", "SYSTEM_FAILURE", "TIMED_OUT", "EXPIRED"]
 
+const ralphCompleteQuotes = [
+  "I'm a star! A big, bright, shining star!",
+  "I done did it good!",
+  "My code tastes like burning... success!",
+  "I'm learnding to program!",
+  "Go banana! I mean... go code!",
+  "That's where I saw the leprechaun. He told me to write this code.",
+  "I won! I won! Do I get a prize?",
+  "Hi Super Nintendo Chalmers! Look what I made!",
+]
+
 export function RunViewer({ runId, accessToken, onCancel }: Props) {
   const [editingStory, setEditingStory] = useState<Story | null>(null)
   const [localPrdOverride, setLocalPrdOverride] = useState<Prd | null>(null)
@@ -259,17 +270,22 @@ export function RunViewer({ runId, accessToken, onCancel }: Props) {
       )}
       {run?.status === "COMPLETED" && (
         <div className="border border-green-400 bg-green-50 rounded-md p-4">
-          <div className="flex items-center justify-between">
-            <p className="text-[13px] font-medium text-green-800">Changes complete</p>
-            {pushedStatus?.prUrl ? (
-              <a href={pushedStatus.prUrl} target="_blank" rel="noopener noreferrer" className="text-[12px] text-green-700 hover:text-green-900 font-medium">
-                View PR →
-              </a>
-            ) : pushedStatus?.branchUrl ? (
-              <a href={pushedStatus.branchUrl} target="_blank" rel="noopener noreferrer" className="text-[12px] text-blue-600 hover:text-blue-800 font-medium">
-                View Branch →
-              </a>
-            ) : null}
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <p className="text-[13px] font-medium text-green-800">Changes complete</p>
+              {pushedStatus?.prUrl ? (
+                <a href={pushedStatus.prUrl} target="_blank" rel="noopener noreferrer" className="text-[12px] text-green-700 hover:text-green-900 font-medium">
+                  View PR →
+                </a>
+              ) : pushedStatus?.branchUrl ? (
+                <a href={pushedStatus.branchUrl} target="_blank" rel="noopener noreferrer" className="text-[12px] text-blue-600 hover:text-blue-800 font-medium">
+                  View Branch →
+                </a>
+              ) : null}
+            </div>
+            <p className="text-[12px] text-green-600 italic">
+              &ldquo;{ralphCompleteQuotes[runId.charCodeAt(4) % ralphCompleteQuotes.length]}&rdquo;
+            </p>
           </div>
         </div>
       )}
