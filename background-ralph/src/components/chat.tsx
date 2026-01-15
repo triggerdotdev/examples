@@ -589,7 +589,7 @@ export function Chat({ runId, accessToken }: Props) {
               return (
                 <div
                   key={i}
-                  className="prose prose-sm max-w-none text-[13px] leading-relaxed prose-pre:bg-slate-100 prose-pre:border prose-pre:border-slate-200 prose-pre:text-[11px] prose-code:text-slate-800"
+                  className="prose prose-sm max-w-none text-[13px] leading-relaxed prose-pre:bg-slate-100 prose-pre:border prose-pre:border-slate-200 prose-pre:text-[11px] prose-code:text-slate-800 prose-h1:text-[14px] prose-h2:text-[14px] prose-h3:text-[14px] prose-h1:font-semibold prose-h2:font-semibold prose-h3:font-medium"
                 >
                   <Streamdown>{block.content}</Streamdown>
                 </div>

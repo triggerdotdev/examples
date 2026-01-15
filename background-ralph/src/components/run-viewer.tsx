@@ -10,6 +10,16 @@ import { ShortcutFooter } from "./shortcut-footer"
 import { useKeyboardShortcuts } from "./keyboard-handler"
 import type { ralphLoop } from "@/trigger/ralph-loop"
 import { Button } from "@/components/ui/button"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 type Props = {
   runId: string
@@ -270,41 +280,32 @@ export function RunViewer({ runId, accessToken, onCancel }: Props) {
         onClose={() => setShowHelp(false)}
       />
 
-      {/* Cancel confirmation modal */}
-      {showCancelConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-card border rounded-lg p-6 max-w-sm mx-4 space-y-4 text-center">
-            <p className="text-[32px]">🍩</p>
-            <h3 className="text-[14px] font-semibold text-foreground">
-              Delete last story?
-            </h3>
-            <p className="text-[12px] text-muted-foreground">
+      {/* Cancel confirmation dialog */}
+      <AlertDialog open={showCancelConfirm} onOpenChange={(open) => {
+        if (!open) {
+          setShowCancelConfirm(false)
+          setPendingDeleteStory(null)
+        }
+      }}>
+        <AlertDialogContent className="max-w-sm text-center">
+          <AlertDialogHeader>
+            <p className="text-[32px] mb-2">🍩</p>
+            <AlertDialogTitle className="text-[14px]">Delete last story?</AlertDialogTitle>
+            <AlertDialogDescription className="text-[12px]">
               &ldquo;I bent my wookie!&rdquo; — This will cancel the run.
-            </p>
-            <div className="flex gap-3 justify-center pt-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setShowCancelConfirm(false)
-                  setPendingDeleteStory(null)
-                }}
-                className="text-[12px]"
-              >
-                Keep going
-              </Button>
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={confirmCancelRun}
-                className="text-[12px]"
-              >
-                Cancel run
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="justify-center sm:justify-center">
+            <AlertDialogCancel className="text-[12px]">Keep going</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmCancelRun}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 text-[12px]"
+            >
+              Cancel run
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

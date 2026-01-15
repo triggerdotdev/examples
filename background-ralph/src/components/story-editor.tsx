@@ -3,6 +3,16 @@
 import { useState } from "react"
 import type { Story } from "@/trigger/streams"
 import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { Label } from "@/components/ui/label"
 
 type Props = {
   story: Story
@@ -23,63 +33,54 @@ export function StoryEditor({ story, onSave, onCancel }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/50"
-        onClick={onCancel}
-      />
+    <Dialog open onOpenChange={(open) => !open && onCancel()}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Edit story</DialogTitle>
+        </DialogHeader>
 
-      {/* Modal */}
-      <div className="relative bg-white rounded-lg shadow-xl w-full max-w-lg mx-4 p-6">
-        <h2 className="text-lg font-semibold text-slate-800 mb-4">
-          Edit story
-        </h2>
+        <div className="space-y-4">
+          {/* ID (read-only) */}
+          <div>
+            <Label className="text-xs text-slate-500">ID</Label>
+            <div className="text-sm font-mono text-slate-400">{story.id}</div>
+          </div>
 
-        {/* ID (read-only) */}
-        <div className="mb-4">
-          <label className="block text-xs font-medium text-slate-500 mb-1">
-            ID
-          </label>
-          <div className="text-sm font-mono text-slate-400">{story.id}</div>
+          {/* Title */}
+          <div className="space-y-1.5">
+            <Label htmlFor="title" className="text-xs">Title</Label>
+            <Input
+              id="title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="text-sm"
+            />
+          </div>
+
+          {/* Acceptance criteria */}
+          <div className="space-y-1.5">
+            <Label htmlFor="acceptance" className="text-xs">
+              Acceptance criteria (one per line)
+            </Label>
+            <Textarea
+              id="acceptance"
+              value={acceptance}
+              onChange={(e) => setAcceptance(e.target.value)}
+              rows={6}
+              className="text-sm font-mono resize-none"
+            />
+          </div>
         </div>
 
-        {/* Title */}
-        <div className="mb-4">
-          <label className="block text-xs font-medium text-slate-500 mb-1">
-            Title
-          </label>
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            className="w-full px-3 py-2 border border-slate-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-
-        {/* Acceptance criteria */}
-        <div className="mb-6">
-          <label className="block text-xs font-medium text-slate-500 mb-1">
-            Acceptance criteria (one per line)
-          </label>
-          <textarea
-            value={acceptance}
-            onChange={(e) => setAcceptance(e.target.value)}
-            rows={6}
-            className="w-full px-3 py-2 border border-slate-200 rounded-md text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-          />
-        </div>
-
-        {/* Actions */}
-        <div className="flex justify-end gap-3">
+        <DialogFooter>
           <Button variant="outline" onClick={onCancel}>
             Cancel
           </Button>
           <Button onClick={handleSave}>
             Save
           </Button>
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

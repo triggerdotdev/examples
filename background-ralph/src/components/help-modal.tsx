@@ -1,6 +1,11 @@
 "use client"
 
-import { useEffect } from "react"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
 type Props = {
   isOpen: boolean
@@ -18,29 +23,12 @@ const shortcuts = [
 ]
 
 export function HelpModal({ isOpen, onClose }: Props) {
-  // Close on escape
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose()
-    }
-    if (isOpen) {
-      window.addEventListener("keydown", handleKeyDown)
-      return () => window.removeEventListener("keydown", handleKeyDown)
-    }
-  }, [isOpen, onClose])
-
-  if (!isOpen) return null
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-
-      {/* Modal */}
-      <div className="relative bg-white rounded-lg shadow-xl w-full max-w-sm mx-4 p-6">
-        <h2 className="text-lg font-semibold text-slate-800 mb-4">
-          Keyboard shortcuts
-        </h2>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Keyboard shortcuts</DialogTitle>
+        </DialogHeader>
 
         <div className="space-y-2">
           {shortcuts.map(({ key, action }) => (
@@ -52,14 +40,7 @@ export function HelpModal({ isOpen, onClose }: Props) {
             </div>
           ))}
         </div>
-
-        <button
-          onClick={onClose}
-          className="mt-6 w-full py-2 text-sm text-slate-600 hover:text-slate-800 border border-slate-200 rounded-md hover:bg-slate-50"
-        >
-          Close
-        </button>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }
