@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -37,6 +38,7 @@ export function StoryEditor({ story, onSave, onCancel }: Props) {
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Edit story</DialogTitle>
+          <DialogDescription>Modify the story title and acceptance criteria.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">

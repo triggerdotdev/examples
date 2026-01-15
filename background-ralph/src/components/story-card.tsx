@@ -18,6 +18,7 @@ type Props = {
 export function StoryCard({ story, status, diff, error, onEdit, onDelete, onRetry }: Props) {
   const [isDiffOpen, setIsDiffOpen] = useState(false)
   const [isErrorOpen, setIsErrorOpen] = useState(false)
+  const [isJsonOpen, setIsJsonOpen] = useState(false)
 
   const indicator = {
     pending: { icon: "○", color: "text-slate-400" },
@@ -39,16 +40,25 @@ export function StoryCard({ story, status, diff, error, onEdit, onDelete, onRetr
       <div className="flex items-center gap-3 mb-3">
         <span className={`text-base ${indicator.color}`}>{indicator.icon}</span>
         <span className="text-[11px] text-slate-400 font-mono tracking-wide">{story.id}</span>
-        {status === "in_progress" && (
-          <span className="ml-auto text-[11px] text-blue-500 font-medium animate-pulse">
-            working
-          </span>
-        )}
-        {status === "failed" && (
-          <span className="ml-auto text-[11px] text-red-500 font-medium">
-            failed
-          </span>
-        )}
+        <div className="ml-auto flex items-center gap-2">
+          {status === "in_progress" && (
+            <span className="text-[11px] text-blue-500 font-medium animate-pulse">
+              working
+            </span>
+          )}
+          {status === "failed" && (
+            <span className="text-[11px] text-red-500 font-medium">
+              failed
+            </span>
+          )}
+          <button
+            onClick={() => setIsJsonOpen(!isJsonOpen)}
+            className="text-[10px] px-1.5 py-0.5 rounded border border-slate-200 text-slate-400 hover:text-slate-600 hover:border-slate-300 transition-colors font-mono"
+            title="View JSON"
+          >
+            {"{}"}
+          </button>
+        </div>
       </div>
 
       {/* Title */}
@@ -132,6 +142,24 @@ export function StoryCard({ story, status, diff, error, onEdit, onDelete, onRetr
         <div className="mt-3 pt-3 border-t border-slate-100">
           <pre className="text-[10px] font-mono text-slate-600 bg-slate-100 p-2 rounded overflow-x-auto max-h-48 whitespace-pre">
             {diff}
+          </pre>
+        </div>
+      )}
+
+      {/* JSON viewer (collapsed by default) */}
+      {isJsonOpen && (
+        <div className="mt-3 pt-3 border-t border-slate-100">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[10px] text-slate-500 font-medium">Story JSON</span>
+            <button
+              onClick={() => navigator.clipboard.writeText(JSON.stringify(story, null, 2))}
+              className="text-[10px] text-slate-400 hover:text-slate-600"
+            >
+              Copy
+            </button>
+          </div>
+          <pre className="text-[10px] font-mono text-slate-600 bg-slate-100 p-2 rounded overflow-x-auto max-h-48 whitespace-pre">
+            {JSON.stringify(story, null, 2)}
           </pre>
         </div>
       )}

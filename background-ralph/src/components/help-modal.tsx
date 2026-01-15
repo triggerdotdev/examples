@@ -3,6 +3,7 @@
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
@@ -28,6 +29,7 @@ export function HelpModal({ isOpen, onClose }: Props) {
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle>Keyboard shortcuts</DialogTitle>
+          <DialogDescription>Quick actions for navigating and controlling Ralph.</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-2">

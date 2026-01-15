@@ -326,7 +326,7 @@ export function RunViewer({ runId, accessToken, onCancel }: Props) {
         <div className="border rounded-md bg-card p-6">
           <div className="flex items-center justify-center py-12">
             <div className="text-center space-y-3">
-              <div className="inline-block w-3 h-3 rounded-full bg-yellow-400 animate-blink" />
+              <span className="inline-block text-[24px] animate-blink">🍩</span>
               <p className="text-[13px] text-slate-500">Generating stories...</p>
             </div>
           </div>
