@@ -432,7 +432,13 @@ Current story (${storyNum}/${totalStories}): ${story.title}
 Acceptance criteria:
 ${story.acceptance.map((c, i) => `${i + 1}. ${c}`).join("\n")}
 
-Complete this story. When done, the acceptance criteria should be met. Use Read, Write, Edit, Bash tools to make changes.`
+Guidelines:
+- Use process.env for ALL config values (API keys, project IDs, secrets)
+- Create .env.example with placeholder values, never hardcode real values
+- Next.js 14+: App Router is default, do NOT use experimental.appDir
+- Prefer modern patterns from official docs over training data
+
+Complete this story. When done, the acceptance criteria should be met.`
 
         const agentResult = query({
           prompt: storyPrompt,
@@ -576,7 +582,41 @@ Complete this story. When done, the acceptance criteria should be met. Use Read,
             usage,
           })
 
-          // Continue to next story (don't block on failure)
+          // Approval gate on failure (unless yolo mode or last story)
+          const isLastStory = i === stories.length - 1
+          if (!yoloMode && !isLastStory) {
+            const token = await wait.createToken({ timeout: "24h" })
+
+            await appendChatMessage({
+              type: "approval",
+              id: `story-failed-${token.id}`,
+              tokenId: token.id,
+              publicAccessToken: token.publicAccessToken,
+              question: `Story "${story.title}" failed. Continue to "${stories[i + 1]?.title}" or stop?`,
+              variant: "story",
+              createdAt: Date.now(),
+              timeoutMs: 24 * 60 * 60 * 1000,
+            })
+
+            const result = await wait.forToken<{ action: "continue" | "stop" }>(token)
+
+            if (!result.ok || result.output.action === "stop") {
+              userStopped = true
+              await appendChatMessage({
+                type: "approval_response",
+                id: `story-failed-${token.id}`,
+                action: "Stopped",
+              })
+              break
+            } else {
+              await appendChatMessage({
+                type: "approval_response",
+                id: `story-failed-${token.id}`,
+                action: "Continue",
+              })
+            }
+          }
+
           continue
         }
 
