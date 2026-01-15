@@ -527,7 +527,11 @@ Complete this story. When done, the acceptance criteria should be met. Use Read,
           const pkgPath = join(repoPath, "package.json")
           const pkg = JSON.parse(await readFile(pkgPath, "utf-8"))
           if (pkg.scripts?.build) {
-            await execAsync(`npm run build`, { cwd: repoPath, timeout: 120000 })
+            await execAsync(`npm run build`, {
+              cwd: repoPath,
+              timeout: 120000,
+              env: { ...process.env, NODE_ENV: 'production' }
+            })
             logger.info("Build passed for story", { story: story.title })
           }
         } catch (error) {
