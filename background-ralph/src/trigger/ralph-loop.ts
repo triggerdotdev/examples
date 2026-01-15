@@ -255,9 +255,25 @@ export const ralphLoop = task({
       repoPath = result.path
       cleanup = result.cleanup
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown clone error"
-      await appendStatus({ type: "error", message: `Clone failed: ${message}` })
-      throw new Error(`Failed to clone repository: ${message}`)
+      const rawMessage = error instanceof Error ? error.message : "Unknown clone error"
+
+      // Parse git error and provide helpful hints
+      let hint = ""
+      if (rawMessage.includes("Authentication failed") || rawMessage.includes("could not read Username")) {
+        hint = githubToken
+          ? "The GITHUB_TOKEN may not have access to this repository."
+          : "This may be a private repo. Set GITHUB_TOKEN env var to access private repositories."
+      } else if (rawMessage.includes("not found") || rawMessage.includes("Repository not found")) {
+        hint = "Check that the repository URL is correct and the repo exists."
+      } else if (rawMessage.includes("Could not resolve host")) {
+        hint = "Network error. Check your internet connection and try again."
+      } else if (rawMessage.includes("timed out") || rawMessage.includes("Timeout")) {
+        hint = "Clone timed out. The repository may be very large, or there's a network issue."
+      }
+
+      const message = hint ? `Clone failed: ${rawMessage}\n\nHint: ${hint}` : `Clone failed: ${rawMessage}`
+      await appendStatus({ type: "error", message })
+      throw new Error(`Failed to clone repository: ${rawMessage}`)
     }
 
     await appendStatus({ type: "cloned", message: `Cloned to ${repoPath}` })
@@ -709,9 +725,21 @@ Complete this story. When done, the acceptance criteria should be met. Use Read,
             const message = prUrl ?? branchUrl
             await appendStatus({ type: "pushed", message, branchUrl, prUrl: prUrl ?? undefined })
           } catch (error) {
-            const message = error instanceof Error ? error.message : "Unknown push error"
-            logger.error("Failed to push", { error: message })
-            await appendStatus({ type: "push_failed", message: `Push failed: ${message}` })
+            const rawMessage = error instanceof Error ? error.message : "Unknown push error"
+            logger.error("Failed to push", { error: rawMessage })
+
+            // Parse push error and provide helpful hints
+            let hint = ""
+            if (rawMessage.includes("Permission denied") || rawMessage.includes("Authentication failed")) {
+              hint = "The GITHUB_TOKEN may not have push access. Check token permissions (needs 'repo' scope)."
+            } else if (rawMessage.includes("protected branch")) {
+              hint = "The target branch is protected. Try pushing to a different branch or update branch protection rules."
+            } else if (rawMessage.includes("Could not resolve host")) {
+              hint = "Network error. Check your internet connection and try again."
+            }
+
+            const message = hint ? `Push failed: ${rawMessage}\n\nHint: ${hint}` : `Push failed: ${rawMessage}`
+            await appendStatus({ type: "push_failed", message })
           }
         }
       }

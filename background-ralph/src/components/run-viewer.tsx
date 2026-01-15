@@ -176,9 +176,85 @@ export function RunViewer({ runId, accessToken, onCancel }: Props) {
           <p className="text-[12px] text-yellow-700 italic">&ldquo;Me fail English? That&apos;s unpossible!&rdquo;</p>
         </div>
       )}
-      {(run?.status === "FAILED" || run?.status === "CRASHED" || run?.status === "SYSTEM_FAILURE") && (
-        <div className="border border-red-300 bg-red-50 rounded-md p-3">
-          <p className="text-[12px] font-medium text-red-700">Run failed ({run.status})</p>
+      {(run?.status === "FAILED" || run?.status === "CRASHED" || run?.status === "SYSTEM_FAILURE") && (() => {
+        // Find error status and last action for context
+        const errorStatus = statusParts.find(s => s.type === "error")
+        const pushFailedStatus = statusParts.find(s => s.type === "push_failed")
+        const lastStatus = statusParts[statusParts.length - 1]
+        const errorMessage = errorStatus?.message ?? pushFailedStatus?.message
+
+        // Determine if this is a network-related error
+        const isNetworkError = errorMessage?.includes("Could not resolve host") ||
+          errorMessage?.includes("timed out") ||
+          errorMessage?.includes("Network error")
+
+        return (
+          <div className="border border-red-300 bg-red-50 rounded-md p-4 space-y-2">
+            <p className="text-[13px] font-medium text-red-700">
+              Run failed ({run.status})
+            </p>
+
+            {errorMessage && (
+              <pre className="text-[11px] text-red-600 whitespace-pre-wrap font-mono bg-red-100 p-2 rounded">
+                {errorMessage}
+              </pre>
+            )}
+
+            {!errorMessage && lastStatus && lastStatus.type !== "error" && (
+              <p className="text-[11px] text-red-600">
+                Last action: {lastStatus.type} — {lastStatus.message?.slice(0, 100)}
+              </p>
+            )}
+
+            <div className="pt-2 border-t border-red-200">
+              <p className="text-[11px] text-red-700 font-medium">Next steps:</p>
+              <ul className="text-[11px] text-red-600 list-disc ml-4 mt-1 space-y-0.5">
+                {isNetworkError && <li>Check your internet connection and try again</li>}
+                {errorMessage?.includes("GITHUB_TOKEN") && (
+                  <li>Verify your GITHUB_TOKEN has the correct permissions</li>
+                )}
+                {errorMessage?.includes("not found") && (
+                  <li>Double-check the repository URL is correct</li>
+                )}
+                {run.status === "CRASHED" && <li>Check Trigger.dev dashboard for detailed logs</li>}
+                <li>Start a new task to try again</li>
+              </ul>
+            </div>
+          </div>
+        )
+      })()}
+      {run?.status === "TIMED_OUT" && (
+        <div className="border border-orange-300 bg-orange-50 rounded-md p-4 space-y-2">
+          <p className="text-[13px] font-medium text-orange-700">
+            Run timed out
+          </p>
+          <p className="text-[11px] text-orange-600">
+            The task exceeded its maximum duration. This might happen with very large repositories or complex prompts.
+          </p>
+          <div className="pt-2 border-t border-orange-200">
+            <p className="text-[11px] text-orange-700 font-medium">Next steps:</p>
+            <ul className="text-[11px] text-orange-600 list-disc ml-4 mt-1 space-y-0.5">
+              <li>Try breaking the task into smaller pieces</li>
+              <li>Use fewer stories with more focused acceptance criteria</li>
+              <li>Start a new task to try again</li>
+            </ul>
+          </div>
+        </div>
+      )}
+      {run?.status === "EXPIRED" && (
+        <div className="border border-slate-300 bg-slate-50 rounded-md p-4 space-y-2">
+          <p className="text-[13px] font-medium text-slate-700">
+            Run expired
+          </p>
+          <p className="text-[11px] text-slate-600">
+            The waitpoint timed out while waiting for your response (24 hours).
+          </p>
+          <div className="pt-2 border-t border-slate-200">
+            <p className="text-[11px] text-slate-700 font-medium">Next steps:</p>
+            <ul className="text-[11px] text-slate-600 list-disc ml-4 mt-1 space-y-0.5">
+              <li>Start a new task and respond to approval prompts within 24 hours</li>
+            </ul>
+          </div>
         </div>
       )}
       {run?.status === "COMPLETED" && (() => {
