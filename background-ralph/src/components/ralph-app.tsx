@@ -13,6 +13,7 @@ import { Chat } from "@/components/chat"
 import { AsciiLogo } from "@/components/ascii-logo"
 import { HelpModal } from "@/components/help-modal"
 import { useKeyboardShortcuts } from "@/components/keyboard-handler"
+import { useResizableSidebar } from "@/hooks/use-resizable-sidebar"
 import type { ralphLoop } from "@/trigger/ralph-loop"
 
 const terminalStatuses = ["COMPLETED", "CANCELED", "FAILED", "CRASHED", "SYSTEM_FAILURE", "TIMED_OUT", "EXPIRED"]
@@ -35,6 +36,9 @@ export function RalphApp() {
   useKeyboardShortcuts({
     onHelp: () => setIsHelpOpen(true),
   })
+
+  // Resizable sidebar
+  const { width: sidebarWidth, isResizing, handleMouseDown } = useResizableSidebar()
 
   // Derive run state from URL
   const runIdFromUrl = searchParams.get("runId")
@@ -93,7 +97,10 @@ export function RalphApp() {
   return (
     <div className="flex h-screen">
       {/* Left sidebar */}
-      <aside className="w-80 shrink-0 border-r bg-card flex flex-col">
+      <aside
+        className="shrink-0 border-r bg-card flex flex-col relative"
+        style={{ width: sidebarWidth }}
+      >
         {/* ASCII Logo */}
         <div className="shrink-0 border-b">
           <AsciiLogo isRunning={isRunning} />
@@ -224,6 +231,14 @@ export function RalphApp() {
             <Chat runId={runState.runId} accessToken={runState.accessToken} />
           </div>
         )}
+
+        {/* Resize handle */}
+        <div
+          onMouseDown={handleMouseDown}
+          className={`absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary/20 transition-colors ${
+            isResizing ? "bg-primary/30" : ""
+          }`}
+        />
       </aside>
 
       {/* Right main area */}
