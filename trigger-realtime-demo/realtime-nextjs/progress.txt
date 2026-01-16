@@ -23,6 +23,15 @@ Completed: 2026-01-16
 Notes:
 - Created code-mappings.ts with progressMappings for UI element to code line mapping
 - CodeLink component wraps elements and handles click to setHighlight
-- data-code-id attributes on Button, "View stream definition", "View stream.write()" links
+- data-code-id attributes on Button, "View stream definition", "View stream.append()" links
 - Yellow background highlight via bg-yellow-500/20 class
 - scrollIntoView with smooth behavior already implemented in CodePanel
+
+## Progress tracking Trigger.dev task streams updates
+Completed: 2026-01-16
+Notes:
+- Created src/trigger/streams.ts with progressStream defined via streams.define<ProgressUpdate>()
+- Created src/trigger/tasks.ts with processDataTask that loops and appends progress updates
+- Task accepts { items: number } payload
+- Each update includes current, total, message via progressStream.append()
+- Uses await with 500ms delay to simulate work

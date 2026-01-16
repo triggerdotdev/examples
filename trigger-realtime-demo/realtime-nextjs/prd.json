@@ -52,7 +52,7 @@
       "title": "Progress tracking Trigger.dev task streams updates",
       "priority": 4,
       "dependencies": ["US-001"],
-      "passes": false,
+      "passes": true,
       "acceptance": [
         "progressStream defined with streams.define()",
         "processDataTask loops and writes progress updates",

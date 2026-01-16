@@ -25,7 +25,7 @@ export const progressMappings: Record<string, CodeMapping> = {
   "stream-write": {
     file: "task.ts",
     lines: [14, 19],
-    description: "progressStream.write() sends updates",
+    description: "progressStream.append() sends updates",
   },
   // Task definition
   "task-definition": {

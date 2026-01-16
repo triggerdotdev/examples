@@ -35,7 +35,7 @@ export function ProgressDemo() {
               className="underline decoration-dotted underline-offset-4"
               data-code-id="stream-write"
             >
-              View stream.write()
+              View stream.append()
             </span>
           </CodeLink>
         </div>

@@ -23,7 +23,7 @@ export const processDataTask = task({
       await new Promise((r) => setTimeout(r, 500))
 
       // Stream progress update
-      await progressStream.write({
+      await progressStream.append({
         current: i + 1,
         total,
         message: \`Processing item \${i + 1} of \${total}\`,
