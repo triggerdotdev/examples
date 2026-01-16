@@ -72,3 +72,11 @@ Notes:
 - Setup includes env vars (TRIGGER_SECRET_KEY) and trigger.config.ts project ref
 - Relevant code table maps features to source files
 - All headings in sentence case per style guide
+
+## Security review and deploy
+Completed: 2026-01-16
+Notes:
+- No secrets in client code: only useRealtimeStream imported client-side
+- Public tokens scoped correctly: { read: { runs: [handle.id] } } limits to specific run
+- TRIGGER_SECRET_KEY only on server: actions.ts has "use server", SDK reads from process.env
+- Deployment and environment testing requires manual user action

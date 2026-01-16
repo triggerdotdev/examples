@@ -122,7 +122,7 @@
       "title": "Security review and deploy",
       "priority": 9,
       "dependencies": ["US-008"],
-      "passes": false,
+      "passes": true,
       "acceptance": [
         "No secrets in client code",
         "Public tokens scoped correctly",
