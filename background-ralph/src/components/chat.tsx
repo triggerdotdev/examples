@@ -21,6 +21,7 @@ type Props = {
 type MessageBlock =
   | { type: "thinking"; content: string }
   | { type: "text"; content: string }
+  | { type: "status"; message: string; phase: "cloning" | "exploring" | "planning" }
   | { type: "tool"; id: string; name: string; input: string; complete: boolean }
   | {
       type: "story_separator";
@@ -80,6 +81,16 @@ function parseMessages(raw: string): MessageBlock[] {
         case "text":
           flushThinking();
           currentText += msg.delta;
+          break;
+
+        case "status":
+          flushThinking();
+          flushText();
+          blocks.push({
+            type: "status",
+            message: msg.message,
+            phase: msg.phase,
+          });
           break;
 
         case "tool_start":
@@ -459,21 +470,25 @@ export function Chat({ runId, accessToken }: Props) {
     accessToken,
   });
 
-  // Parse status updates and derive PRD
-  const currentPrd = useMemo(() => {
-    if (!rawStatusParts) return null;
+  // Parse status updates and derive PRD + current planning status
+  const { currentPrd, planningStatus } = useMemo(() => {
+    if (!rawStatusParts) return { currentPrd: null, planningStatus: null };
     let prd: Prd | null = null;
+    let planning: string | null = null;
     for (const part of rawStatusParts) {
       try {
         const status = JSON.parse(part) as StatusUpdate;
         if (status.type === "prd_generated" && status.prd) prd = status.prd;
         if (status.type === "prd_review" && status.prd && !prd)
           prd = status.prd;
+        if (status.type === "prd_planning" || status.type === "exploring" || status.type === "cloning") {
+          planning = status.message;
+        }
       } catch {
         // Ignore parse errors
       }
     }
-    return prd;
+    return { currentPrd: prd, planningStatus: planning };
   }, [rawStatusParts]);
 
   const rawOutput = outputParts?.join("") ?? "";
@@ -526,7 +541,10 @@ export function Chat({ runId, accessToken }: Props) {
 
   if (blocks.length === 0) {
     return (
-      <div className="p-4 text-[11px] text-slate-600">Waiting for agent...</div>
+      <div className="p-4 text-[11px] text-slate-600 flex items-center gap-2">
+        <span className="animate-spin">🍩</span>
+        {planningStatus ?? "Waiting for agent..."}
+      </div>
     );
   }
 
@@ -572,6 +590,17 @@ export function Chat({ runId, accessToken }: Props) {
                   className="prose prose-sm max-w-none text-[13px] leading-relaxed prose-pre:bg-slate-100 prose-pre:border prose-pre:border-slate-200 prose-pre:text-[11px] prose-code:text-slate-800"
                 >
                   <Streamdown>{block.content}</Streamdown>
+                </div>
+              );
+
+            case "status":
+              return (
+                <div
+                  key={i}
+                  className="flex items-center gap-2 py-2 text-[11px] text-slate-600"
+                >
+                  <span className="animate-spin">🍩</span>
+                  <span>{block.message}</span>
                 </div>
               );
 

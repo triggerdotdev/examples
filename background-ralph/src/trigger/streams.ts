@@ -33,6 +33,7 @@ export type StatusUpdate = {
     | "cloned"
     | "installing"
     | "exploring"
+    | "prd_planning"
     | "prd_generated"
     | "prd_review"
     | "working"
@@ -92,6 +93,7 @@ export async function appendStatus(status: StatusUpdate) {
 export type ChatMessage =
   | { type: "thinking"; delta: string }
   | { type: "text"; delta: string }
+  | { type: "status"; message: string; phase: "cloning" | "exploring" | "planning" }
   | { type: "tool_start"; id: string; name: string; file?: string; command?: string }
   | { type: "tool_input"; id: string; delta: string }
   | { type: "tool_end"; id: string }

@@ -268,8 +268,8 @@ export function RalphApp() {
               >
                 {isPending ? (
                   <span className="flex items-center justify-center gap-2">
-                    <span className="h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                    Preparing Ralph
+                    <span className="animate-spin">🍩</span>
+                    Readying Ralph
                   </span>
                 ) : "Start"}
               </Button>

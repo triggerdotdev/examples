@@ -1,6 +1,5 @@
 import { logger, task, wait } from "@trigger.dev/sdk";
 import { query } from "@anthropic-ai/claude-agent-sdk";
-import Anthropic from "@anthropic-ai/sdk";
 import { exec } from "child_process";
 import { promisify } from "util";
 import {
@@ -23,7 +22,6 @@ import {
 } from "./streams";
 
 const execAsync = promisify(exec);
-const anthropic = new Anthropic();
 
 export type RalphLoopPayload = {
   repoUrl: string;
@@ -157,34 +155,38 @@ async function exploreRepo(repoPath: string): Promise<string> {
   return parts.join("\n\n");
 }
 
-// Generate PRD from exploration + user prompt
+// Generate PRD from exploration + user prompt using Agent SDK (with WebSearch for docs)
+// Streams agent output to chat for visibility
 async function generatePrd(
   exploration: string,
   prompt: string,
   repoName: string,
+  streamWrite: (msg: string) => void,
 ): Promise<Prd> {
-  const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
-    max_tokens: 2000,
-    messages: [
-      {
-        role: "user",
-        content:
-          `You are generating a PRD (Product Requirements Document) for an autonomous coding agent.
+  const prdPrompt = `You are Ralph, an AI coding agent. You're planning the work for a task.
+
+CRITICAL: Before generating the PRD, you MUST search for documentation for any SDKs/services mentioned in the task.
+- Use WebSearch to find "[service/sdk] setup guide 2026" for each technology
+- Look for current import paths, configuration patterns, and API usage
+- This prevents outdated patterns that will break the build
 
 Repo exploration:
 ${exploration}
 
 User task: ${prompt}
 
+STEP 1: Search docs for any services/SDKs mentioned (Trigger.dev, Supabase, Stripe, etc.)
+STEP 2: Think through what needs to be done
+STEP 3: Generate the PRD with correct, current patterns from the docs
+
 IMPORTANT: Match story count to task complexity:
 - Simple tasks (create a file, add one thing, small tweak): 1 story only
 - Medium tasks (add a feature, fix a bug with multiple parts): 2-3 stories
-- Complex tasks (new system, multiple features, refactoring): 4-7 stories
+- Complex tasks (new system, multiple features, refactoring): 4-10 stories
 
 Do NOT over-engineer simple requests. "Create a file with X" = 1 story. "Add a button" = 1 story.
 
-Output valid JSON only, no markdown fences:
+After researching docs, output ONLY valid JSON (no markdown fences, no explanation):
 {
   "name": "${repoName}",
   "description": "brief description of the task",
@@ -201,31 +203,108 @@ Output valid JSON only, no markdown fences:
 Rules:
 - Stories should be in dependency order (later stories can depend on earlier ones)
 - Each story should be completable in 1-3 agent iterations
-- Acceptance criteria should be verifiable
+- Acceptance criteria should be verifiable and include correct import paths from docs
 - Use sequential IDs: US-001, US-002, etc.
 - Create process.env for all config values, including API keys, project IDs, secrets, and any other config values
-- Create an .env.example file with all config values`,
-      },
-    ],
+- Create an .env.example file with all config values`;
+
+  // Use Agent SDK with WebSearch to research docs before generating PRD
+  const agentResult = query({
+    prompt: prdPrompt,
+    options: {
+      model: "claude-sonnet-4-20250514",
+      maxTurns: 5, // Allow a few turns for doc searches
+      maxThinkingTokens: 10000, // Enable extended thinking
+      permissionMode: "acceptEdits",
+      allowedTools: ["WebSearch"],
+      includePartialMessages: true,
+    },
   });
 
-  const text = response.content[0];
-  if (text.type !== "text") {
-    throw new Error("Failed to generate PRD: no text response");
+  // Stream agent output to chat + collect final result
+  let finalResult = "";
+  let currentToolId: string | undefined;
+
+  for await (const message of agentResult) {
+    if (message.type === "stream_event") {
+      const event = message.event;
+
+      // Content block start - track tool use
+      if (event.type === "content_block_start") {
+        const block = event.content_block;
+        if (block.type === "tool_use") {
+          currentToolId = block.id;
+          const toolMsg: ChatMessage = {
+            type: "tool_start",
+            id: block.id,
+            name: block.name,
+          };
+          streamWrite(JSON.stringify(toolMsg) + "\n");
+        }
+      }
+
+      // Content block delta - text or tool input
+      if (event.type === "content_block_delta") {
+        const delta = event.delta;
+        if (delta.type === "text_delta") {
+          const textMsg: ChatMessage = {
+            type: "text",
+            delta: delta.text,
+          };
+          streamWrite(JSON.stringify(textMsg) + "\n");
+        } else if (delta.type === "thinking_delta") {
+          const thinkMsg: ChatMessage = {
+            type: "thinking",
+            delta: delta.thinking,
+          };
+          streamWrite(JSON.stringify(thinkMsg) + "\n");
+        } else if (delta.type === "input_json_delta" && currentToolId) {
+          const inputMsg: ChatMessage = {
+            type: "tool_input",
+            id: currentToolId,
+            delta: delta.partial_json,
+          };
+          streamWrite(JSON.stringify(inputMsg) + "\n");
+        }
+      }
+
+      // Content block stop - mark tool complete
+      if (event.type === "content_block_stop" && currentToolId) {
+        const endMsg: ChatMessage = {
+          type: "tool_end",
+          id: currentToolId,
+        };
+        streamWrite(JSON.stringify(endMsg) + "\n");
+        currentToolId = undefined;
+      }
+    }
+
+    if (message.type === "result" && message.subtype === "success") {
+      finalResult = message.result;
+    }
+  }
+
+  if (!finalResult) {
+    throw new Error("Failed to generate PRD: no result from agent");
   }
 
   try {
     // Try to parse, handling potential markdown fences
-    let jsonStr = text.text.trim();
+    let jsonStr = finalResult.trim();
     if (jsonStr.startsWith("```")) {
       jsonStr = jsonStr.replace(/^```json?\n?/, "").replace(/\n?```$/, "");
     }
-    const prd = JSON.parse(jsonStr) as Prd;
+    // Find JSON object in the result (agent might include other text)
+    const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new Error("No JSON object found in response");
+    }
+    const prd = JSON.parse(jsonMatch[0]) as Prd;
     // Ensure all stories start with passes: false
     prd.stories = prd.stories.map((s) => ({ ...s, passes: false }));
     return prd;
   } catch (e) {
-    logger.error("Failed to parse PRD JSON", { text: text.text, error: e });
+    logger.error("Failed to parse PRD JSON", { text: finalResult, error: e });
     throw new Error("Failed to parse PRD: invalid JSON from Claude");
   }
 }
@@ -295,6 +374,7 @@ export const ralphLoop = task({
 
     // Stream: cloning status
     await appendStatus({ type: "cloning", message: `Cloning ${repoUrl}...` });
+    await appendChatMessage({ type: "status", message: `Cloning ${repoUrl}...`, phase: "cloning" });
 
     let repoPath: string;
     let cleanup: () => Promise<void>;
@@ -353,15 +433,30 @@ export const ralphLoop = task({
         type: "exploring",
         message: "Exploring repo structure...",
       });
+      await appendChatMessage({ type: "status", message: "Exploring repo structure...", phase: "exploring" });
       const exploration = await exploreRepo(repoPath);
       logger.info("Repo exploration complete", {
         explorationLength: exploration.length,
       });
 
-      // Phase 2: Generate PRD
+      // Phase 2: Generate PRD (with docs research) - stream to chat
+      await appendStatus({
+        type: "prd_planning",
+        message: "Researching docs and planning stories...",
+      });
+      await appendChatMessage({ type: "status", message: "Researching docs and planning stories...", phase: "planning" });
       const parsed = parseGitHubUrl(repoUrl);
       const repoName = parsed?.repo ?? "task";
-      const prd = await generatePrd(exploration, prompt, repoName);
+
+      // Stream PRD agent output to chat
+      let generatedPrd: Prd | undefined;
+      const { waitUntilComplete } = agentOutputStream.writer({
+        execute: async ({ write }) => {
+          generatedPrd = await generatePrd(exploration, prompt, repoName, write);
+        },
+      });
+      await waitUntilComplete();
+      const prd = generatedPrd!;
       logger.info("PRD generated", { stories: prd.stories.length });
 
       // Phase 3: PRD review waitpoint
@@ -540,7 +635,15 @@ Complete this story. When done, the acceptance criteria should be met.`;
             maxTurns: maxTurnsPerStory,
             permissionMode: "acceptEdits",
             includePartialMessages: true,
-            allowedTools: ["Read", "Edit", "Write", "Bash", "Grep", "Glob"],
+            allowedTools: [
+              "Read",
+              "Edit",
+              "Write",
+              "Bash",
+              "Grep",
+              "Glob",
+              "WebSearch",
+            ],
           },
         });
 
