@@ -38,6 +38,7 @@
   "name": "background-ralph",
   "private": true,
   "scripts": {
+    "prebuild": "rm -rf .next",
     "build": "next build",
     "dev": "next dev",
     "dev:trigger": "trigger dev",
