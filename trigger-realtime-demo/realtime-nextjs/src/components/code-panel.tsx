@@ -83,7 +83,7 @@ function CodeBlock({ code, html, highlightLines }: CodeBlockProps) {
               key={i}
               data-line={lineNum}
               className={`flex transition-colors duration-200 ${
-                isHighlighted ? "bg-yellow-500/20" : "hover:bg-zinc-800/50"
+                isHighlighted ? "animate-highlight-pulse" : "hover:bg-zinc-800/50"
               }`}
             >
               <span className="w-12 text-right pr-4 py-0.5 text-zinc-600 select-none border-r border-zinc-800 bg-zinc-900/50">

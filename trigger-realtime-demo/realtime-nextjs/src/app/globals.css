@@ -123,3 +123,17 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Subtle pulse animation for code highlights */
+@keyframes highlight-pulse {
+  0% {
+    background-color: rgb(234 179 8 / 0.35);
+  }
+  100% {
+    background-color: rgb(234 179 8 / 0.2);
+  }
+}
+
+.animate-highlight-pulse {
+  animation: highlight-pulse 300ms ease-out forwards;
+}

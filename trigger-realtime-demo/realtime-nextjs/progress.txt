@@ -54,3 +54,12 @@ Notes:
 - handleTabChange sets manualTab and clears highlight via setHighlight(null)
 - Tab switching is immediate (no animation)
 - Fixed bug where clicking non-first tab would immediately switch back
+
+## Smooth scroll and highlight animations
+Completed: 2026-01-16
+Notes:
+- scrollIntoView with smooth behavior already in place from US-003
+- Added highlight-pulse keyframe animation in globals.css
+- Pulse goes from 35% opacity to 20% opacity over 300ms
+- transition-colors duration-200 on lines for hover state transitions
+- No jarring jumps - smooth scroll centers highlighted line

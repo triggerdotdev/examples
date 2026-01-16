@@ -93,7 +93,7 @@
       "title": "Smooth scroll and highlight animations",
       "priority": 7,
       "dependencies": ["US-006"],
-      "passes": false,
+      "passes": true,
       "acceptance": [
         "scrollIntoView with smooth behavior",
         "Highlight has subtle pulse animation on appear",
