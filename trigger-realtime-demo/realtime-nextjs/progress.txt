@@ -45,3 +45,12 @@ Notes:
 - Progress bar shows percentage calculated from current/total
 - Status message updates in realtime from latestUpdate.message
 - Clicking Start button highlights trigger code via CodeLink
+
+## Code panel auto-switches tabs when highlighting different file
+Completed: 2026-01-16
+Notes:
+- Added manualTab state to track user's tab selection when no highlight is active
+- activeFile derived from: highlight?.file || manualTab || files[0]?.name (priority order)
+- handleTabChange sets manualTab and clears highlight via setHighlight(null)
+- Tab switching is immediate (no animation)
+- Fixed bug where clicking non-first tab would immediately switch back

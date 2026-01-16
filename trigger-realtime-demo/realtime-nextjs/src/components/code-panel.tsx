@@ -2,7 +2,7 @@
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useSplitViewer } from "./split-viewer"
-import { useRef, useEffect } from "react"
+import { useRef, useEffect, useState } from "react"
 
 export type CodeFile = {
   name: string
@@ -17,12 +17,21 @@ type CodePanelProps = {
 
 export function CodePanel({ files }: CodePanelProps) {
   const { highlight, setHighlight } = useSplitViewer()
-  const activeFile = highlight?.file || files[0]?.name
+  // Track manually selected tab - only used when highlight is null
+  const [manualTab, setManualTab] = useState<string | null>(null)
+
+  // Derive active file: highlight takes priority, then manual selection, then first file
+  const activeFile = highlight?.file || manualTab || files[0]?.name
+
+  const handleTabChange = (newTab: string) => {
+    setManualTab(newTab)
+    setHighlight(null) // Clear highlight when manually switching tabs
+  }
 
   return (
     <Tabs
       value={activeFile}
-      onValueChange={() => setHighlight(null)}
+      onValueChange={handleTabChange}
       className="h-full flex flex-col"
     >
       <TabsList className="rounded-none bg-zinc-900 border-b border-zinc-800 justify-start px-2 h-10">

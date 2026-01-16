@@ -80,7 +80,7 @@
       "title": "Code panel auto-switches tabs when highlighting different file",
       "priority": 6,
       "dependencies": ["US-005"],
-      "passes": false,
+      "passes": true,
       "acceptance": [
         "Setting highlight to different file switches active tab",
         "Tab switch is immediate (no animation needed)",
