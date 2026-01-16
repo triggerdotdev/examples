@@ -5,9 +5,6 @@ import { useRealtimeRun, useRealtimeStream } from "@trigger.dev/react-hooks"
 import { statusStream, type StatusUpdate, type Prd, type Story } from "@/trigger/streams"
 import { KanbanBoard } from "./kanban-board"
 import { StoryEditor } from "./story-editor"
-import { HelpModal } from "./help-modal"
-import { ShortcutFooter } from "./shortcut-footer"
-import { useKeyboardShortcuts } from "./keyboard-handler"
 import type { ralphLoop } from "@/trigger/ralph-loop"
 import { Button } from "@/components/ui/button"
 import {
@@ -32,8 +29,6 @@ const terminalStatuses = ["COMPLETED", "CANCELED", "FAILED", "CRASHED", "SYSTEM_
 export function RunViewer({ runId, accessToken, onCancel }: Props) {
   const [editingStory, setEditingStory] = useState<Story | null>(null)
   const [localPrdOverride, setLocalPrdOverride] = useState<Prd | null>(null)
-  const [showHelp, setShowHelp] = useState(false)
-  const [selectedStoryIndex, setSelectedStoryIndex] = useState(0)
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
   const [pendingDeleteStory, setPendingDeleteStory] = useState<Story | null>(null)
 
@@ -132,33 +127,11 @@ export function RunViewer({ runId, accessToken, onCancel }: Props) {
     return acc
   }, undefined)
 
-  // Get pending stories for keyboard navigation
-  const pendingStories = currentPrd?.stories.filter(s =>
-    !completedStoryIds.has(s.id) && s.id !== currentStoryId
-  ) ?? []
-
-  // Keyboard shortcuts
-  useKeyboardShortcuts({
-    onHelp: () => setShowHelp(true),
-    onEdit: () => {
-      const story = pendingStories[selectedStoryIndex]
-      if (story) setEditingStory(story)
-    },
-    onNavigateUp: () => {
-      setSelectedStoryIndex(Math.max(0, selectedStoryIndex - 1))
-    },
-    onNavigateDown: () => {
-      setSelectedStoryIndex(Math.min(pendingStories.length - 1, selectedStoryIndex + 1))
-    },
-    disabled: !!editingStory || showHelp,
-  })
-
   // Handle run error
   if (runError) {
     return (
       <div className="p-6">
         <p className="text-red-600">Error loading run: {runError.message}</p>
-        <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} />
       </div>
     )
   }
@@ -301,15 +274,6 @@ export function RunViewer({ runId, accessToken, onCancel }: Props) {
         </details>
       )}
 
-      {/* Footer with shortcuts */}
-      {currentPrd && (
-        <ShortcutFooter
-          completedCount={completedStoryIds.size}
-          totalCount={currentPrd.stories.length}
-          onHelp={() => setShowHelp(true)}
-        />
-      )}
-
       {/* Modals */}
       {editingStory && (
         <StoryEditor
@@ -318,11 +282,6 @@ export function RunViewer({ runId, accessToken, onCancel }: Props) {
           onCancel={() => setEditingStory(null)}
         />
       )}
-
-      <HelpModal
-        isOpen={showHelp}
-        onClose={() => setShowHelp(false)}
-      />
 
       {/* Cancel confirmation dialog */}
       <AlertDialog open={showCancelConfirm} onOpenChange={(open) => {

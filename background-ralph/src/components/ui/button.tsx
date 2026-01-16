@@ -9,9 +9,9 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        // Simpsons-style: 200 base, 300 border, 900 text, hover +100
+        // Green primary: green bg, green border, light green text
         default:
-          "bg-yellow-200 text-yellow-900 border-2 border-yellow-300 shadow-sm hover:bg-yellow-300 focus-visible:ring-yellow-400",
+          "bg-green-600 text-green-100 border-2 border-green-500 shadow-sm hover:bg-green-700 focus-visible:ring-green-400",
         destructive:
           "bg-rose-200 text-rose-900 border-2 border-rose-300 shadow-sm hover:bg-rose-300 focus-visible:ring-rose-400",
         outline:

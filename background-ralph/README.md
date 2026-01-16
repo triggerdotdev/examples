@@ -84,7 +84,6 @@ Realtime streams provide live updates:
 | Kanban board component | [`src/components/kanban-board.tsx`](src/components/kanban-board.tsx) |
 | Streaming markdown output | [`src/components/agent-output.tsx`](src/components/agent-output.tsx) |
 | Story editor modal | [`src/components/story-editor.tsx`](src/components/story-editor.tsx) |
-| Keyboard shortcuts | [`src/components/keyboard-handler.tsx`](src/components/keyboard-handler.tsx) |
 | Server action to trigger run | [`src/app/actions.ts`](src/app/actions.ts) |
 | Input validation schemas | [`src/lib/schemas.ts`](src/lib/schemas.ts) |
 

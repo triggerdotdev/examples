@@ -34,13 +34,13 @@ export function AsciiLogo({ isRunning = false }: Props) {
   return (
     <div
       className={`flex pl-6 flex-col items-start gap-2 transition-all duration-500 ease-out overflow-hidden ${
-        isRunning ? "py-2" : "py-4"
+        isRunning ? "" : "py-4"
       }`}
     >
       <pre
         className={`font-mono text-muted-foreground select-none whitespace-pre transition-all duration-500 ease-out origin-center ${
           isRunning
-            ? "text-[5px] leading-[5px] scale-0 rotate-360"
+            ? "text-[5px] leading-[5px] scale-75 rotate-360"
             : "text-[10px] leading-[10px]"
         }`}
       >
@@ -51,7 +51,7 @@ export function AsciiLogo({ isRunning = false }: Props) {
           isRunning ? "opacity-0 h-0 overflow-hidden" : "opacity-100"
         }`}
       >
-        <div className="text-[18px] font-display text-foreground tracking-wide">
+        <div className=" text-2xl sm:text-3xl font-display text-foreground tracking-wide">
           Background Ralph
         </div>
         <div className="text-[11px] text-muted-foreground">

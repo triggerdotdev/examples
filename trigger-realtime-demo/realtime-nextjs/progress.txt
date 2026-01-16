@@ -1,0 +1,19 @@
+## Project setup with split-screen shell
+Completed: 2026-01-16
+Notes:
+- Next.js 14+ with App Router configured
+- Trigger.dev SDK 4.3.2 installed
+- shadcn/ui initialized with button, card, tabs components
+- SplitViewer component renders 50/50 layout with context for highlight state
+- Homepage lists 3 example cards (progress-tracking active, others coming soon)
+- CodePanel component with file tabs and line numbers
+- Shiki highlighter set up (github-dark theme as placeholder)
+
+## Code panel renders Shiki-highlighted code with line numbers
+Completed: 2026-01-16
+Notes:
+- Shiki highlights TypeScript code server-side in page.tsx (async server component)
+- Using tokyo-night theme (Trigger.dark theme not found in npm or Trigger.dev repos)
+- Each line shows line number on left with zinc-600 color
+- File tabs switch between task.ts, streams.ts, actions.ts
+- ShikiLine component extracts individual lines from Shiki HTML output

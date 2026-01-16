@@ -11,8 +11,6 @@ import { Label } from "@/components/ui/label"
 import { RunViewer } from "@/components/run-viewer"
 import { Chat } from "@/components/chat"
 import { AsciiLogo } from "@/components/ascii-logo"
-import { HelpModal } from "@/components/help-modal"
-import { useKeyboardShortcuts } from "@/components/keyboard-handler"
 import { useResizableSidebar } from "@/hooks/use-resizable-sidebar"
 import { statusStream, type StatusUpdate, type TokenUsage } from "@/trigger/streams"
 import type { ralphLoop } from "@/trigger/ralph-loop"
@@ -50,14 +48,8 @@ export function RalphApp() {
   const searchParams = useSearchParams()
   const [error, setError] = useState<string>()
   const [isPending, setIsPending] = useState(false)
-  const [isHelpOpen, setIsHelpOpen] = useState(false)
   const [isCanceling, setIsCanceling] = useState(false)
   const [cancelError, setCancelError] = useState<string>()
-
-  // Keyboard shortcut for ? (help modal)
-  useKeyboardShortcuts({
-    onHelp: () => setIsHelpOpen(true),
-  })
 
   // Resizable sidebar
   const { width: sidebarWidth, isResizing, handleMouseDown } = useResizableSidebar()
@@ -316,8 +308,6 @@ export function RalphApp() {
         )}
       </main>
 
-      {/* Help modal */}
-      <HelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
     </div>
   )
 }

@@ -2,7 +2,6 @@
 
 import { useRef, useEffect, useState, useMemo } from "react";
 import { useRealtimeStream, useWaitToken } from "@trigger.dev/react-hooks";
-import { useKeyboardShortcuts } from "@/components/keyboard-handler";
 import { Streamdown } from "streamdown";
 import {
   agentOutputStream,
@@ -39,19 +38,7 @@ type MessageBlock =
       createdAt?: number;
       timeoutMs?: number;
     }
-  | { type: "approval_response"; id: string; action: string }
-  | { type: "complete"; prUrl?: string; prTitle?: string; branchUrl?: string };
-
-const ralphCompleteQuotes = [
-  "I'm a star! A big, bright, shining star!",
-  "I done did it good!",
-  "My code tastes like burning... success!",
-  "I'm learnding to program!",
-  "Go banana! I mean... go code!",
-  "That's where I saw the leprechaun. He told me to write this code.",
-  "I won! I won! Do I get a prize?",
-  "Hi Super Nintendo Chalmers! Look what I made!",
-];
+  | { type: "approval_response"; id: string; action: string };
 
 // Parse NDJSON output into structured message blocks
 function parseMessages(raw: string): MessageBlock[] {
@@ -160,17 +147,6 @@ function parseMessages(raw: string): MessageBlock[] {
             type: "approval_response",
             id: msg.id,
             action: msg.action,
-          });
-          break;
-
-        case "complete":
-          flushThinking();
-          flushText();
-          blocks.push({
-            type: "complete",
-            prUrl: msg.prUrl,
-            prTitle: msg.prTitle,
-            branchUrl: msg.branchUrl,
           });
           break;
       }
@@ -308,7 +284,7 @@ function StoryApprovalButtons({
   });
 
   async function handleAction(
-    action: "continue" | "stop" | "yolo"
+    action: "continue" | "stop" | "approve_complete"
   ) {
     setIsSubmitting(true);
     setError(undefined);
@@ -320,6 +296,8 @@ function StoryApprovalButtons({
     }
   }
 
+  const isDisabled = isSubmitting || responded;
+
   return (
     <div className="my-3 p-3 border border-yellow-500/30 bg-yellow-500/5 rounded-md">
       <div className="flex items-center justify-between mb-3">
@@ -329,35 +307,33 @@ function StoryApprovalButtons({
         )}
       </div>
       {error && <p className="text-[11px] text-red-400 mb-2">{error}</p>}
-      {!responded && (
-        <div className="flex gap-2 flex-wrap">
-          <Button
-            size="sm"
-            onClick={() => handleAction("continue")}
-            disabled={isSubmitting}
-            className="h-7 min-h-7 text-[11px] px-3"
-          >
-            {isSubmitting ? "..." : "Next story"}
-          </Button>
-          <Button
-            size="sm"
-            onClick={() => handleAction("yolo")}
-            disabled={isSubmitting}
-            className="h-7 min-h-7 text-[11px] px-3 bg-green-200 text-green-900 border-green-300 hover:bg-green-300"
-          >
-            {isSubmitting ? "..." : "Yolo mode"}
-          </Button>
-          <Button
-            size="sm"
-            variant="destructive"
-            onClick={() => handleAction("stop")}
-            disabled={isSubmitting}
-            className="h-7 min-h-7 text-[11px] px-3"
-          >
-            {isSubmitting ? "..." : "Cancel"}
-          </Button>
-        </div>
-      )}
+      <div className="flex gap-2 flex-wrap">
+        <Button
+          size="sm"
+          onClick={() => handleAction("continue")}
+          disabled={isDisabled}
+          className="h-7 text-[11px] px-3"
+        >
+          {isSubmitting ? "..." : "Continue"}
+        </Button>
+        <Button
+          size="sm"
+          onClick={() => handleAction("approve_complete")}
+          disabled={isDisabled}
+          className="h-7 text-[11px] px-3 bg-green-600 hover:bg-green-700"
+        >
+          {isSubmitting ? "..." : "Approve & Complete"}
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => handleAction("stop")}
+          disabled={isDisabled}
+          className="h-7 text-[11px] px-3"
+        >
+          {isSubmitting ? "..." : "Stop"}
+        </Button>
+      </div>
     </div>
   );
 }
@@ -418,7 +394,7 @@ function PrdApprovalButton({
           size="sm"
           onClick={handleApprove}
           disabled={isDisabled}
-          className="h-7 min-h-7 text-[11px] px-3 bg-green-200 text-green-900 border-green-300 hover:bg-green-300"
+          className="h-7 text-[11px] px-3 bg-green-600 hover:bg-green-700"
         >
           {isSubmitting ? "Starting..." : "Approve & Start"}
         </Button>
@@ -532,25 +508,6 @@ export function Chat({ runId, accessToken }: Props) {
     return null;
   }, [blocks, respondedApprovals]);
 
-  // Hook for keyboard-triggered approvals
-  const { complete: keyboardComplete } = useWaitToken(
-    pendingStoryApproval?.tokenId ?? "",
-    {
-      accessToken: pendingStoryApproval?.publicAccessToken ?? "",
-      enabled: !!pendingStoryApproval,
-    }
-  );
-
-  // Keyboard shortcuts for C (continue) and S (stop)
-  useKeyboardShortcuts({
-    onHelp: () => {}, // Handled by RalphApp
-    onContinue: pendingStoryApproval
-      ? () => keyboardComplete({ action: "continue" })
-      : undefined,
-    onStop: pendingStoryApproval
-      ? () => keyboardComplete({ action: "stop" })
-      : undefined,
-  });
 
   // Auto-scroll when new content arrives (if not paused)
   useEffect(() => {
@@ -612,7 +569,7 @@ export function Chat({ runId, accessToken }: Props) {
               return (
                 <div
                   key={i}
-                  className="prose prose-sm max-w-none text-[13px] leading-relaxed prose-pre:bg-slate-100 prose-pre:border prose-pre:border-slate-200 prose-pre:text-[11px] prose-code:text-slate-800 prose-h1:text-[14px] prose-h2:text-[14px] prose-h3:text-[14px] prose-h1:font-semibold prose-h2:font-semibold prose-h3:font-medium"
+                  className="prose prose-sm max-w-none text-[13px] leading-relaxed prose-pre:bg-slate-100 prose-pre:border prose-pre:border-slate-200 prose-pre:text-[11px] prose-code:text-slate-800"
                 >
                   <Streamdown>{block.content}</Streamdown>
                 </div>
@@ -673,43 +630,6 @@ export function Chat({ runId, accessToken }: Props) {
                   className="my-2 px-3 py-2 text-[11px] text-green-600 bg-green-50 border border-green-200 rounded"
                 >
                   ✓ {block.action}
-                </div>
-              );
-
-            case "complete":
-              const quote = ralphCompleteQuotes[(block.prUrl || block.branchUrl || "")
-                .split("").reduce((a, c) => a + c.charCodeAt(0), 0) % ralphCompleteQuotes.length];
-              return (
-                <div key={i} className="my-4 border border-green-400 bg-green-50 rounded-md p-4">
-                  <div className="flex flex-col gap-2">
-                    <div className="flex items-center justify-between">
-                      <p className="text-[13px] font-medium text-green-800">Changes complete</p>
-                      {block.prUrl && (
-                        <a
-                          href={block.prUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-[12px] px-3 py-1.5 bg-green-600 text-white rounded font-medium hover:bg-green-700 transition-colors flex items-center gap-1.5"
-                        >
-                          <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
-                          View pull request
-                        </a>
-                      )}
-                      {!block.prUrl && block.branchUrl && (
-                        <a
-                          href={block.branchUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-[12px] px-3 py-1.5 bg-blue-600 text-white rounded font-medium hover:bg-blue-700 transition-colors"
-                        >
-                          View Branch →
-                        </a>
-                      )}
-                    </div>
-                    <p className="text-[12px] text-green-600 italic">
-                      &ldquo;{quote}&rdquo;
-                    </p>
-                  </div>
                 </div>
               );
           }

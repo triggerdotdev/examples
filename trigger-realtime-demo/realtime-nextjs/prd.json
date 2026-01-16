@@ -1,0 +1,135 @@
+{
+  "name": "realtime-streams-examples",
+  "description": "Interactive split-screen code viewer showcasing Trigger.dev Realtime Streams v2 patterns",
+  "deadline": "2026-01-23",
+  "created": "2026-01-16",
+  "stories": [
+    {
+      "id": "US-001",
+      "title": "Project setup with split-screen shell",
+      "priority": 1,
+      "dependencies": [],
+      "passes": true,
+      "acceptance": [
+        "Next.js 14+ with App Router configured",
+        "Trigger.dev SDK 4.x installed",
+        "shadcn/ui initialized with button, card, tabs",
+        "SplitViewer component renders 50/50 layout",
+        "Homepage lists examples with cards",
+        "pnpm build passes"
+      ]
+    },
+    {
+      "id": "US-002",
+      "title": "Code panel renders Shiki-highlighted code with line numbers",
+      "priority": 2,
+      "dependencies": ["US-001"],
+      "passes": true,
+      "acceptance": [
+        "Shiki highlights TypeScript code server-side",
+        "Use the official Trigger.dark theme by trigger.dev to highlight code",
+        "Each line shows line number on left",
+        "File tabs switch between task.ts, streams.ts, actions.ts",
+        "Code is readable and properly formatted"
+      ]
+    },
+    {
+      "id": "US-003",
+      "title": "Click UI element highlights corresponding code lines",
+      "priority": 3,
+      "dependencies": ["US-002"],
+      "passes": false,
+      "acceptance": [
+        "data-code-id attribute on interactive elements",
+        "code-mappings.ts maps IDs to file + line ranges",
+        "Clicking element sets highlight in context",
+        "Highlighted lines show yellow background",
+        "Panel scrolls to highlighted lines"
+      ]
+    },
+    {
+      "id": "US-004",
+      "title": "Progress tracking Trigger.dev task streams updates",
+      "priority": 4,
+      "dependencies": ["US-001"],
+      "passes": false,
+      "acceptance": [
+        "progressStream defined with streams.define()",
+        "processDataTask loops and writes progress updates",
+        "Task accepts { items: number } payload",
+        "Each update includes current, total, message",
+        "Task works in dev environment"
+      ]
+    },
+    {
+      "id": "US-005",
+      "title": "Progress demo UI shows realtime updates from task",
+      "priority": 5,
+      "dependencies": ["US-003", "US-004"],
+      "passes": false,
+      "acceptance": [
+        "Start Task button triggers task via server action",
+        "useRealtimeStream hook receives progress updates",
+        "Progress bar shows current/total percentage",
+        "Status message updates in realtime",
+        "Clicking Start highlights trigger code, progress highlights stream code"
+      ]
+    },
+    {
+      "id": "US-006",
+      "title": "Code panel auto-switches tabs when highlighting different file",
+      "priority": 6,
+      "dependencies": ["US-005"],
+      "passes": false,
+      "acceptance": [
+        "Setting highlight to different file switches active tab",
+        "Tab switch is immediate (no animation needed)",
+        "Manual tab clicks still work",
+        "Switching tabs clears highlight state"
+      ]
+    },
+    {
+      "id": "US-007",
+      "title": "Smooth scroll and highlight animations",
+      "priority": 7,
+      "dependencies": ["US-006"],
+      "passes": false,
+      "acceptance": [
+        "scrollIntoView with smooth behavior",
+        "Highlight has subtle pulse animation on appear",
+        "Transition duration feels responsive (200-300ms)",
+        "No jarring jumps"
+      ]
+    },
+    {
+      "id": "US-008",
+      "title": "Write README with all 7 sections",
+      "priority": 8,
+      "dependencies": ["US-007"],
+      "passes": false,
+      "acceptance": [
+        "Project title + short descriptor",
+        "Overview (1-3 sentences, embed demo gif if exists)",
+        "Tech stack (bullet list with links)",
+        "Setup & running locally (complete guide)",
+        "How it works (Trigger.dev orchestration explained)",
+        "Relevant code (capabilities mapped to files)",
+        "Learn more (links to Trigger.dev docs)"
+      ]
+    },
+    {
+      "id": "US-009",
+      "title": "Security review and deploy",
+      "priority": 9,
+      "dependencies": ["US-008"],
+      "passes": false,
+      "acceptance": [
+        "No secrets in client code",
+        "Public tokens scoped correctly",
+        "TRIGGER_SECRET_KEY only on server",
+        "Vercel preview deployment works",
+        "Both dev and prod environments tested"
+      ]
+    }
+  ]
+}
