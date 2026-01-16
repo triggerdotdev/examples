@@ -38,7 +38,7 @@
       "title": "Click UI element highlights corresponding code lines",
       "priority": 3,
       "dependencies": ["US-002"],
-      "passes": false,
+      "passes": true,
       "acceptance": [
         "data-code-id attribute on interactive elements",
         "code-mappings.ts maps IDs to file + line ranges",

@@ -17,3 +17,12 @@ Notes:
 - Each line shows line number on left with zinc-600 color
 - File tabs switch between task.ts, streams.ts, actions.ts
 - ShikiLine component extracts individual lines from Shiki HTML output
+
+## Click UI element highlights corresponding code lines
+Completed: 2026-01-16
+Notes:
+- Created code-mappings.ts with progressMappings for UI element to code line mapping
+- CodeLink component wraps elements and handles click to setHighlight
+- data-code-id attributes on Button, "View stream definition", "View stream.write()" links
+- Yellow background highlight via bg-yellow-500/20 class
+- scrollIntoView with smooth behavior already implemented in CodePanel
