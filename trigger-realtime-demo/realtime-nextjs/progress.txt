@@ -35,3 +35,13 @@ Notes:
 - Task accepts { items: number } payload
 - Each update includes current, total, message via progressStream.append()
 - Uses await with 500ms delay to simulate work
+
+## Progress demo UI shows realtime updates from task
+Completed: 2026-01-16
+Notes:
+- Created server action startProcessing() in actions.ts that triggers task and returns runId + token
+- ProgressDemo uses useState for runState (runId + token) and isStarting loading state
+- ProgressDisplay component uses useRealtimeStream(progressStream, runId, { accessToken })
+- Progress bar shows percentage calculated from current/total
+- Status message updates in realtime from latestUpdate.message
+- Clicking Start button highlights trigger code via CodeLink
