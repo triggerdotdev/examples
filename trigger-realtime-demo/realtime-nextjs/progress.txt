@@ -63,3 +63,12 @@ Notes:
 - Pulse goes from 35% opacity to 20% opacity over 300ms
 - transition-colors duration-200 on lines for hover state transitions
 - No jarring jumps - smooth scroll centers highlighted line
+
+## Write README with all 7 sections
+Completed: 2026-01-16
+Notes:
+- All 7 sections: title, overview, tech stack, setup, how it works, relevant code, learn more
+- ASCII diagram shows data flow: Browser → Server Action → Trigger.dev → Stream back
+- Setup includes env vars (TRIGGER_SECRET_KEY) and trigger.config.ts project ref
+- Relevant code table maps features to source files
+- All headings in sentence case per style guide
