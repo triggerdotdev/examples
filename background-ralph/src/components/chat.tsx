@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef, useEffect, useState, useMemo } from "react";
-import { useRouter } from "next/navigation";
 import { useRealtimeStream, useWaitToken } from "@trigger.dev/react-hooks";
 import { Streamdown } from "streamdown";
 import {
@@ -421,7 +420,6 @@ function PrdApprovalButton({
   timeoutMs?: number;
   storyCount: number;
 }) {
-  const router = useRouter();
   const [submittedAction, setSubmittedAction] = useState<"start" | "yolo" | null>(null);
   const [error, setError] = useState<string>();
   const { complete } = useWaitToken(tokenId, {
@@ -434,10 +432,10 @@ function PrdApprovalButton({
   useEffect(() => {
     if (prd) return; // PRD loaded, no need to refresh
     const timer = setTimeout(() => {
-      router.refresh();
+      window.location.reload();
     }, 2000);
     return () => clearTimeout(timer);
-  }, [prd, router]);
+  }, [prd]);
 
   async function handleApprove(yolo: boolean) {
     if (!prd) return; // Wait for PRD to load
