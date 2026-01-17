@@ -51,7 +51,7 @@ export function AsciiLogo({ isRunning = false }: Props) {
           isRunning ? "opacity-0 h-0 overflow-hidden" : "opacity-100"
         }`}
       >
-        <div className=" text-2xl sm:text-3xl font-display text-foreground tracking-wide">
+        <div className=" text-2xl sm:text-3xl font-display  tracking-wide text-blue-600">
           Background Ralph
         </div>
         <div className="text-[11px] text-muted-foreground">

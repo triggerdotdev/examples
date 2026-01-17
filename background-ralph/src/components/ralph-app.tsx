@@ -1,131 +1,156 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
-import { useRealtimeRun, useRealtimeStream } from "@trigger.dev/react-hooks"
-import { submitTask, cancelRun } from "@/app/actions"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Label } from "@/components/ui/label"
-import { RunViewer } from "@/components/run-viewer"
-import { Chat } from "@/components/chat"
-import { AsciiLogo } from "@/components/ascii-logo"
-import { useResizableSidebar } from "@/hooks/use-resizable-sidebar"
-import { statusStream, type StatusUpdate, type TokenUsage } from "@/trigger/streams"
-import type { ralphLoop } from "@/trigger/ralph-loop"
+import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useRealtimeRun, useRealtimeStream } from "@trigger.dev/react-hooks";
+import { submitTask, cancelRun } from "@/app/actions";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { RunViewer } from "@/components/run-viewer";
+import { Chat } from "@/components/chat";
+import { AsciiLogo } from "@/components/ascii-logo";
+import { useResizableSidebar } from "@/hooks/use-resizable-sidebar";
+import {
+  statusStream,
+  type StatusUpdate,
+  type TokenUsage,
+} from "@/trigger/streams";
+import type { ralphLoop } from "@/trigger/ralph-loop";
 
 // Claude Sonnet 4 pricing (per 1M tokens)
 const PRICING = {
-  input: 3.0,       // $3/MTok
-  output: 15.0,     // $15/MTok
-  cacheRead: 0.3,   // $0.30/MTok (10% of input)
-}
+  input: 3.0, // $3/MTok
+  output: 15.0, // $15/MTok
+  cacheRead: 0.3, // $0.30/MTok (10% of input)
+};
 
 function formatTokens(count: number): string {
-  if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(1)}M`
-  if (count >= 1_000) return `${(count / 1_000).toFixed(1)}K`
-  return count.toString()
+  if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(1)}M`;
+  if (count >= 1_000) return `${(count / 1_000).toFixed(1)}K`;
+  return count.toString();
 }
 
 function calculateCost(usage: TokenUsage): number {
-  const inputCost = (usage.inputTokens / 1_000_000) * PRICING.input
-  const outputCost = (usage.outputTokens / 1_000_000) * PRICING.output
-  const cacheReadCost = (usage.cacheReadTokens / 1_000_000) * PRICING.cacheRead
+  const inputCost = (usage.inputTokens / 1_000_000) * PRICING.input;
+  const outputCost = (usage.outputTokens / 1_000_000) * PRICING.output;
+  const cacheReadCost = (usage.cacheReadTokens / 1_000_000) * PRICING.cacheRead;
   // Cache creation tokens are charged at input rate (included in inputTokens)
-  return inputCost + outputCost + cacheReadCost
+  return inputCost + outputCost + cacheReadCost;
 }
 
-const terminalStatuses = ["COMPLETED", "CANCELED", "FAILED", "CRASHED", "SYSTEM_FAILURE", "TIMED_OUT", "EXPIRED"]
+const terminalStatuses = [
+  "COMPLETED",
+  "CANCELED",
+  "FAILED",
+  "CRASHED",
+  "SYSTEM_FAILURE",
+  "TIMED_OUT",
+  "EXPIRED",
+];
 
 type RunState = {
-  runId: string
-  accessToken: string
-} | null
+  runId: string;
+  accessToken: string;
+} | null;
 
 export function RalphApp() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const [error, setError] = useState<string>()
-  const [isPending, setIsPending] = useState(false)
-  const [isCanceling, setIsCanceling] = useState(false)
-  const [cancelError, setCancelError] = useState<string>()
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [error, setError] = useState<string>();
+  const [isPending, setIsPending] = useState(false);
+  const [isCanceling, setIsCanceling] = useState(false);
+  const [cancelError, setCancelError] = useState<string>();
 
   // Resizable sidebar
-  const { width: sidebarWidth, isResizing, handleMouseDown } = useResizableSidebar()
+  const {
+    width: sidebarWidth,
+    isResizing,
+    handleMouseDown,
+  } = useResizableSidebar();
 
   // Derive run state from URL
-  const runIdFromUrl = searchParams.get("runId")
-  const tokenFromUrl = searchParams.get("token")
-  const repoFromUrl = searchParams.get("repo")
-  const promptFromUrl = searchParams.get("prompt")
-  const runState: RunState = runIdFromUrl && tokenFromUrl
-    ? { runId: runIdFromUrl, accessToken: tokenFromUrl }
-    : null
+  const runIdFromUrl = searchParams.get("runId");
+  const tokenFromUrl = searchParams.get("token");
+  const repoFromUrl = searchParams.get("repo");
+  const promptFromUrl = searchParams.get("prompt");
+  const runState: RunState =
+    runIdFromUrl && tokenFromUrl
+      ? { runId: runIdFromUrl, accessToken: tokenFromUrl }
+      : null;
 
   // Track run status for sidebar controls
   const { run } = useRealtimeRun<typeof ralphLoop>(runState?.runId ?? "", {
     accessToken: runState?.accessToken ?? "",
     enabled: !!runState,
-  })
-  const isRunActive = run?.status && !terminalStatuses.includes(run.status)
+  });
+  const isRunActive = run?.status && !terminalStatuses.includes(run.status);
 
   // Get status stream for token usage
-  const { parts: rawStatusParts } = useRealtimeStream(statusStream, runState?.runId ?? "", {
-    accessToken: runState?.accessToken ?? "",
-    enabled: !!runState,
-  })
+  const { parts: rawStatusParts } = useRealtimeStream(
+    statusStream,
+    runState?.runId ?? "",
+    {
+      accessToken: runState?.accessToken ?? "",
+      enabled: !!runState,
+    }
+  );
 
   // Derive latest token usage from status updates (story_complete, story_failed, complete have usage)
-  const latestUsage = (rawStatusParts ?? []).reduce<TokenUsage | null>((acc, part) => {
-    try {
-      const status = JSON.parse(part) as StatusUpdate
-      if (status.usage) return status.usage
-      return acc
-    } catch {
-      return acc
-    }
-  }, null)
+  const latestUsage = (rawStatusParts ?? []).reduce<TokenUsage | null>(
+    (acc, part) => {
+      try {
+        const status = JSON.parse(part) as StatusUpdate;
+        if (status.usage) return status.usage;
+        return acc;
+      } catch {
+        return acc;
+      }
+    },
+    null
+  );
 
   async function handleCancel() {
-    if (!runState) return
-    setIsCanceling(true)
-    setCancelError(undefined)
-    const result = await cancelRun(runState.runId)
+    if (!runState) return;
+    setIsCanceling(true);
+    setCancelError(undefined);
+    const result = await cancelRun(runState.runId);
     if (!result.ok) {
-      setCancelError(result.error)
+      setCancelError(result.error);
     }
-    setIsCanceling(false)
+    setIsCanceling(false);
   }
 
   async function handleSubmit(formData: FormData) {
-    setError(undefined)
-    setIsPending(true)
+    setError(undefined);
+    setIsPending(true);
 
-    const result = await submitTask(formData)
+    const result = await submitTask(formData);
 
     if (result.ok) {
       // Update URL with run state
-      const params = new URLSearchParams()
-      params.set("runId", result.value.runId)
-      params.set("token", result.value.token)
-      params.set("repo", formData.get("repoUrl") as string)
-      params.set("prompt", formData.get("prompt") as string)
-      router.push(`?${params.toString()}`)
+      const params = new URLSearchParams();
+      params.set("runId", result.value.runId);
+      params.set("token", result.value.token);
+      params.set("repo", formData.get("repoUrl") as string);
+      params.set("prompt", formData.get("prompt") as string);
+      router.push(`?${params.toString()}`);
     } else {
-      setError(result.error)
+      setError(result.error);
     }
-    setIsPending(false)
+    setIsPending(false);
   }
 
   function handleNewTask() {
-    router.push("/")
-    setError(undefined)
+    router.push("/");
+    setError(undefined);
   }
 
   // Show loading during submit OR while URL has runId but state not yet derived
-  const isLoading = isPending || (runState === null && searchParams.has("runId"))
-  const isRunning = runState !== null
+  const isLoading =
+    isPending || (runState === null && searchParams.has("runId"));
+  const isRunning = runState !== null;
 
   return (
     <div className="flex h-screen">
@@ -150,16 +175,31 @@ export function RalphApp() {
                 rel="noopener noreferrer"
                 className="flex items-center gap-1.5 text-[13px] font-medium text-foreground hover:text-primary transition-colors"
               >
-                <span className="truncate">{repoFromUrl.replace("https://github.com/", "")}</span>
-                <svg className="w-3 h-3 shrink-0 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                <span className="truncate">
+                  {repoFromUrl.replace("https://github.com/", "")}
+                </span>
+                <svg
+                  className="w-3 h-3 shrink-0 opacity-50"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                  />
                 </svg>
               </a>
             )}
 
             {/* Prompt summary */}
             {promptFromUrl && (
-              <p className="text-[12px] text-slate-600 line-clamp-2" title={promptFromUrl}>
+              <p
+                className="text-[12px] text-slate-600 line-clamp-2"
+                title={promptFromUrl}
+              >
                 {promptFromUrl}
               </p>
             )}
@@ -168,13 +208,22 @@ export function RalphApp() {
             {latestUsage && (
               <div className="flex items-center justify-between text-[11px] pt-2 border-t border-slate-100">
                 <div className="flex items-center gap-3 text-slate-500">
-                  <span title="Input tokens">↓ {formatTokens(latestUsage.inputTokens)}</span>
-                  <span title="Output tokens">↑ {formatTokens(latestUsage.outputTokens)}</span>
+                  <span title="Input tokens">
+                    ↓ {formatTokens(latestUsage.inputTokens)}
+                  </span>
+                  <span title="Output tokens">
+                    ↑ {formatTokens(latestUsage.outputTokens)}
+                  </span>
                   {latestUsage.cacheReadTokens > 0 && (
-                    <span title="Cache reads" className="text-slate-400">⚡ {formatTokens(latestUsage.cacheReadTokens)}</span>
+                    <span title="Cache reads" className="text-slate-400">
+                      ⚡ {formatTokens(latestUsage.cacheReadTokens)}
+                    </span>
                   )}
                 </div>
-                <span className="font-mono text-slate-600" title="Estimated cost">
+                <span
+                  className="font-mono text-slate-600"
+                  title="Estimated cost"
+                >
                   ${calculateCost(latestUsage).toFixed(3)}
                 </span>
               </div>
@@ -184,11 +233,23 @@ export function RalphApp() {
             <div className="flex items-center justify-between pt-2 border-t border-slate-100">
               <div className="flex items-center gap-2">
                 {isRunActive && (
-                  <span className="inline-block text-[14px] animate-blink" title="Ralph is working...">🍩</span>
+                  <svg
+                    className="w-3 h-3 animate-pulse text-green-500"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                  >
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
                 )}
-                <span className="text-[11px] font-mono text-slate-500">
-                  {runState.runId.slice(0, 12)}...
-                </span>
+                <a
+                  href={`https://cloud.trigger.dev/orgs/triggerdev-internal-0ede/projects/background-ralph-zR6M/env/dev/runs/${runState.runId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[11px] font-mono text-slate-500 hover:text-primary hover:underline"
+                  title="View in Trigger.dev dashboard"
+                >
+                  {runState.runId.slice(0, 20)}...
+                </a>
               </div>
               {isRunActive ? (
                 <Button
@@ -254,14 +315,15 @@ export function RalphApp() {
                   type="checkbox"
                   className="h-3.5 w-3.5 rounded border-border accent-primary"
                 />
-                <Label htmlFor="yoloMode" className="text-[12px] font-normal text-muted-foreground">
+                <Label
+                  htmlFor="yoloMode"
+                  className="text-[12px] font-normal text-muted-foreground"
+                >
                   Yolo mode
                 </Label>
               </div>
 
-              {error && (
-                <p className="text-[12px] text-destructive">{error}</p>
-              )}
+              {error && <p className="text-[12px] text-destructive">{error}</p>}
 
               <Button
                 type="submit"
@@ -273,7 +335,9 @@ export function RalphApp() {
                     <span className="animate-spin">🍩</span>
                     Readying Ralph
                   </span>
-                ) : "Start Ralph"}
+                ) : (
+                  "Start Ralph"
+                )}
               </Button>
             </form>
           </div>
@@ -299,7 +363,11 @@ export function RalphApp() {
       <main className="flex-1 flex flex-col bg-background overflow-hidden">
         {runState ? (
           <div className="flex-1 min-h-0">
-            <RunViewer runId={runState.runId} accessToken={runState.accessToken} onCancel={handleCancel} />
+            <RunViewer
+              runId={runState.runId}
+              accessToken={runState.accessToken}
+              onCancel={handleCancel}
+            />
           </div>
         ) : (
           <div className="flex items-center justify-center h-full">
@@ -309,7 +377,6 @@ export function RalphApp() {
           </div>
         )}
       </main>
-
     </div>
-  )
+  );
 }

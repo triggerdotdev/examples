@@ -320,6 +320,7 @@ function StoryApprovalButtons({
   remainingStories?: number;
 }) {
   const [submittedAction, setSubmittedAction] = useState<string | null>(null);
+  const [isCompleted, setIsCompleted] = useState(false);
   const [error, setError] = useState<string>();
   const { complete } = useWaitToken(tokenId, {
     accessToken: publicAccessToken,
@@ -332,19 +333,16 @@ function StoryApprovalButtons({
     setError(undefined);
     try {
       await complete({ action });
+      setIsCompleted(true); // Mark as completed locally
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed");
       setSubmittedAction(null);
     }
   }
 
-  // Show responded state
-  if (responded) {
-    return (
-      <div className="my-3 p-3 border border-green-500/30 bg-green-500/5 rounded-md">
-        <p className="text-[12px] text-green-700">✓ Approved</p>
-      </div>
-    );
+  // Hide when responded - approval_response block will show the message
+  if (responded || isCompleted) {
+    return null;
   }
 
   // Show submitting state
@@ -416,7 +414,7 @@ function PrdApprovalButton({
   tokenId: string;
   publicAccessToken: string;
   question: string;
-  prd: Prd;
+  prd: Prd | null;
   responded: boolean;
   createdAt?: number;
   timeoutMs?: number;
@@ -428,24 +426,36 @@ function PrdApprovalButton({
     accessToken: publicAccessToken,
   });
 
+  const [isCompleted, setIsCompleted] = useState(false);
+
   async function handleApprove(yolo: boolean) {
+    if (!prd) return; // Wait for PRD to load
     setSubmittedAction(yolo ? "yolo" : "start");
     setError(undefined);
     try {
       await complete({ action: "approve_prd", prd, yolo });
+      setIsCompleted(true); // Mark as completed locally
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed");
       setSubmittedAction(null);
     }
   }
 
-  // Show responded state (approval was processed)
-  if (responded) {
+  // Show loading state while waiting for PRD
+  if (!prd) {
     return (
-      <div className="my-3 p-3 border border-green-500/30 bg-green-500/5 rounded-md">
-        <p className="text-[12px] text-green-700">✓ Approved</p>
+      <div className="my-3 p-3 border border-blue-500/30 bg-blue-500/5 rounded-md">
+        <div className="flex items-center gap-2">
+          <span className="animate-spin text-[14px]">🍩</span>
+          <p className="text-[12px] text-blue-700">Loading PRD...</p>
+        </div>
       </div>
     );
+  }
+
+  // Hide when responded - approval_response block will show the message
+  if (responded || isCompleted) {
+    return null;
   }
 
   // Show submitting state (waiting for response)
@@ -548,26 +558,38 @@ export function Chat({ runId, accessToken }: Props) {
     accessToken,
   });
 
-  // Parse status updates and derive PRD + current planning status
-  const { currentPrd, planningStatus } = useMemo(() => {
-    if (!rawStatusParts) return { currentPrd: null, planningStatus: null };
-    let prd: Prd | null = null;
-    let planning: string | null = null;
+  // Track PRD in state to ensure re-renders when it arrives
+  const [currentPrd, setCurrentPrd] = useState<Prd | null>(null);
+  const [planningStatus, setPlanningStatus] = useState<string | null>(null);
+
+  // Update PRD state when status stream updates
+  useEffect(() => {
+    if (!rawStatusParts || rawStatusParts.length === 0) return;
+
+    let foundPrd: Prd | null = null;
+    let foundPlanning: string | null = null;
+
     for (const part of rawStatusParts) {
       try {
         const status = JSON.parse(part) as StatusUpdate;
-        if (status.type === "prd_generated" && status.prd) prd = status.prd;
-        if (status.type === "prd_review" && status.prd && !prd)
-          prd = status.prd;
+        if (status.type === "prd_generated" && status.prd) foundPrd = status.prd;
+        if (status.type === "prd_review" && status.prd && !foundPrd) foundPrd = status.prd;
         if (status.type === "prd_planning" || status.type === "exploring" || status.type === "cloning") {
-          planning = status.message;
+          foundPlanning = status.message;
         }
       } catch {
         // Ignore parse errors
       }
     }
-    return { currentPrd: prd, planningStatus: planning };
-  }, [rawStatusParts]);
+
+    // Only update if PRD changed (avoid unnecessary re-renders)
+    if (foundPrd && !currentPrd) {
+      setCurrentPrd(foundPrd);
+    }
+    if (foundPlanning !== planningStatus) {
+      setPlanningStatus(foundPlanning);
+    }
+  }, [rawStatusParts, rawStatusParts?.length, currentPrd, planningStatus]);
 
   const rawOutput = outputParts?.join("") ?? "";
   const blocks = useMemo(() => parseMessages(rawOutput), [rawOutput]);
@@ -617,10 +639,20 @@ export function Chat({ runId, accessToken }: Props) {
     setIsAutoScroll(isAtBottom);
   }
 
+  // Check if agent is actively working (not at waitpoint, not complete)
+  const isWorking = useMemo(() => {
+    if (blocks.length === 0) return true;
+    const lastBlock = blocks[blocks.length - 1];
+    // Not working if complete or at unanswered approval
+    if (lastBlock.type === "complete") return false;
+    if (lastBlock.type === "approval" && !respondedApprovals.has(lastBlock.id)) return false;
+    return true;
+  }, [blocks, respondedApprovals]);
+
   if (blocks.length === 0) {
     return (
       <div className="p-4 text-[11px] text-slate-600 flex items-center gap-2">
-        <span className="animate-spin">🍩</span>
+        <span className="animate-spin text-[12px]">🍩</span>
         {planningStatus ?? "Waiting for agent..."}
       </div>
     );
@@ -677,9 +709,9 @@ export function Chat({ runId, accessToken }: Props) {
               return (
                 <div
                   key={i}
-                  className="flex items-center gap-2 py-2 text-[11px] text-slate-600"
+                  className="flex items-center gap-2 py-1 text-[11px] text-slate-600"
                 >
-                  <span className="animate-spin">🍩</span>
+                  <span className="animate-spin text-[12px]">🍩</span>
                   <span>{block.message}</span>
                 </div>
               );
@@ -706,10 +738,10 @@ export function Chat({ runId, accessToken }: Props) {
               );
 
             case "approval":
-              if (block.variant === "prd" && currentPrd) {
+              if (block.variant === "prd") {
                 return (
                   <PrdApprovalButton
-                    key={block.id}
+                    key={`${block.id}-${currentPrd ? "loaded" : "loading"}`}
                     tokenId={block.tokenId}
                     publicAccessToken={block.publicAccessToken}
                     question={block.question}
@@ -717,7 +749,7 @@ export function Chat({ runId, accessToken }: Props) {
                     responded={respondedApprovals.has(block.id)}
                     createdAt={block.createdAt}
                     timeoutMs={block.timeoutMs}
-                    storyCount={currentPrd.stories.length}
+                    storyCount={currentPrd?.stories.length ?? 0}
                   />
                 );
               }
@@ -762,8 +794,10 @@ export function Chat({ runId, accessToken }: Props) {
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-2 px-3 py-2 text-[12px] font-medium bg-yellow-200 hover:bg-yellow-300 text-yellow-900 rounded transition-colors"
                     >
-                      <span>→</span>
-                      <span>{block.prTitle ?? "View Pull Request"}</span>
+                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                      </svg>
+                      <span>Review PR</span>
                     </a>
                   ) : block.branchUrl ? (
                     <a
@@ -788,6 +822,13 @@ export function Chat({ runId, accessToken }: Props) {
               );
           }
         })}
+        {/* Working indicator at bottom */}
+        {isWorking && (
+          <div className="flex items-center gap-2 py-2 text-[11px] text-slate-500">
+            <span className="animate-spin text-[12px]">🍩</span>
+            <span>Ralph is working...</span>
+          </div>
+        )}
       </div>
     </div>
   );

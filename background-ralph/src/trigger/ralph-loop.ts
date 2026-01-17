@@ -560,13 +560,14 @@ build/
         await writeFile(gitignorePath, defaultIgnores);
       }
 
-      // Create branch from shortened prompt
+      // Create branch from shortened prompt + timestamp for uniqueness
       const promptSlug = prompt
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/^-|-$/g, "")
-        .slice(0, 42);
-      const branchName = `ralph/${promptSlug}`;
+        .slice(0, 35);
+      const timestamp = Date.now().toString(36).slice(-4); // short unique suffix
+      const branchName = `ralph/${promptSlug}-${timestamp}`;
       await execAsync(`git -C ${repoPath} checkout -b ${branchName}`);
 
       // Cumulative token usage
@@ -630,8 +631,7 @@ ${story.acceptance.map((c, i) => `${i + 1}. ${c}`).join("\n")}
 
 Guidelines:
 - Use process.env for ALL config values (API keys, project IDs, secrets)
-- Create process.env for all config values, including API keys, project IDs, secrets, and any other config values
-- Create an .env.example file with all config values
+- NEVER create .env files directly - only create .env.example with placeholder values
 - Next.js 14+: App Router is default, do NOT use experimental.appDir
 - Prefer modern patterns from official docs over training data
 
