@@ -739,61 +739,131 @@ Complete this story. When done, the acceptance criteria should be met.`;
 
         // Check for changes and commit
         let storyCommitHash: string | undefined;
-        const { stdout: status } = await execAsync(
-          `git -C ${repoPath} status --porcelain`,
-        );
-        if (status.trim()) {
-          await execAsync(`git -C ${repoPath} add -A`);
-          await execAsync(
-            `git -C ${repoPath} commit -m "${
-              story.title.replace(/"/g, '\\"')
-            }"`,
+        const commitChanges = async () => {
+          const { stdout: status } = await execAsync(
+            `git -C ${repoPath} status --porcelain`,
           );
-          const { stdout: hash } = await execAsync(
-            `git -C ${repoPath} rev-parse HEAD`,
-          );
-          storyCommitHash = hash.trim();
-          logger.info("Committed story", {
-            story: story.title,
-            commitHash: storyCommitHash,
-          });
-        }
+          if (status.trim()) {
+            await execAsync(`git -C ${repoPath} add -A`);
+            await execAsync(
+              `git -C ${repoPath} commit -m "${
+                story.title.replace(/"/g, '\\"')
+              }"`,
+            );
+            const { stdout: hash } = await execAsync(
+              `git -C ${repoPath} rev-parse HEAD`,
+            );
+            storyCommitHash = hash.trim();
+            logger.info("Committed story", {
+              story: story.title,
+              commitHash: storyCommitHash,
+            });
+          }
+        };
+        await commitChanges();
 
-        // Run build check if package.json has build script
+        // Run build check with retry loop - agent gets chance to fix errors
         let buildFailed = false;
         let buildError = "";
-        try {
-          const pkgPath = join(repoPath, "package.json");
-          const pkg = JSON.parse(await readFile(pkgPath, "utf-8"));
-          if (pkg.scripts?.build) {
-            await execAsync(`npm run build`, {
-              cwd: repoPath,
-              timeout: 120000,
-              env: { ...process.env, NODE_ENV: "production" },
-            });
-            logger.info("Build passed for story", { story: story.title });
-          }
-        } catch (error) {
-          const err = error as {
-            message?: string;
-            stderr?: string;
-            stdout?: string;
-          };
-          // Only mark as build failure if it's not missing package.json
-          if (!err.message?.includes("ENOENT")) {
+        const MAX_BUILD_RETRIES = 2;
+
+        for (let buildAttempt = 0; buildAttempt <= MAX_BUILD_RETRIES; buildAttempt++) {
+          buildFailed = false;
+          buildError = "";
+
+          try {
+            const pkgPath = join(repoPath, "package.json");
+            const pkg = JSON.parse(await readFile(pkgPath, "utf-8"));
+            if (pkg.scripts?.build) {
+              await execAsync(`npm run build`, {
+                cwd: repoPath,
+                timeout: 120000,
+                env: { ...process.env, NODE_ENV: "production" },
+              });
+              logger.info("Build passed for story", { story: story.title, attempt: buildAttempt });
+              break; // Build passed, exit retry loop
+            } else {
+              break; // No build script, nothing to check
+            }
+          } catch (error) {
+            const err = error as {
+              message?: string;
+              stderr?: string;
+              stdout?: string;
+            };
+            // Only mark as build failure if it's not missing package.json
+            if (err.message?.includes("ENOENT")) {
+              break; // No package.json, skip build check
+            }
+
             buildFailed = true;
-            // Capture build output for error display
-            buildError = err.stderr || err.stdout || err.message ||
-              "Build failed";
-            buildError = buildError.slice(-500); // Keep last 500 chars
+            buildError = err.stderr || err.stdout || err.message || "Build failed";
+            buildError = buildError.slice(-1000); // Keep last 1000 chars for context
             logger.warn("Build failed for story", {
               story: story.title,
+              attempt: buildAttempt,
               error: err.message,
             });
-            await appendChatMessage({
-              type: "text",
-              delta: `\n[Build failed: ${buildError.slice(0, 200)}]\n`,
-            });
+
+            // If we have retries left, let agent fix the error
+            if (buildAttempt < MAX_BUILD_RETRIES) {
+              await appendChatMessage({
+                type: "text",
+                delta: `\n[Build failed (attempt ${buildAttempt + 1}/${MAX_BUILD_RETRIES + 1}): ${buildError.slice(0, 300)}]\n\nLet me fix that...\n`,
+              });
+
+              // Run agent again with fix prompt
+              const fixPrompt = `The build failed with this error:
+
+\`\`\`
+${buildError}
+\`\`\`
+
+Fix this build error. The error is likely a TypeScript type error, missing import, or syntax issue. Make the minimal change needed to fix it.`;
+
+              const fixResult = query({
+                prompt: fixPrompt,
+                options: {
+                  model: "claude-sonnet-4-20250514",
+                  abortController,
+                  cwd: repoPath,
+                  maxTurns: 3, // Limited turns for fix
+                  permissionMode: "acceptEdits",
+                  includePartialMessages: true,
+                  allowedTools: ["Read", "Edit", "Write", "Bash", "Grep", "Glob"],
+                },
+              });
+
+              // Stream fix agent output
+              const { waitUntilComplete: waitForFix } = agentOutputStream.writer({
+                execute: async ({ write }) => {
+                  for await (const message of fixResult) {
+                    if (message.type === "stream_event") {
+                      const event = message.event;
+                      if (event.type === "content_block_delta") {
+                        const delta = event.delta;
+                        if (delta.type === "text_delta") {
+                          write(JSON.stringify({ type: "text", delta: delta.text } as ChatMessage) + "\n");
+                        } else if (delta.type === "thinking_delta") {
+                          write(JSON.stringify({ type: "thinking", delta: delta.thinking } as ChatMessage) + "\n");
+                        }
+                      }
+                    }
+                  }
+                },
+              });
+
+              await waitForFix();
+
+              // Commit the fix
+              await commitChanges();
+            } else {
+              // Out of retries, show final error
+              await appendChatMessage({
+                type: "text",
+                delta: `\n[Build failed after ${MAX_BUILD_RETRIES + 1} attempts: ${buildError.slice(0, 200)}]\n`,
+              });
+            }
           }
         }
 
