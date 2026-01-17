@@ -602,20 +602,22 @@ export function Chat({ runId, accessToken }: Props) {
         {blocks.map((block, i) => {
           switch (block.type) {
             case "thinking":
+              // Ralph's internal voice - mono, muted, italic
               return (
                 <div
                   key={i}
-                  className="text-[11px] font-mono text-slate-800 leading-relaxed whitespace-pre-wrap"
+                  className="text-[11px] font-mono italic text-slate-500 leading-relaxed whitespace-pre-wrap pl-3 border-l-2 border-slate-200"
                 >
                   {block.content}
                 </div>
               );
 
             case "text":
+              // System output - clear, normal voice
               return (
                 <div
                   key={i}
-                  className="prose prose-sm max-w-none text-[13px] leading-relaxed prose-pre:bg-slate-100 prose-pre:border prose-pre:border-slate-200 prose-pre:text-[11px] prose-code:text-slate-800"
+                  className="prose prose-sm max-w-none text-[12px] leading-relaxed prose-p:my-1 prose-ul:my-1 prose-li:my-0 prose-pre:bg-slate-100 prose-pre:border prose-pre:border-slate-200 prose-pre:text-[11px] prose-code:text-slate-700 prose-headings:text-[13px] prose-headings:font-semibold"
                 >
                   <Streamdown>{block.content}</Streamdown>
                 </div>
@@ -694,35 +696,38 @@ export function Chat({ runId, accessToken }: Props) {
               return (
                 <div
                   key={i}
-                  className="my-4 p-4 bg-yellow-50 border border-yellow-200 rounded-md space-y-2"
+                  className="my-4 p-4 bg-yellow-50 border border-yellow-200 rounded-md space-y-3"
                 >
                   <div className="flex items-center gap-2">
                     <span className="text-[18px]">🍩</span>
                     <span className="text-[13px] font-medium text-yellow-800">
-                      That&apos;s unpossible! We&apos;re done!
+                      Done!
                     </span>
                   </div>
-                  {block.prUrl && (
+                  {block.prUrl ? (
                     <a
                       href={block.prUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-2 text-[12px] text-yellow-700 hover:text-yellow-900 underline"
+                      className="inline-flex items-center gap-2 px-3 py-2 text-[12px] font-medium bg-yellow-200 hover:bg-yellow-300 text-yellow-900 rounded transition-colors"
                     >
-                      <span>📋</span>
+                      <span>→</span>
                       <span>{block.prTitle ?? "View Pull Request"}</span>
                     </a>
-                  )}
-                  {block.branchUrl && !block.prUrl && (
+                  ) : block.branchUrl ? (
                     <a
                       href={block.branchUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-2 text-[12px] text-yellow-700 hover:text-yellow-900 underline"
+                      className="inline-flex items-center gap-2 px-3 py-2 text-[12px] font-medium bg-yellow-200 hover:bg-yellow-300 text-yellow-900 rounded transition-colors"
                     >
-                      <span>🌿</span>
+                      <span>→</span>
                       <span>View Branch</span>
                     </a>
+                  ) : (
+                    <p className="text-[11px] text-yellow-700">
+                      Changes made locally (no GITHUB_TOKEN for push)
+                    </p>
                   )}
                 </div>
               );
