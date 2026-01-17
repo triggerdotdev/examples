@@ -217,7 +217,7 @@ Rules:
   const agentResult = query({
     prompt: prdPrompt,
     options: {
-      model: "claude-opus-4-5-20251101",
+      model: "claude-opus-4-5",
       maxTurns: 5, // Allow a few turns for doc searches
       maxThinkingTokens: 10000, // Enable extended thinking
       permissionMode: "acceptEdits",
@@ -284,13 +284,18 @@ Rules:
       }
     }
 
-    if (message.type === "result" && message.subtype === "success") {
-      finalResult = message.result;
+    if (message.type === "result") {
+      if (message.subtype === "success") {
+        finalResult = message.result;
+      } else {
+        // Log other result types for debugging
+        logger.warn("Agent result not success", { subtype: message.subtype, message });
+      }
     }
   }
 
   if (!finalResult) {
-    throw new Error("Failed to generate PRD: no result from agent");
+    throw new Error("Failed to generate PRD: no result from agent. Check logs for details.");
   }
 
   try {
@@ -640,7 +645,7 @@ Complete this story. When done, the acceptance criteria should be met.`;
         const agentResult = query({
           prompt: storyPrompt,
           options: {
-            model: "claude-opus-4-5-20251101",
+            model: "claude-opus-4-5",
             abortController,
             cwd: repoPath,
             maxTurns: maxTurnsPerStory,
@@ -824,7 +829,7 @@ Fix this build error. The error is likely a TypeScript type error, missing impor
               const fixResult = query({
                 prompt: fixPrompt,
                 options: {
-                  model: "claude-opus-4-5-20251101",
+                  model: "claude-opus-4-5",
                   abortController,
                   cwd: repoPath,
                   maxTurns: 3, // Limited turns for fix
