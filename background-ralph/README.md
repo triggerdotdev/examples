@@ -80,10 +80,10 @@ Realtime streams provide live updates:
 |------------|------|
 | Main orchestrator task | [`src/trigger/ralph-loop.ts`](src/trigger/ralph-loop.ts) |
 | Realtime stream definitions | [`src/trigger/streams.ts`](src/trigger/streams.ts) |
-| Run viewer with kanban board | [`src/components/run-viewer.tsx`](src/components/run-viewer.tsx) |
-| Kanban board component | [`src/components/kanban-board.tsx`](src/components/kanban-board.tsx) |
-| Streaming markdown output | [`src/components/agent-output.tsx`](src/components/agent-output.tsx) |
-| Story editor modal | [`src/components/story-editor.tsx`](src/components/story-editor.tsx) |
+| Run viewer with PRD editor | [`src/components/run-viewer.tsx`](src/components/run-viewer.tsx) |
+| PRD JSON editor | [`src/components/prd-json-editor.tsx`](src/components/prd-json-editor.tsx) |
+| Progress log | [`src/components/progress-log.tsx`](src/components/progress-log.tsx) |
+| Chat/agent output | [`src/components/chat.tsx`](src/components/chat.tsx) |
 | Server action to trigger run | [`src/app/actions.ts`](src/app/actions.ts) |
 | Input validation schemas | [`src/lib/schemas.ts`](src/lib/schemas.ts) |
 

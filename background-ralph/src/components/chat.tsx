@@ -40,7 +40,7 @@ type MessageBlock =
       timeoutMs?: number;
     }
   | { type: "approval_response"; id: string; action: string }
-  | { type: "complete"; prUrl?: string; prTitle?: string; branchUrl?: string };
+  | { type: "complete"; prUrl?: string; prTitle?: string; branchUrl?: string; error?: string };
 
 // Parse NDJSON output into structured message blocks
 function parseMessages(raw: string): MessageBlock[] {
@@ -186,6 +186,7 @@ function parseMessages(raw: string): MessageBlock[] {
             prUrl: msg.prUrl,
             prTitle: msg.prTitle,
             branchUrl: msg.branchUrl,
+            error: msg.error,
           });
           break;
       }
@@ -308,6 +309,7 @@ function StoryApprovalButtons({
   responded,
   createdAt,
   timeoutMs,
+  remainingStories,
 }: {
   tokenId: string;
   publicAccessToken: string;
@@ -315,8 +317,9 @@ function StoryApprovalButtons({
   responded: boolean;
   createdAt?: number;
   timeoutMs?: number;
+  remainingStories?: number;
 }) {
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submittedAction, setSubmittedAction] = useState<string | null>(null);
   const [error, setError] = useState<string>();
   const { complete } = useWaitToken(tokenId, {
     accessToken: publicAccessToken,
@@ -325,52 +328,74 @@ function StoryApprovalButtons({
   async function handleAction(
     action: "continue" | "stop" | "approve_complete"
   ) {
-    setIsSubmitting(true);
+    setSubmittedAction(action);
     setError(undefined);
     try {
       await complete({ action });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed");
-      setIsSubmitting(false);
+      setSubmittedAction(null);
     }
   }
 
-  const isDisabled = isSubmitting || responded;
+  // Show responded state
+  if (responded) {
+    return (
+      <div className="my-3 p-3 border border-green-500/30 bg-green-500/5 rounded-md">
+        <p className="text-[12px] text-green-700">✓ Approved</p>
+      </div>
+    );
+  }
+
+  // Show submitting state
+  if (submittedAction) {
+    const message = submittedAction === "approve_complete"
+      ? `Yoloing remaining stories...`
+      : submittedAction === "stop"
+      ? "Stopping..."
+      : "Continuing...";
+    return (
+      <div className="my-3 p-3 border border-blue-500/30 bg-blue-500/5 rounded-md">
+        <div className="flex items-center gap-2">
+          <span className="animate-spin text-[14px]">🍩</span>
+          <p className="text-[12px] text-blue-700">{message}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="my-3 p-3 border border-yellow-500/30 bg-yellow-500/5 rounded-md">
-      <div className="flex items-center justify-between mb-3">
+    <div className="my-3 p-3 border border-yellow-500/30 bg-yellow-500/5 rounded-md space-y-3">
+      <div className="flex items-center justify-between">
         <p className="text-[12px] text-slate-700">{question}</p>
-        {!responded && (
-          <Countdown createdAt={createdAt} timeoutMs={timeoutMs} />
-        )}
+        <Countdown createdAt={createdAt} timeoutMs={timeoutMs} />
       </div>
-      {error && <p className="text-[11px] text-red-400 mb-2">{error}</p>}
+      <p className="text-[10px] text-slate-500 italic">
+        Next Story = I&apos;ll do one more, then ask again. Yolo = I&apos;ll finish everything without stopping!
+      </p>
+      {error && <p className="text-[11px] text-red-400">{error}</p>}
       <div className="flex gap-2 flex-wrap">
         <Button
           size="sm"
           onClick={() => handleAction("continue")}
-          disabled={isDisabled}
           className="h-7 text-[11px] px-3"
         >
-          {isSubmitting ? "..." : "Continue"}
+          Next story
         </Button>
         <Button
           size="sm"
           onClick={() => handleAction("approve_complete")}
-          disabled={isDisabled}
           className="h-7 text-[11px] px-3 bg-green-600 hover:bg-green-700"
         >
-          {isSubmitting ? "..." : "Approve & Complete"}
+          Yolo remaining{remainingStories ? ` ${remainingStories}` : ""}
         </Button>
         <Button
           size="sm"
           variant="outline"
           onClick={() => handleAction("stop")}
-          disabled={isDisabled}
           className="h-7 text-[11px] px-3"
         >
-          {isSubmitting ? "..." : "Stop"}
+          Stop
         </Button>
       </div>
     </div>
@@ -386,6 +411,7 @@ function PrdApprovalButton({
   responded,
   createdAt,
   timeoutMs,
+  storyCount,
 }: {
   tokenId: string;
   publicAccessToken: string;
@@ -394,48 +420,72 @@ function PrdApprovalButton({
   responded: boolean;
   createdAt?: number;
   timeoutMs?: number;
+  storyCount: number;
 }) {
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submittedAction, setSubmittedAction] = useState<"start" | "yolo" | null>(null);
   const [error, setError] = useState<string>();
   const { complete } = useWaitToken(tokenId, {
     accessToken: publicAccessToken,
   });
 
-  async function handleApprove() {
-    setIsSubmitting(true);
+  async function handleApprove(yolo: boolean) {
+    setSubmittedAction(yolo ? "yolo" : "start");
     setError(undefined);
     try {
-      await complete({ action: "approve_prd", prd });
+      await complete({ action: "approve_prd", prd, yolo });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed");
-      setIsSubmitting(false);
+      setSubmittedAction(null);
     }
   }
 
-  const isDisabled = isSubmitting || responded;
+  // Show responded state (approval was processed)
+  if (responded) {
+    return (
+      <div className="my-3 p-3 border border-green-500/30 bg-green-500/5 rounded-md">
+        <p className="text-[12px] text-green-700">✓ Approved</p>
+      </div>
+    );
+  }
+
+  // Show submitting state (waiting for response)
+  if (submittedAction) {
+    return (
+      <div className="my-3 p-3 border border-blue-500/30 bg-blue-500/5 rounded-md">
+        <div className="flex items-center gap-2">
+          <span className="animate-spin text-[14px]">🍩</span>
+          <p className="text-[12px] text-blue-700">
+            {submittedAction === "yolo" ? `Starting all ${storyCount} stories...` : "Starting..."}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="my-3 p-3 border border-blue-500/30 bg-blue-500/5 rounded-md">
-      <div className="flex justify-between flex-col items-start gap-3">
-        {!responded && (
-          <div className="flex gap-3">
-            <p className="text-[11px] text-slate-700">
-              {" "}
-              Waiting for approval:{" "}
-              <Countdown createdAt={createdAt} timeoutMs={timeoutMs} />
-            </p>
-          </div>
-        )}
-
+    <div className="my-3 p-3 border border-blue-500/30 bg-blue-500/5 rounded-md space-y-3">
+      <div className="flex items-center justify-between">
         <p className="text-[12px] text-slate-700">{question}</p>
-        {error && <p className="text-[11px] text-red-400 mb-2">{error}</p>}
+        <Countdown createdAt={createdAt} timeoutMs={timeoutMs} />
+      </div>
+      <p className="text-[10px] text-slate-500 italic">
+        Check the PRD in the right panel. Start = I&apos;ll ask after each story. Yolo = I&apos;ll do everything!
+      </p>
+      {error && <p className="text-[11px] text-red-400">{error}</p>}
+      <div className="flex gap-2">
         <Button
           size="sm"
-          onClick={handleApprove}
-          disabled={isDisabled}
+          onClick={() => handleApprove(false)}
+          className="h-7 text-[11px] px-3"
+        >
+          Start
+        </Button>
+        <Button
+          size="sm"
+          onClick={() => handleApprove(true)}
           className="h-7 text-[11px] px-3 bg-green-600 hover:bg-green-700"
         >
-          {isSubmitting ? "Starting..." : "Approve & Start"}
+          Yolo {storyCount} stories
         </Button>
       </div>
     </div>
@@ -667,6 +717,7 @@ export function Chat({ runId, accessToken }: Props) {
                     responded={respondedApprovals.has(block.id)}
                     createdAt={block.createdAt}
                     timeoutMs={block.timeoutMs}
+                    storyCount={currentPrd.stories.length}
                   />
                 );
               }
@@ -701,7 +752,7 @@ export function Chat({ runId, accessToken }: Props) {
                   <div className="flex items-center gap-2">
                     <span className="text-[18px]">🍩</span>
                     <span className="text-[13px] font-medium text-yellow-800">
-                      Done!
+                      We did it! You&apos;re my best friend!
                     </span>
                   </div>
                   {block.prUrl ? (
@@ -724,9 +775,13 @@ export function Chat({ runId, accessToken }: Props) {
                       <span>→</span>
                       <span>View Branch</span>
                     </a>
+                  ) : block.error ? (
+                    <div className="text-[11px] text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2 whitespace-pre-wrap">
+                      {block.error}
+                    </div>
                   ) : (
                     <p className="text-[11px] text-yellow-700">
-                      Changes made locally (no GITHUB_TOKEN for push)
+                      Changes made locally
                     </p>
                   )}
                 </div>

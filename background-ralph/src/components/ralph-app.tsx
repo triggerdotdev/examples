@@ -221,13 +221,13 @@ export function RalphApp() {
             <form action={handleSubmit} className="space-y-4">
               <div className="space-y-1.5">
                 <Label htmlFor="repoUrl" className="text-[12px]">
-                  Repository URL
+                  GitHub repo
                 </Label>
                 <Input
                   id="repoUrl"
                   name="repoUrl"
                   type="url"
-                  placeholder="https://github.com/owner/repo"
+                  placeholder="https://github.com/you/your-repo"
                   required
                   className="text-[13px] h-9"
                 />
@@ -235,12 +235,12 @@ export function RalphApp() {
 
               <div className="space-y-1.5">
                 <Label htmlFor="prompt" className="text-[12px]">
-                  Prompt
+                  What should Ralph build?
                 </Label>
                 <Textarea
                   id="prompt"
                   name="prompt"
-                  placeholder="What should the agent do?"
+                  placeholder="e.g. Add a dark mode toggle to the settings page"
                   rows={3}
                   required
                   className="text-[13px] resize-none"
@@ -273,7 +273,7 @@ export function RalphApp() {
                     <span className="animate-spin">🍩</span>
                     Readying Ralph
                   </span>
-                ) : "Start"}
+                ) : "Start Ralph"}
               </Button>
             </form>
           </div>

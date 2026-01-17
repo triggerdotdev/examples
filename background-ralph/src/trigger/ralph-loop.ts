@@ -378,8 +378,8 @@ export const ralphLoop = task({
     signal.addEventListener("abort", () => abortController.abort());
 
     // Stream: cloning status
-    await appendStatus({ type: "cloning", message: `Cloning ${repoUrl}...` });
-    await appendChatMessage({ type: "status", message: `Cloning ${repoUrl}...`, phase: "cloning" });
+    await appendStatus({ type: "cloning", message: `I'm getting your code! This is like Christmas but with git!` });
+    await appendChatMessage({ type: "status", message: `I'm getting your code! This is like Christmas but with git!`, phase: "cloning" });
 
     let repoPath: string;
     let cleanup: () => Promise<void>;
@@ -417,8 +417,8 @@ export const ralphLoop = task({
       }
 
       const message = hint
-        ? `Clone failed: ${rawMessage}\n\nHint: ${hint}`
-        : `Clone failed: ${rawMessage}`;
+        ? `Uh oh, something went wrong... my cat's breath smells like cat food.\n\nClone failed: ${rawMessage}\n\nHint: ${hint}`
+        : `Uh oh, something went wrong... my cat's breath smells like cat food.\n\nClone failed: ${rawMessage}`;
       await appendStatus({ type: "error", message });
       throw new Error(`Failed to clone repository: ${rawMessage}`);
     }
@@ -428,17 +428,18 @@ export const ralphLoop = task({
     // Install dependencies
     await appendStatus({
       type: "installing",
-      message: "Installing dependencies...",
+      message: "Installing all the thingies... npm makes my brain fuzzy!",
     });
+    await appendChatMessage({ type: "status", message: "Installing all the thingies... npm makes my brain fuzzy!", phase: "cloning" });
     await installDeps(repoPath);
 
     try {
       // Phase 1: Shallow exploration
       await appendStatus({
         type: "exploring",
-        message: "Exploring repo structure...",
+        message: "Looking at all these files! I found a README and it's beautiful!",
       });
-      await appendChatMessage({ type: "status", message: "Exploring repo structure...", phase: "exploring" });
+      await appendChatMessage({ type: "status", message: "Looking at all these files! I found a README and it's beautiful!", phase: "exploring" });
       const exploration = await exploreRepo(repoPath);
       logger.info("Repo exploration complete", {
         explorationLength: exploration.length,
@@ -447,9 +448,9 @@ export const ralphLoop = task({
       // Phase 2: Generate PRD (with docs research) - stream to chat
       await appendStatus({
         type: "prd_planning",
-        message: "Researching docs and planning stories...",
+        message: "My brain is making a plan! It's like a treasure map but for code!",
       });
-      await appendChatMessage({ type: "status", message: "Researching docs and planning stories...", phase: "planning" });
+      await appendChatMessage({ type: "status", message: "My brain is making a plan! It's like a treasure map but for code!", phase: "planning" });
       const parsed = parseGitHubUrl(repoUrl);
       const repoName = parsed?.repo ?? "task";
 
@@ -486,7 +487,7 @@ export const ralphLoop = task({
         tokenId: prdToken.id,
         publicAccessToken: prdToken.publicAccessToken,
         question:
-          `Generated ${prd.stories.length} stories. Review and edit in the kanban board, then approve to start.`,
+          `I made a plan with ${prd.stories.length} stories! Check it in the panel on the right, then click Start when you're ready!`,
         variant: "prd",
         createdAt: Date.now(),
         timeoutMs: 24 * 60 * 60 * 1000, // 24h
@@ -495,15 +496,20 @@ export const ralphLoop = task({
       logger.info("Waiting for PRD approval", { tokenId: prdToken.id });
 
       const prdResult = await wait.forToken<
-        { action: "approve_prd"; prd: Prd }
+        { action: "approve_prd"; prd: Prd; yolo?: boolean }
       >(prdToken);
 
       if (!prdResult.ok) {
         await appendStatus({
           type: "error",
-          message: "PRD review timed out after 24h",
+          message: "I waited and waited but nobody came... my cat's breath smells like cat food. PRD review timed out after 24h.",
         });
         throw new Error("PRD review timed out");
+      }
+
+      // Enable yolo mode if user chose it at PRD approval
+      if (prdResult.output.yolo) {
+        yoloMode = true;
       }
 
       // Stream approval response to chat
@@ -585,7 +591,7 @@ build/
         // Stream story start
         await appendStatus({
           type: "story_start",
-          message: `Starting story ${storyNum}/${totalStories}: ${story.title}`,
+          message: `Working on "${story.title}"... I'm a code monkey now!`,
           story: {
             id: story.id,
             current: storyNum,
@@ -832,9 +838,7 @@ Complete this story. When done, the acceptance criteria should be met.`;
               id: `story-failed-${token.id}`,
               tokenId: token.id,
               publicAccessToken: token.publicAccessToken,
-              question: `Story "${story.title}" failed. Continue to "${
-                stories[i + 1]?.title
-              }" or stop?`,
+              question: `Uh oh, the build went boom! My cat's breath smells like cat food. Want me to try the next story?`,
               variant: "story",
               createdAt: Date.now(),
               timeoutMs: 24 * 60 * 60 * 1000,
@@ -946,9 +950,7 @@ Complete this story. When done, the acceptance criteria should be met.`;
             id: `story-${token.id}`,
             tokenId: token.id,
             publicAccessToken: token.publicAccessToken,
-            question: `Story "${story.title}" complete. Continue to "${
-              stories[i + 1]?.title
-            }"?`,
+            question: `I did it! Click Next Story to keep going, or Yolo to let me finish everything!`,
             variant: "story",
             createdAt: Date.now(),
             timeoutMs: 24 * 60 * 60 * 1000, // 24h
@@ -1004,14 +1006,17 @@ Complete this story. When done, the acceptance criteria should be met.`;
       let branchUrl: string | null = null;
       let prUrl: string | null = null;
       let prTitle: string | null = null;
+      let pushError: string | null = null;
 
-      if (githubToken && completedStories > 0) {
+      if (!githubToken && completedStories > 0) {
+        pushError = "No GITHUB_TOKEN - changes not pushed to remote";
+      } else if (githubToken && completedStories > 0) {
         const parsedUrl = parseGitHubUrl(repoUrl);
         if (parsedUrl) {
           try {
             await appendStatus({
               type: "pushing",
-              message: "Pushing branch and creating PR...",
+              message: "I'm sending my code to the cloud! It's like magic!",
             });
 
             // Set up authenticated remote and push
@@ -1082,17 +1087,17 @@ ${completedStoryTitles.map((t) => `- ${t}`).join("\n")}
                 "Network error. Check your internet connection and try again.";
             }
 
-            const message = hint
-              ? `Push failed: ${rawMessage}\n\nHint: ${hint}`
-              : `Push failed: ${rawMessage}`;
-            await appendStatus({ type: "push_failed", message });
+            pushError = hint
+              ? `Uh oh, I couldn't push my changes... That's unpossible!\n\nPush failed: ${rawMessage}\n\nHint: ${hint}`
+              : `Uh oh, I couldn't push my changes... That's unpossible!\n\nPush failed: ${rawMessage}`;
+            await appendStatus({ type: "push_failed", message: pushError });
           }
         }
       }
 
       await appendStatus({
         type: "complete",
-        message: `Completed ${completedStories}/${stories.length} stories`,
+        message: `We did it! ${completedStories}/${stories.length} stories done - you're my best friend!`,
         usage,
       });
 
@@ -1102,6 +1107,7 @@ ${completedStoryTitles.map((t) => `- ${t}`).join("\n")}
         prUrl: prUrl ?? undefined,
         prTitle: prTitle ?? undefined,
         branchUrl: branchUrl ?? undefined,
+        error: pushError ?? undefined,
       });
 
       return {
