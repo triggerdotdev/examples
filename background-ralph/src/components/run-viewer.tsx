@@ -57,6 +57,7 @@ function useResizableSplit(defaultRatio = 0.5, minRatio = 0.2, maxRatio = 0.8) {
 
 export function RunViewer({ runId, accessToken }: Props) {
   const [localPrdOverride, setLocalPrdOverride] = useState<Prd | null>(null)
+  const [latestProgress, setLatestProgress] = useState<string | null>(null)
   const { ratio, isDragging, handleMouseDown } = useResizableSplit(0.55)
 
   const { run, error: runError } = useRealtimeRun<typeof ralphLoop>(runId, {
@@ -68,6 +69,22 @@ export function RunViewer({ runId, accessToken }: Props) {
   const { parts: rawStatusParts } = useRealtimeStream(statusStream, runId, {
     accessToken,
   })
+
+  // Track progress in state to ensure re-renders when it updates
+  useEffect(() => {
+    if (!rawStatusParts || rawStatusParts.length === 0) return
+
+    for (const part of rawStatusParts) {
+      try {
+        const status = JSON.parse(part) as StatusUpdate
+        if (status.type === "story_complete" && status.progress) {
+          setLatestProgress(status.progress)
+        }
+      } catch {
+        // Ignore parse errors
+      }
+    }
+  }, [rawStatusParts, rawStatusParts?.length])
 
   // Parse JSON strings back to objects
   const statusParts: StatusUpdate[] = (rawStatusParts ?? []).map(part => {
@@ -107,11 +124,7 @@ export function RunViewer({ runId, accessToken }: Props) {
     return acc
   }, undefined)
 
-  // Derive latest progress from story_complete events
-  const latestProgress = statusParts.reduce<string | null>((acc, s) => {
-    if (s.type === "story_complete" && s.progress) return s.progress
-    return acc
-  }, null)
+  // latestProgress is now tracked via useEffect above for proper reactivity
 
   // Handle PRD changes from editor
   function handlePrdChange(prd: Prd) {

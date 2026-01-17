@@ -217,7 +217,7 @@ Rules:
   const agentResult = query({
     prompt: prdPrompt,
     options: {
-      model: "claude-sonnet-4-20250514",
+      model: "claude-opus-4-5-20251101",
       maxTurns: 5, // Allow a few turns for doc searches
       maxThinkingTokens: 10000, // Enable extended thinking
       permissionMode: "acceptEdits",
@@ -640,7 +640,7 @@ Complete this story. When done, the acceptance criteria should be met.`;
         const agentResult = query({
           prompt: storyPrompt,
           options: {
-            model: "claude-sonnet-4-20250514",
+            model: "claude-opus-4-5-20251101",
             abortController,
             cwd: repoPath,
             maxTurns: maxTurnsPerStory,
@@ -824,7 +824,7 @@ Fix this build error. The error is likely a TypeScript type error, missing impor
               const fixResult = query({
                 prompt: fixPrompt,
                 options: {
-                  model: "claude-sonnet-4-20250514",
+                  model: "claude-opus-4-5-20251101",
                   abortController,
                   cwd: repoPath,
                   maxTurns: 3, // Limited turns for fix
