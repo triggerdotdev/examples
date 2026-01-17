@@ -296,9 +296,9 @@ export function RalphApp() {
       </aside>
 
       {/* Right main area */}
-      <main className="flex-1 overflow-y-auto bg-background">
+      <main className="flex-1 flex flex-col bg-background overflow-hidden">
         {runState ? (
-          <div className="p-6">
+          <div className="flex-1 min-h-0">
             <RunViewer runId={runState.runId} accessToken={runState.accessToken} onCancel={handleCancel} />
           </div>
         ) : (

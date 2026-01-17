@@ -198,7 +198,7 @@ export function RunViewer({ runId, accessToken }: Props) {
       {/* Split view: PRD JSON + Progress */}
       <div
         id="split-container"
-        className="flex-1 flex flex-col m-4 border rounded-md bg-card overflow-hidden"
+        className="flex-1 flex flex-col overflow-hidden"
       >
         {/* PRD JSON Editor */}
         <div
@@ -241,21 +241,6 @@ export function RunViewer({ runId, accessToken }: Props) {
         </div>
       </div>
 
-      {/* Status history (collapsible) */}
-      {statusParts.length > 0 && (
-        <details className="text-sm mx-4 mb-4">
-          <summary className="cursor-pointer text-gray-500 text-[11px]">
-            Status history ({statusParts.length})
-          </summary>
-          <ul className="mt-2 space-y-1 text-gray-600 text-[10px]">
-            {statusParts.map((s, i) => (
-              <li key={i}>
-                <span className="font-mono">[{s.type}]</span> {s.message}
-              </li>
-            ))}
-          </ul>
-        </details>
-      )}
     </div>
   )
 }
