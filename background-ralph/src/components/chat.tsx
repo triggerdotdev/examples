@@ -39,7 +39,8 @@ type MessageBlock =
       createdAt?: number;
       timeoutMs?: number;
     }
-  | { type: "approval_response"; id: string; action: string };
+  | { type: "approval_response"; id: string; action: string }
+  | { type: "complete"; prUrl?: string; prTitle?: string; branchUrl?: string };
 
 // Parse NDJSON output into structured message blocks
 function parseMessages(raw: string): MessageBlock[] {
@@ -174,6 +175,17 @@ function parseMessages(raw: string): MessageBlock[] {
             type: "approval_response",
             id: msg.id,
             action: msg.action,
+          });
+          break;
+
+        case "complete":
+          flushThinking();
+          flushText();
+          blocks.push({
+            type: "complete",
+            prUrl: msg.prUrl,
+            prTitle: msg.prTitle,
+            branchUrl: msg.branchUrl,
           });
           break;
       }
@@ -675,6 +687,43 @@ export function Chat({ runId, accessToken }: Props) {
                   className="my-2 px-3 py-2 text-[11px] text-green-600 bg-green-50 border border-green-200 rounded"
                 >
                   ✓ {block.action}
+                </div>
+              );
+
+            case "complete":
+              return (
+                <div
+                  key={i}
+                  className="my-4 p-4 bg-yellow-50 border border-yellow-200 rounded-md space-y-2"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-[18px]">🍩</span>
+                    <span className="text-[13px] font-medium text-yellow-800">
+                      That&apos;s unpossible! We&apos;re done!
+                    </span>
+                  </div>
+                  {block.prUrl && (
+                    <a
+                      href={block.prUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 text-[12px] text-yellow-700 hover:text-yellow-900 underline"
+                    >
+                      <span>📋</span>
+                      <span>{block.prTitle ?? "View Pull Request"}</span>
+                    </a>
+                  )}
+                  {block.branchUrl && !block.prUrl && (
+                    <a
+                      href={block.branchUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 text-[12px] text-yellow-700 hover:text-yellow-900 underline"
+                    >
+                      <span>🌿</span>
+                      <span>View Branch</span>
+                    </a>
+                  )}
                 </div>
               );
           }

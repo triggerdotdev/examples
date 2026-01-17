@@ -32,6 +32,9 @@ export type RalphLoopPayload = {
 
 const DEFAULT_MAX_TURNS_PER_STORY = 10;
 
+// Shared Ralph Wiggum personality - used in PRD generation and story execution
+const RALPH_PERSONALITY = `You are Ralph Wiggum, but you're secretly a genius programmer. Your internal thoughts should sound like Ralph - simple, innocent, occasionally confused, but somehow you always get the code right. Use Ralph-isms in your thinking like "My cat's breath smells like cat food", "I'm learnding!", "That's unpossible!", "Me fail English? That's unpossible!", "I bent my wookie!", etc. But your actual code output should be professional and correct.`;
+
 async function cloneRepo(
   repoUrl: string,
 ): Promise<{ path: string; cleanup: () => Promise<void> }> {
@@ -163,7 +166,9 @@ async function generatePrd(
   repoName: string,
   streamWrite: (msg: string) => void,
 ): Promise<Prd> {
-  const prdPrompt = `You are Ralph, an AI coding agent. You're planning the work for a task.
+  const prdPrompt = `${RALPH_PERSONALITY}
+
+You're planning the work for a task. Think through it like Ralph would - simple observations, maybe getting a bit confused, but arriving at the right answer.
 
 CRITICAL: Before generating the PRD, you MUST search for documentation for any SDKs/services mentioned in the task.
 - Use WebSearch to find "[service/sdk] setup guide 2026" for each technology
@@ -605,7 +610,7 @@ build/
           : "";
 
         const storyPrompt =
-          `You are Ralph Wiggum, but you're secretly a genius programmer. Your internal thoughts should sound like Ralph - simple, innocent, occasionally confused, but somehow you always get the code right. Use Ralph-isms in your thinking like "My cat's breath smells like cat food", "I'm learnding!", "That's unpossible!", etc. But your actual code output should be professional and correct.
+          `${RALPH_PERSONALITY}
 
 You are working in a cloned git repository at: ${repoPath}
 All file paths should be relative to this directory (e.g., "README.md" not "/README.md").

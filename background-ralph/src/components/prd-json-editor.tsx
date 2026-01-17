@@ -1,6 +1,10 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import Editor from "react-simple-code-editor"
+import { highlight, languages } from "prismjs"
+import "prismjs/components/prism-json"
+import "prismjs/themes/prism.css"
 import type { Prd } from "@/trigger/streams"
 
 type Props = {
@@ -55,7 +59,6 @@ export function PrdJsonEditor({
 
     try {
       const parsed = JSON.parse(value) as Prd
-      // Basic validation
       if (!parsed.name || !parsed.stories || !Array.isArray(parsed.stories)) {
         setError("Invalid PRD: missing name or stories")
         return
@@ -95,21 +98,22 @@ export function PrdJsonEditor({
           </span>
         </div>
       </div>
-      <textarea
-        value={jsonText}
-        onChange={(e) => handleChange(e.target.value)}
-        readOnly={readOnly}
-        spellCheck={false}
-        className={`
-          flex-1 w-full p-3
-          font-mono text-[11px] leading-relaxed
-          bg-white border-0 resize-none
-          focus:outline-none focus:ring-0
-          overflow-auto
-          ${readOnly ? "text-slate-500 cursor-default" : "text-slate-700"}
-          ${error ? "bg-red-50" : ""}
-        `}
-      />
+      <div className={`flex-1 overflow-auto ${error ? "bg-red-50" : "bg-white"}`}>
+        <Editor
+          value={jsonText}
+          onValueChange={handleChange}
+          highlight={(code) => highlight(code, languages.json, "json")}
+          disabled={readOnly}
+          padding={12}
+          style={{
+            fontFamily: "ui-monospace, monospace",
+            fontSize: 11,
+            lineHeight: 1.6,
+            minHeight: "100%",
+          }}
+          className={readOnly ? "opacity-70" : ""}
+        />
+      </div>
     </div>
   )
 }
