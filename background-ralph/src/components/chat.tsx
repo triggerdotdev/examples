@@ -784,16 +784,30 @@ export function Chat({ runId, accessToken }: Props) {
                 </div>
               );
 
-            case "complete":
+            case "complete": {
+              const isSuccess = block.prUrl || block.branchUrl;
+              const isError = block.error;
               return (
                 <div
                   key={i}
-                  className="my-4 p-4 bg-yellow-50 border border-yellow-200 rounded-md space-y-3"
+                  className={`my-4 p-4 rounded-md space-y-3 ${
+                    isError
+                      ? "bg-red-50 border border-red-200"
+                      : isSuccess
+                        ? "bg-yellow-50 border border-yellow-200"
+                        : "bg-slate-50 border border-slate-200"
+                  }`}
                 >
                   <div className="flex items-center gap-2">
-                    <span className="text-[18px]">🍩</span>
-                    <span className="text-[13px] font-medium text-yellow-800">
-                      We did it! You&apos;re my best friend!
+                    <span className="text-[18px]">{isError ? "😿" : "🍩"}</span>
+                    <span className={`text-[13px] font-medium ${
+                      isError ? "text-red-800" : isSuccess ? "text-yellow-800" : "text-slate-700"
+                    }`}>
+                      {isError
+                        ? "Uh oh, my cat's breath smells like cat food..."
+                        : isSuccess
+                          ? "We did it! You're my best friend!"
+                          : "I made some changes but couldn't push them"}
                     </span>
                   </div>
                   {block.prUrl ? (
@@ -819,16 +833,17 @@ export function Chat({ runId, accessToken }: Props) {
                       <span>View Branch</span>
                     </a>
                   ) : block.error ? (
-                    <div className="text-[11px] text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2 whitespace-pre-wrap">
+                    <div className="text-[11px] text-red-600 bg-red-100 border border-red-200 rounded px-3 py-2 whitespace-pre-wrap">
                       {block.error}
                     </div>
                   ) : (
-                    <p className="text-[11px] text-yellow-700">
-                      Changes made locally
+                    <p className="text-[11px] text-slate-600">
+                      Changes made locally (check GITHUB_TOKEN permissions)
                     </p>
                   )}
                 </div>
               );
+            }
           }
         })}
         {/* Working indicator at bottom */}
