@@ -1,22 +1,11 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useCallback, useEffect } from "react"
 import { useRealtimeRun, useRealtimeStream } from "@trigger.dev/react-hooks"
-import { statusStream, type StatusUpdate, type Prd, type Story } from "@/trigger/streams"
-import { KanbanBoard } from "./kanban-board"
-import { StoryEditor } from "./story-editor"
+import { statusStream, type StatusUpdate, type Prd } from "@/trigger/streams"
+import { PrdJsonEditor } from "./prd-json-editor"
+import { ProgressLog } from "./progress-log"
 import type { ralphLoop } from "@/trigger/ralph-loop"
-import { Button } from "@/components/ui/button"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
 
 type Props = {
   runId: string
@@ -26,11 +15,49 @@ type Props = {
 
 const terminalStatuses = ["COMPLETED", "CANCELED", "FAILED", "CRASHED", "SYSTEM_FAILURE", "TIMED_OUT", "EXPIRED"]
 
-export function RunViewer({ runId, accessToken, onCancel }: Props) {
-  const [editingStory, setEditingStory] = useState<Story | null>(null)
+// Resizable split hook
+function useResizableSplit(defaultRatio = 0.5, minRatio = 0.2, maxRatio = 0.8) {
+  const [ratio, setRatio] = useState(defaultRatio)
+  const [isDragging, setIsDragging] = useState(false)
+
+  const handleMouseDown = useCallback(() => {
+    setIsDragging(true)
+  }, [])
+
+  useEffect(() => {
+    if (!isDragging) return
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const container = document.getElementById("split-container")
+      if (!container) return
+      const rect = container.getBoundingClientRect()
+      const newRatio = (e.clientY - rect.top) / rect.height
+      setRatio(Math.min(maxRatio, Math.max(minRatio, newRatio)))
+    }
+
+    const handleMouseUp = () => {
+      setIsDragging(false)
+    }
+
+    document.addEventListener("mousemove", handleMouseMove)
+    document.addEventListener("mouseup", handleMouseUp)
+    document.body.style.cursor = "row-resize"
+    document.body.style.userSelect = "none"
+
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove)
+      document.removeEventListener("mouseup", handleMouseUp)
+      document.body.style.cursor = ""
+      document.body.style.userSelect = ""
+    }
+  }, [isDragging, minRatio, maxRatio])
+
+  return { ratio, isDragging, handleMouseDown }
+}
+
+export function RunViewer({ runId, accessToken }: Props) {
   const [localPrdOverride, setLocalPrdOverride] = useState<Prd | null>(null)
-  const [showCancelConfirm, setShowCancelConfirm] = useState(false)
-  const [pendingDeleteStory, setPendingDeleteStory] = useState<Story | null>(null)
+  const { ratio, isDragging, handleMouseDown } = useResizableSplit(0.55)
 
   const { run, error: runError } = useRealtimeRun<typeof ralphLoop>(runId, {
     accessToken,
@@ -53,7 +80,6 @@ export function RunViewer({ runId, accessToken, onCancel }: Props) {
   })
 
   // Derive PRD from status events (prd_generated takes precedence over prd_review)
-  // Use local override if user has edited stories
   const serverPrd = statusParts.reduce<Prd | null>((acc, s) => {
     if (s.type === "prd_generated" && s.prd) return s.prd
     if (s.type === "prd_review" && s.prd && !acc) return s.prd
@@ -61,71 +87,36 @@ export function RunViewer({ runId, accessToken, onCancel }: Props) {
   }, null)
   const currentPrd = localPrdOverride ?? serverPrd
 
-  // Handle story editing
-  function handleEditStory(story: Story) {
-    setEditingStory(story)
-  }
-
-  function handleSaveStory(updated: Story) {
-    if (!currentPrd) return
-    const updatedStories = currentPrd.stories.map(s =>
-      s.id === updated.id ? updated : s
-    )
-    setLocalPrdOverride({ ...currentPrd, stories: updatedStories })
-    setEditingStory(null)
-  }
-
-  function handleDeleteStory(story: Story) {
-    if (!currentPrd) return
-    const remainingStories = currentPrd.stories.filter(s => s.id !== story.id)
-    // If deleting last story, show confirmation
-    if (remainingStories.length === 0) {
-      setPendingDeleteStory(story)
-      setShowCancelConfirm(true)
-      return
-    }
-    setLocalPrdOverride({ ...currentPrd, stories: remainingStories })
-  }
-
-  function confirmCancelRun() {
-    if (!currentPrd || !pendingDeleteStory) return
-    const remainingStories = currentPrd.stories.filter(s => s.id !== pendingDeleteStory.id)
-    setLocalPrdOverride({ ...currentPrd, stories: remainingStories })
-    setShowCancelConfirm(false)
-    setPendingDeleteStory(null)
-    onCancel?.()
-  }
-
-  // Derive completed/failed stories and per-story diffs from status events
+  // Derive completed/failed stories from status events
   const completedStoryIds = new Set<string>()
   const failedStoryIds = new Set<string>()
-  const storyDiffs = new Map<string, string>()
-  const storyErrors = new Map<string, string>()
   for (const s of statusParts) {
     if (s.type === "story_complete" && s.story?.id) {
       completedStoryIds.add(s.story.id)
-      if (s.story.diff) {
-        storyDiffs.set(s.story.id, s.story.diff)
-      }
     }
     if (s.type === "story_failed" && s.story?.id) {
       failedStoryIds.add(s.story.id)
-      if (s.story.diff) {
-        storyDiffs.set(s.story.id, s.story.diff)
-      }
-      if (s.storyError) {
-        storyErrors.set(s.story.id, s.storyError)
-      }
     }
   }
 
-  // Derive current story from latest story_start (if not yet complete/failed)
+  // Derive current story from latest story_start
   const currentStoryId = statusParts.reduce<string | undefined>((acc, s) => {
     if (s.type === "story_start" && s.story?.id) return s.story.id
     if (s.type === "story_complete" && s.story?.id === acc) return undefined
     if (s.type === "story_failed" && s.story?.id === acc) return undefined
     return acc
   }, undefined)
+
+  // Derive latest progress from story_complete events
+  const latestProgress = statusParts.reduce<string | null>((acc, s) => {
+    if (s.type === "story_complete" && s.progress) return s.progress
+    return acc
+  }, null)
+
+  // Handle PRD changes from editor
+  function handlePrdChange(prd: Prd) {
+    setLocalPrdOverride(prd)
+  }
 
   // Handle run error
   if (runError) {
@@ -136,49 +127,40 @@ export function RunViewer({ runId, accessToken, onCancel }: Props) {
     )
   }
 
-  // Derive pushed status for branch/PR link
-  const pushedStatus = statusParts.find(s => s.type === "pushed")
-
   return (
-    <div className="space-y-6">
+    <div className="h-full flex flex-col">
       {/* Terminal state banners */}
       {run?.status === "CANCELED" && (
-        <div className="border border-yellow-400 bg-yellow-50 rounded-md p-4 text-center space-y-2">
+        <div className="border border-yellow-400 bg-yellow-50 rounded-md p-4 text-center space-y-2 mx-4 mt-4">
           <p className="text-[24px]">🍩</p>
           <p className="text-[13px] font-medium text-yellow-800">Run canceled</p>
           <p className="text-[12px] text-yellow-700 italic">&ldquo;Me fail English? That&apos;s unpossible!&rdquo;</p>
         </div>
       )}
       {(run?.status === "FAILED" || run?.status === "CRASHED" || run?.status === "SYSTEM_FAILURE") && (() => {
-        // Find error status and last action for context
         const errorStatus = statusParts.find(s => s.type === "error")
         const pushFailedStatus = statusParts.find(s => s.type === "push_failed")
         const lastStatus = statusParts[statusParts.length - 1]
         const errorMessage = errorStatus?.message ?? pushFailedStatus?.message
-
-        // Determine if this is a network-related error
         const isNetworkError = errorMessage?.includes("Could not resolve host") ||
           errorMessage?.includes("timed out") ||
           errorMessage?.includes("Network error")
 
         return (
-          <div className="border border-red-300 bg-red-50 rounded-md p-4 space-y-2">
+          <div className="border border-red-300 bg-red-50 rounded-md p-4 space-y-2 mx-4 mt-4">
             <p className="text-[13px] font-medium text-red-700">
               Run failed ({run.status})
             </p>
-
             {errorMessage && (
               <pre className="text-[11px] text-red-600 whitespace-pre-wrap font-mono bg-red-100 p-2 rounded">
                 {errorMessage}
               </pre>
             )}
-
             {!errorMessage && lastStatus && lastStatus.type !== "error" && (
               <p className="text-[11px] text-red-600">
                 Last action: {lastStatus.type} — {lastStatus.message?.slice(0, 100)}
               </p>
             )}
-
             <div className="pt-2 border-t border-red-200">
               <p className="text-[11px] text-red-700 font-medium">Next steps:</p>
               <ul className="text-[11px] text-red-600 list-disc ml-4 mt-1 space-y-0.5">
@@ -197,118 +179,83 @@ export function RunViewer({ runId, accessToken, onCancel }: Props) {
         )
       })()}
       {run?.status === "TIMED_OUT" && (
-        <div className="border border-orange-300 bg-orange-50 rounded-md p-4 space-y-2">
-          <p className="text-[13px] font-medium text-orange-700">
-            Run timed out
-          </p>
+        <div className="border border-orange-300 bg-orange-50 rounded-md p-4 space-y-2 mx-4 mt-4">
+          <p className="text-[13px] font-medium text-orange-700">Run timed out</p>
           <p className="text-[11px] text-orange-600">
-            The task exceeded its maximum duration. This might happen with very large repositories or complex prompts.
+            The task exceeded its maximum duration.
           </p>
-          <div className="pt-2 border-t border-orange-200">
-            <p className="text-[11px] text-orange-700 font-medium">Next steps:</p>
-            <ul className="text-[11px] text-orange-600 list-disc ml-4 mt-1 space-y-0.5">
-              <li>Try breaking the task into smaller pieces</li>
-              <li>Use fewer stories with more focused acceptance criteria</li>
-              <li>Start a new task to try again</li>
-            </ul>
-          </div>
         </div>
       )}
       {run?.status === "EXPIRED" && (
-        <div className="border border-slate-300 bg-slate-50 rounded-md p-4 space-y-2">
-          <p className="text-[13px] font-medium text-slate-700">
-            Run expired
-          </p>
+        <div className="border border-slate-300 bg-slate-50 rounded-md p-4 space-y-2 mx-4 mt-4">
+          <p className="text-[13px] font-medium text-slate-700">Run expired</p>
           <p className="text-[11px] text-slate-600">
             The waitpoint timed out while waiting for your response (24 hours).
           </p>
-          <div className="pt-2 border-t border-slate-200">
-            <p className="text-[11px] text-slate-700 font-medium">Next steps:</p>
-            <ul className="text-[11px] text-slate-600 list-disc ml-4 mt-1 space-y-0.5">
-              <li>Start a new task and respond to approval prompts within 24 hours</li>
-            </ul>
-          </div>
         </div>
       )}
 
-      {/* Kanban board or placeholder */}
-      {currentPrd ? (
-        <div className="border rounded-md bg-card p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-[13px] font-semibold text-foreground">
-              Stories ({completedStoryIds.size}/{currentPrd.stories.length} complete)
-            </h2>
-          </div>
-          <KanbanBoard
+      {/* Split view: PRD JSON + Progress */}
+      <div
+        id="split-container"
+        className="flex-1 flex flex-col m-4 border rounded-md bg-card overflow-hidden"
+      >
+        {/* PRD JSON Editor */}
+        <div
+          style={{ height: `${ratio * 100}%` }}
+          className="overflow-hidden"
+        >
+          <PrdJsonEditor
             prd={currentPrd}
             completedStoryIds={completedStoryIds}
             failedStoryIds={failedStoryIds}
             currentStoryId={currentStoryId}
-            storyDiffs={storyDiffs}
-            storyErrors={storyErrors}
-            onEditStory={handleEditStory}
+            onPrdChange={handlePrdChange}
+            readOnly={!isRunActive && !currentPrd}
           />
         </div>
-      ) : isRunActive ? (
-        <div className="border rounded-md bg-card p-6">
-          <div className="flex items-center justify-center py-12">
-            <div className="text-center space-y-3">
-              <span className="inline-block text-[24px] animate-blink">🍩</span>
-              <p className="text-[13px] text-slate-500">Generating stories...</p>
-            </div>
-          </div>
-        </div>
-      ) : null}
 
-      {/* Status history */}
+        {/* Resize handle */}
+        <div
+          onMouseDown={handleMouseDown}
+          className={`
+            h-2 flex-shrink-0 cursor-row-resize
+            border-y border-slate-200 bg-slate-100
+            hover:bg-slate-200 transition-colors
+            flex items-center justify-center
+            ${isDragging ? "bg-slate-300" : ""}
+          `}
+        >
+          <div className="w-8 h-0.5 bg-slate-300 rounded-full" />
+        </div>
+
+        {/* Progress Log */}
+        <div
+          style={{ height: `${(1 - ratio) * 100}%` }}
+          className="overflow-hidden"
+        >
+          <ProgressLog
+            progress={latestProgress}
+            isActive={isRunActive ?? false}
+          />
+        </div>
+      </div>
+
+      {/* Status history (collapsible) */}
       {statusParts.length > 0 && (
-        <details className="text-sm">
-          <summary className="cursor-pointer text-gray-500">Status history ({statusParts.length})</summary>
-          <ul className="mt-2 space-y-1 text-gray-600">
+        <details className="text-sm mx-4 mb-4">
+          <summary className="cursor-pointer text-gray-500 text-[11px]">
+            Status history ({statusParts.length})
+          </summary>
+          <ul className="mt-2 space-y-1 text-gray-600 text-[10px]">
             {statusParts.map((s, i) => (
               <li key={i}>
-                <span className="font-mono text-xs">[{s.type}]</span> {s.message}
+                <span className="font-mono">[{s.type}]</span> {s.message}
               </li>
             ))}
           </ul>
         </details>
       )}
-
-      {/* Modals */}
-      {editingStory && (
-        <StoryEditor
-          story={editingStory}
-          onSave={handleSaveStory}
-          onCancel={() => setEditingStory(null)}
-        />
-      )}
-
-      {/* Cancel confirmation dialog */}
-      <AlertDialog open={showCancelConfirm} onOpenChange={(open) => {
-        if (!open) {
-          setShowCancelConfirm(false)
-          setPendingDeleteStory(null)
-        }
-      }}>
-        <AlertDialogContent className="max-w-sm text-center">
-          <AlertDialogHeader>
-            <p className="text-[32px] mb-2">🍩</p>
-            <AlertDialogTitle className="text-[14px]">Delete last story?</AlertDialogTitle>
-            <AlertDialogDescription className="text-[12px]">
-              &ldquo;I bent my wookie!&rdquo; — This will cancel the run.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="justify-center sm:justify-center">
-            <AlertDialogCancel className="text-[12px]">Keep going</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmCancelRun}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 text-[12px]"
-            >
-              Cancel run
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   )
 }

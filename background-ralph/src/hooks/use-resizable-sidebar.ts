@@ -3,9 +3,9 @@
 import { useState, useEffect, useCallback, useRef } from "react"
 
 const STORAGE_KEY = "ralph-sidebar-width"
-const MIN_WIDTH = 240
-const MAX_WIDTH = 480
-const DEFAULT_WIDTH = 320
+const MIN_WIDTH = 320
+const MAX_WIDTH = 700
+const DEFAULT_WIDTH = 500
 
 export function useResizableSidebar() {
   const [width, setWidth] = useState(DEFAULT_WIDTH)
