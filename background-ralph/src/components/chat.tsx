@@ -50,6 +50,7 @@ function parseMessages(raw: string): MessageBlock[] {
     { name: string; input: string; complete: boolean }
   >();
   const seenApprovals = new Set<string>();
+  const seenStatuses = new Set<string>(); // Dedupe status messages
 
   let currentThinking = "";
   let currentText = "";
@@ -84,6 +85,10 @@ function parseMessages(raw: string): MessageBlock[] {
           break;
 
         case "status":
+          // Dedupe status messages by phase+message
+          const statusKey = `${msg.phase}:${msg.message}`;
+          if (seenStatuses.has(statusKey)) break;
+          seenStatuses.add(statusKey);
           flushThinking();
           flushText();
           blocks.push({
@@ -126,6 +131,10 @@ function parseMessages(raw: string): MessageBlock[] {
           break;
 
         case "story_separator":
+          // Dedupe separators by story number
+          const sepKey = `story-${msg.storyNum}`;
+          if (seenStatuses.has(sepKey)) break;
+          seenStatuses.add(sepKey);
           flushThinking();
           flushText();
           blocks.push({
@@ -137,6 +146,9 @@ function parseMessages(raw: string): MessageBlock[] {
           break;
 
         case "approval":
+          // Dedupe approvals by ID
+          if (seenApprovals.has(msg.id)) break;
+          seenApprovals.add(msg.id);
           flushThinking();
           flushText();
           blocks.push({
@@ -152,6 +164,10 @@ function parseMessages(raw: string): MessageBlock[] {
           break;
 
         case "approval_response":
+          // Dedupe responses by ID (approval ID reused)
+          const respKey = `resp-${msg.id}`;
+          if (seenApprovals.has(respKey)) break;
+          seenApprovals.add(respKey);
           flushThinking();
           flushText();
           blocks.push({

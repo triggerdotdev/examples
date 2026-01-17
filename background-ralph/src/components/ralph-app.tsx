@@ -123,6 +123,8 @@ export function RalphApp() {
     setError(undefined)
   }
 
+  // Show loading during submit OR while URL has runId but state not yet derived
+  const isLoading = isPending || (runState === null && searchParams.has("runId"))
   const isRunning = runState !== null
 
   return (
@@ -263,10 +265,10 @@ export function RalphApp() {
 
               <Button
                 type="submit"
-                disabled={isPending}
+                disabled={isLoading}
                 className="w-full text-[13px] font-medium h-9"
               >
-                {isPending ? (
+                {isLoading ? (
                   <span className="flex items-center justify-center gap-2">
                     <span className="animate-spin">🍩</span>
                     Readying Ralph
