@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useRef } from "react"
-import { ScrollArea } from "@/components/ui/scroll-area"
 
 type Props = {
   progress: string | null
@@ -42,8 +41,7 @@ export function ProgressLog({ progress, isActive = false }: Props) {
           {sections.length} {sections.length === 1 ? "story" : "stories"} logged
         </span>
       </div>
-      <ScrollArea className="flex-1" ref={scrollRef}>
-        <div className="p-3 space-y-4">
+      <div className="flex-1 overflow-auto p-3 space-y-4" ref={scrollRef}>
           {sections.map((section, i) => {
             const lines = section.split("\n")
             const title = lines[0]?.replace(/^###?\s*/, "") || ""
@@ -67,8 +65,7 @@ export function ProgressLog({ progress, isActive = false }: Props) {
               </div>
             )
           })}
-        </div>
-      </ScrollArea>
+      </div>
     </div>
   )
 }

@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react"
 import type { Prd } from "@/trigger/streams"
-import { ScrollArea } from "@/components/ui/scroll-area"
 
 type Props = {
   prd: Prd | null
@@ -96,23 +95,21 @@ export function PrdJsonEditor({
           </span>
         </div>
       </div>
-      <ScrollArea className="flex-1">
-        <textarea
-          value={jsonText}
-          onChange={(e) => handleChange(e.target.value)}
-          readOnly={readOnly}
-          spellCheck={false}
-          className={`
-            w-full h-full min-h-[200px] p-3
-            font-mono text-[11px] leading-relaxed
-            bg-white border-0 resize-none
-            focus:outline-none focus:ring-0
-            ${readOnly ? "text-slate-500 cursor-default" : "text-slate-700"}
-            ${error ? "bg-red-50" : ""}
-          `}
-          style={{ minHeight: "calc(100% - 1px)" }}
-        />
-      </ScrollArea>
+      <textarea
+        value={jsonText}
+        onChange={(e) => handleChange(e.target.value)}
+        readOnly={readOnly}
+        spellCheck={false}
+        className={`
+          flex-1 w-full p-3
+          font-mono text-[11px] leading-relaxed
+          bg-white border-0 resize-none
+          focus:outline-none focus:ring-0
+          overflow-auto
+          ${readOnly ? "text-slate-500 cursor-default" : "text-slate-700"}
+          ${error ? "bg-red-50" : ""}
+        `}
+      />
     </div>
   )
 }
