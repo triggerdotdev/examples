@@ -824,7 +824,12 @@ Complete this story. When done, the acceptance criteria should be met.`;
 ${buildError}
 \`\`\`
 
-Fix this build error. The error is likely a TypeScript type error, missing import, or syntax issue. Make the minimal change needed to fix it.`;
+Fix this build error. Common fixes include:
+- "Cannot find module" → run npm install <package> or check import path
+- Type errors → add type assertions, fix imports, or adjust types
+- Syntax errors → fix the syntax in the indicated file
+
+Read the file, understand the issue, and make the fix.`;
 
               const fixResult = query({
                 prompt: fixPrompt,
@@ -832,14 +837,15 @@ Fix this build error. The error is likely a TypeScript type error, missing impor
                   model: "claude-opus-4-5",
                   abortController,
                   cwd: repoPath,
-                  maxTurns: 3, // Limited turns for fix
+                  maxTurns: 5, // Allow enough turns to read, understand, and fix
                   permissionMode: "acceptEdits",
                   includePartialMessages: true,
                   allowedTools: ["Read", "Edit", "Write", "Bash", "Grep", "Glob"],
                 },
               });
 
-              // Stream fix agent output
+              // Stream fix agent output and track result
+              let fixSucceeded = false;
               const { waitUntilComplete: waitForFix } = agentOutputStream.writer({
                 execute: async ({ write }) => {
                   for await (const message of fixResult) {
@@ -854,11 +860,19 @@ Fix this build error. The error is likely a TypeScript type error, missing impor
                         }
                       }
                     }
+                    if (message.type === "result") {
+                      fixSucceeded = message.subtype === "success";
+                      logger.info("Fix agent result", { subtype: message.subtype, success: fixSucceeded });
+                    }
                   }
                 },
               });
 
               await waitForFix();
+
+              if (!fixSucceeded) {
+                logger.warn("Fix agent did not succeed, continuing anyway");
+              }
 
               // Commit the fix
               await commitChanges();
