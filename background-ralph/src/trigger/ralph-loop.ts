@@ -824,12 +824,7 @@ Complete this story. When done, the acceptance criteria should be met.`;
 ${buildError}
 \`\`\`
 
-Fix this build error. Common fixes include:
-- "Cannot find module" → run npm install <package> or check import path
-- Type errors → add type assertions, fix imports, or adjust types
-- Syntax errors → fix the syntax in the indicated file
-
-Read the file, understand the issue, and make the fix.`;
+Fix this build error. Read the relevant files, understand the issue, and make whatever changes are needed - install packages, edit code, fix imports, etc.`;
 
               const fixResult = query({
                 prompt: fixPrompt,
