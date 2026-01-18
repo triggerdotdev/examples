@@ -218,8 +218,7 @@ Rules:
     prompt: prdPrompt,
     options: {
       model: "claude-opus-4-5",
-      maxTurns: 5, // Allow a few turns for doc searches
-      maxThinkingTokens: 10000, // Enable extended thinking
+      maxTurns: 15, // More turns for doc searches + PRD generation
       permissionMode: "acceptEdits",
       allowedTools: ["WebSearch"],
       includePartialMessages: true,
@@ -288,14 +287,15 @@ Rules:
       if (message.subtype === "success") {
         finalResult = message.result;
       } else {
-        // Log other result types for debugging
-        logger.warn("Agent result not success", { subtype: message.subtype, message });
+        // Log error result types
+        logger.warn("Agent result error", { subtype: message.subtype });
+        throw new Error(`PRD generation failed: ${message.subtype}`);
       }
     }
   }
 
   if (!finalResult) {
-    throw new Error("Failed to generate PRD: no result from agent. Check logs for details.");
+    throw new Error("Failed to generate PRD: no result from agent");
   }
 
   try {
