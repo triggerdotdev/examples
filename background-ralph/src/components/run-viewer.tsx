@@ -68,6 +68,7 @@ export function RunViewer({ runId, accessToken }: Props) {
 
   const { parts: rawStatusParts } = useRealtimeStream(statusStream, runId, {
     accessToken,
+    timeoutInSeconds: 600, // Max allowed by API
   })
 
   // Track progress in state to ensure re-renders when it updates

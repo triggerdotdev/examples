@@ -94,6 +94,7 @@ export function RalphApp() {
     {
       accessToken: runState?.accessToken ?? "",
       enabled: !!runState,
+      timeoutInSeconds: 600, // Max allowed by API
     }
   );
 

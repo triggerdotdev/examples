@@ -1,6 +1,6 @@
-import { z } from "zod"
+import { z } from "zod";
 
-const githubUrlRegex = /^https:\/\/github\.com\/[\w.-]+\/[\w.-]+(\/.*)?$/
+const githubUrlRegex = /^https:\/\/github\.com\/[\w.-]+\/[\w.-]+(\/.*)?$/;
 
 export const submitTaskSchema = z.object({
   repoUrl: z
@@ -9,6 +9,6 @@ export const submitTaskSchema = z.object({
     .regex(githubUrlRegex, "Must be a valid GitHub repository URL"),
   prompt: z.string().min(1, "Prompt is required").max(4000, "Prompt too long"),
   yoloMode: z.coerce.boolean().default(false),
-})
+});
 
-export type SubmitTaskInput = z.infer<typeof submitTaskSchema>
+export type SubmitTaskInput = z.infer<typeof submitTaskSchema>;

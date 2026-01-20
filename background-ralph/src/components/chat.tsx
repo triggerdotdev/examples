@@ -560,11 +560,13 @@ export function Chat({ runId, accessToken }: Props) {
 
   const { parts: outputParts } = useRealtimeStream(agentOutputStream, runId, {
     accessToken,
+    timeoutInSeconds: 600, // Max allowed by API
   });
 
   // Subscribe to status stream to get PRD
   const { parts: rawStatusParts } = useRealtimeStream(statusStream, runId, {
     accessToken,
+    timeoutInSeconds: 600,
   });
 
   // Track PRD in state to ensure re-renders when it arrives
