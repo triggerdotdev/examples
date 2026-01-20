@@ -30,7 +30,19 @@ export type RalphLoopPayload = {
   maxTurnsPerStory?: number; // Max agent turns per story (default: 5)
 };
 
-const DEFAULT_MAX_TURNS_PER_STORY = 10;
+const DEFAULT_MAX_TURNS_PER_STORY = 20;
+
+// MCP servers for accurate documentation lookup
+const MCP_SERVERS = {
+  trigger: {
+    command: "npx",
+    args: ["trigger.dev@latest", "mcp"],
+  },
+  context7: {
+    command: "npx",
+    args: ["-y", "@upstash/context7-mcp"],
+  },
+};
 
 // Shared Ralph Wiggum personality - used in PRD generation and story execution
 const RALPH_PERSONALITY = `You are Ralph Wiggum, but you're secretly a genius programmer. Your internal thoughts should sound like Ralph - simple, innocent, occasionally confused, but somehow you always get the code right. Use Ralph-isms in your thinking like "My cat's breath smells like cat food", "I'm learnding!", "That's unpossible!", "Me fail English? That's unpossible!", "I bent my wookie!", etc. But your actual code output should be professional and correct.`;
@@ -170,10 +182,12 @@ async function generatePrd(
 
 You're planning the work for a task. Think through it like Ralph would - simple observations, maybe getting a bit confused, but arriving at the right answer.
 
-CRITICAL: Before generating the PRD, you MUST search for documentation for any SDKs/services mentioned in the task.
-- Use WebSearch to find "[service/sdk] setup guide 2026" for each technology
-- Look for current import paths, configuration patterns, and API usage
-- This prevents outdated patterns that will break the build
+CRITICAL: For documentation lookup, use these MCP tools for accurate, up-to-date docs:
+- mcp__trigger__search_docs: Trigger.dev docs
+- mcp__context7__resolve-library-id + mcp__context7__query-docs: Any npm library (Supabase, Stripe, Next.js, React, etc.)
+  1. First resolve the library ID (e.g., "@supabase/supabase-js")
+  2. Then get docs with specific topic query
+Use WebSearch only as last resort: "[service] setup guide 2026"
 
 Repo exploration:
 ${exploration}
@@ -184,12 +198,22 @@ STEP 1: Search docs for any services/SDKs mentioned (Trigger.dev, Supabase, Stri
 STEP 2: Think through what needs to be done
 STEP 3: Generate the PRD with correct, current patterns from the docs
 
-IMPORTANT: Match story count to task complexity:
-- Simple tasks (create a file, add one thing, small tweak): 1 story only
-- Medium tasks (add a feature, fix a bug with multiple parts): 2-3 stories
-- Complex tasks (new system, multiple features, refactoring): 4-10 stories
+IMPORTANT: Keep stories small and achievable:
+- MAX 2-3 files per story (more files = split into multiple stories)
+- Simple tasks (1-2 files): 1 story
+- Medium tasks (3-6 files): 2-3 stories
+- Complex tasks (7+ files): 4-10 stories
+- More smaller stories is BETTER than fewer large stories
+- Each story should be completable even if previous stories failed
 
-Do NOT over-engineer simple requests. "Create a file with X" = 1 story. "Add a button" = 1 story.
+CRITICAL: First story MUST install all dependencies with EXACT COMPATIBLE VERSIONS:
+- Use MCP tools to find the correct compatible versions BEFORE generating the PRD
+- ALWAYS pin versions: "npm install ai@4.0.0 @ai-sdk/openai@1.0.0" NOT "npm install ai @ai-sdk/openai"
+- Version mismatch between ai and @ai-sdk/* causes LanguageModelV3 vs V2 errors - MUST use compatible versions
+- Acceptance criteria MUST include the exact versioned install command
+- Context field MUST include: "Install with: npm install package@version package2@version"
+- files array for install story: ["package.json"]
+- Later stories depend on US-001 completing the installs with correct versions
 
 After researching docs, output ONLY valid JSON (no markdown fences, no explanation):
 {
@@ -200,7 +224,9 @@ After researching docs, output ONLY valid JSON (no markdown fences, no explanati
       "id": "US-001",
       "title": "short title",
       "acceptance": ["criterion 1", "criterion 2"],
-      "dependencies": []
+      "dependencies": [],
+      "files": ["path/to/create.ts", "path/to/edit.tsx"],
+      "context": "Research summary: exact package versions, import statements, code patterns, and warnings"
     }
   ]
 }
@@ -208,19 +234,47 @@ After researching docs, output ONLY valid JSON (no markdown fences, no explanati
 Rules:
 - Stories should be in dependency order (later stories can depend on earlier ones)
 - Each story should be completable in 1-3 agent iterations
-- Acceptance criteria should be verifiable and include correct import paths from docs
 - Use sequential IDs: US-001, US-002, etc.
 - Create process.env for all config values, including API keys, project IDs, secrets, and any other config values
-- Create an .env.example file with all config values`;
+
+CRITICAL - files array must use EXACT paths from repo exploration above:
+- Look at the "Files:" section in the exploration to see the actual directory structure
+- If exploration shows "./src/trigger/..." then use "src/trigger/newfile.ts"
+- If exploration shows "./app/..." then use "app/page.tsx"
+- If exploration shows "./trigger/..." (no src) then use "trigger/newfile.ts"
+- NEVER guess paths - only use paths that match the actual repo structure
+- For new files, place them in the correct existing directory (e.g., new trigger tasks go in src/trigger/ if that's where other tasks are)
+- files: Array of EXACT file paths this story will create or modify
+
+Acceptance criteria rules:
+- Every story MUST have "Create path/file.ts" or "Edit path/file.ts" in acceptance
+- Paths in acceptance MUST match the files array exactly
+- Include correct import paths from docs in acceptance criteria
+- Create an .env.example file with all config values
+
+CRITICAL - context field for EVERY story:
+The context field captures your research so the story agent can write correct code.
+Include:
+- Exact package versions (e.g., "ai@4.0.0 with @ai-sdk/openai@1.0.0 - versions must match")
+- Import statements (e.g., "import { streamText } from 'ai'")
+- Key code patterns from docs (e.g., "streamText({ model: openai('gpt-4o-mini'), prompt })")
+- Version compatibility warnings (e.g., "older @ai-sdk/openai returns LanguageModelV2, need v1.0.0+ for V3")
+Make context complete enough that the story agent can write working code on first try.`;
 
   // Use Agent SDK with WebSearch to research docs before generating PRD
   const agentResult = query({
     prompt: prdPrompt,
     options: {
       model: "claude-opus-4-5",
-      maxTurns: 15, // More turns for doc searches + PRD generation
+      maxTurns: 25, // More turns for Context7 lookups (2 per library) + PRD generation
       permissionMode: "acceptEdits",
-      allowedTools: ["WebSearch"],
+      mcpServers: MCP_SERVERS,
+      allowedTools: [
+            "WebSearch",
+            "mcp__trigger__search_docs",
+            "mcp__context7__resolve-library-id",
+            "mcp__context7__query-docs",
+          ],
       includePartialMessages: true,
     },
   });
@@ -312,6 +366,28 @@ Rules:
     const prd = JSON.parse(jsonMatch[0]) as Prd;
     // Ensure all stories start with passes: false
     prd.stories = prd.stories.map((s) => ({ ...s, passes: false }));
+
+    // Log full PRD for debugging
+    const prdDebug = {
+      name: prd.name,
+      description: prd.description,
+      storyCount: prd.stories.length,
+      stories: prd.stories.map((s) => ({
+        id: s.id,
+        title: s.title,
+        files: s.files,
+        acceptance: s.acceptance,
+        context: s.context || "NO CONTEXT",
+      })),
+    };
+    logger.info("PRD generated", prdDebug);
+
+    // Also stream PRD to chat for visibility
+    streamWrite(JSON.stringify({
+      type: "text",
+      delta: `\n\n📋 PRD DEBUG:\n${JSON.stringify(prdDebug, null, 2)}\n\n`,
+    }) + "\n");
+
     return prd;
   } catch (e) {
     logger.error("Failed to parse PRD JSON", { text: finalResult, error: e });
@@ -594,6 +670,14 @@ build/
         const storyNum = i + 1;
         const totalStories = stories.length;
 
+        // Log story execution start with context
+        logger.info("Starting story execution", {
+          storyId: story.id,
+          title: story.title,
+          files: story.files,
+          context: story.context || "NO CONTEXT",
+        });
+
         // Stream story start
         await appendStatus({
           type: "story_start",
@@ -621,6 +705,11 @@ build/
           }\n\nBuild on this work.`
           : "";
 
+        const storyFiles = story.files || [];
+        const storyContext = story.context
+          ? `\n\nRESEARCH CONTEXT (from PRD planning):\n${story.context}`
+          : "";
+
         const storyPrompt =
           `${RALPH_PERSONALITY}
 
@@ -631,16 +720,31 @@ Overall task: ${prompt}
 ${progressContext}
 
 Current story (${storyNum}/${totalStories}): ${story.title}
+
+FILES YOU MUST CREATE OR MODIFY (validation will fail if any are missing):
+${storyFiles.map((f) => `- ${f}`).join("\n")}
+
 Acceptance criteria:
 ${story.acceptance.map((c, i) => `${i + 1}. ${c}`).join("\n")}
+${storyContext}
+
+BEFORE WRITING CODE - Verify patterns with MCP tools:
+- mcp__trigger__search_docs for Trigger.dev patterns
+- mcp__context7__resolve-library-id + mcp__context7__query-docs for npm packages
+The research context above is a head start, but MCP tools are the source of truth.
 
 Guidelines:
 - Use process.env for ALL config values (API keys, project IDs, secrets)
 - NEVER create .env files directly - only create .env.example with placeholder values
 - Next.js 14+: App Router is default, do NOT use experimental.appDir
-- Prefer modern patterns from official docs over training data
 
-Complete this story. When done, the acceptance criteria should be met.`;
+CRITICAL: You MUST create/modify ALL files listed above. This is non-negotiable.
+- Use Write tool to create new files
+- Use Edit tool to modify existing files
+- Do NOT just research or plan - actually write the code
+- Story FAILS if ANY file in the list above is not in your commit
+
+Complete this story by creating/editing ALL ${storyFiles.length} files listed above.`;
 
         const agentResult = query({
           prompt: storyPrompt,
@@ -650,6 +754,7 @@ Complete this story. When done, the acceptance criteria should be met.`;
             cwd: repoPath,
             maxTurns: maxTurnsPerStory,
             permissionMode: "acceptEdits",
+            mcpServers: MCP_SERVERS,
             includePartialMessages: true,
             allowedTools: [
               "Read",
@@ -658,7 +763,9 @@ Complete this story. When done, the acceptance criteria should be met.`;
               "Bash",
               "Grep",
               "Glob",
-              "WebSearch",
+              "mcp__trigger__search_docs",
+              "mcp__context7__resolve-library-id",
+              "mcp__context7__query-docs",
             ],
           },
         });
@@ -744,7 +851,7 @@ Complete this story. When done, the acceptance criteria should be met.`;
 
         // Check for changes and commit
         let storyCommitHash: string | undefined;
-        const commitChanges = async () => {
+        const commitChanges = async (): Promise<boolean> => {
           const { stdout: status } = await execAsync(
             `git -C ${repoPath} status --porcelain`,
           );
@@ -763,19 +870,71 @@ Complete this story. When done, the acceptance criteria should be met.`;
               story: story.title,
               commitHash: storyCommitHash,
             });
+            return true;
           }
+          return false;
         };
-        await commitChanges();
+        const hasChanges = await commitChanges();
 
-        // Run build check with retry loop - agent gets chance to fix errors
+        // Fail if no files were created/modified - agent didn't do the work
         let buildFailed = false;
         let buildError = "";
-        const MAX_BUILD_RETRIES = 2;
 
-        for (let buildAttempt = 0; buildAttempt <= MAX_BUILD_RETRIES; buildAttempt++) {
-          buildFailed = false;
-          buildError = "";
+        if (!hasChanges) {
+          buildFailed = true;
+          buildError = "Story completed but no files were created or modified. The agent may have run out of turns or failed to write files.";
+          logger.warn("No file changes for story", { story: story.title });
+        }
 
+        // Check that expected files from story.files were actually created/modified
+        if (!buildFailed && storyCommitHash) {
+          const expectedFiles = story.files || [];
+          if (expectedFiles.length > 0) {
+            // Get list of files changed in this commit
+            let changedFiles: string[] = [];
+            try {
+              const { stdout } = await execAsync(
+                `git -C ${repoPath} diff --name-only HEAD~1 HEAD`,
+              );
+              changedFiles = stdout.trim().split("\n").filter(Boolean);
+            } catch {
+              // If diff fails (e.g., first commit), skip this validation
+              changedFiles = [];
+            }
+
+            // Only validate if we got the changed files list
+            if (changedFiles.length > 0) {
+              const untouchedFiles: string[] = [];
+              for (const file of expectedFiles) {
+                // Flexible matching: compare basenames or check if paths overlap
+                // Handles cases like "trigger/foo.ts" matching "src/trigger/foo.ts"
+                const basename = file.split("/").pop() || file;
+                const wasChanged = changedFiles.some((f) => {
+                  const changedBasename = f.split("/").pop() || f;
+                  // Exact match, or basename match with same parent dirs
+                  return f === file ||
+                    f.endsWith(`/${file}`) ||
+                    file.endsWith(`/${f}`) ||
+                    (basename === changedBasename && (f.includes(file.replace(basename, "")) || file.includes(f.replace(changedBasename, ""))));
+                });
+                if (!wasChanged) {
+                  untouchedFiles.push(file);
+                }
+              }
+              if (untouchedFiles.length > 0) {
+                buildFailed = true;
+                buildError = `Story files weren't touched: ${untouchedFiles.join(", ")}. Changed: ${changedFiles.join(", ")}`;
+                logger.warn("Expected files not in commit", { story: story.title, untouchedFiles, changedFiles });
+              }
+            }
+          }
+        }
+
+        // Run build check with retry loop - agent gets chance to fix errors
+        // Skip if already failed (e.g., no file changes)
+        const MAX_BUILD_RETRIES = 4; // 5 total attempts
+
+        for (let buildAttempt = 0; !buildFailed && buildAttempt <= MAX_BUILD_RETRIES; buildAttempt++) {
           try {
             const pkgPath = join(repoPath, "package.json");
             const pkg = JSON.parse(await readFile(pkgPath, "utf-8"));
@@ -814,17 +973,26 @@ Complete this story. When done, the acceptance criteria should be met.`;
             if (buildAttempt < MAX_BUILD_RETRIES) {
               await appendChatMessage({
                 type: "text",
-                delta: `\n[Build failed (attempt ${buildAttempt + 1}/${MAX_BUILD_RETRIES + 1}): ${buildError.slice(0, 300)}]\n\nLet me fix that...\n`,
+                delta: `\n\n🔴 BUILD FAILED (Story: ${story.title}, attempt ${buildAttempt + 1}/${MAX_BUILD_RETRIES + 1}):\n\`\`\`\n${buildError.slice(0, 800)}\n\`\`\`\n\nLet me fix that...\n`,
               });
 
               // Run agent again with fix prompt
+              const storyContextForFix = story.context
+                ? `\nOriginal research context:\n${story.context}\n`
+                : "";
+
               const fixPrompt = `The build failed with this error:
 
 \`\`\`
 ${buildError}
 \`\`\`
+${storyContextForFix}
+REQUIRED: Use MCP tools to look up the CURRENT correct patterns:
+- mcp__trigger__search_docs for Trigger.dev
+- mcp__context7__resolve-library-id + mcp__context7__query-docs for npm packages
 
-Fix this build error. Read the relevant files, understand the issue, and make whatever changes are needed - install packages, edit code, fix imports, etc.`;
+Do NOT guess. Look up the docs, find the correct pattern, then fix the code.
+Read the relevant files, understand the issue, and make the fix.`;
 
               const fixResult = query({
                 prompt: fixPrompt,
@@ -832,10 +1000,21 @@ Fix this build error. Read the relevant files, understand the issue, and make wh
                   model: "claude-opus-4-5",
                   abortController,
                   cwd: repoPath,
-                  maxTurns: 5, // Allow enough turns to read, understand, and fix
+                  maxTurns: 10, // Enough to: read error, lookup docs, understand fix, apply it
                   permissionMode: "acceptEdits",
+                  mcpServers: MCP_SERVERS,
                   includePartialMessages: true,
-                  allowedTools: ["Read", "Edit", "Write", "Bash", "Grep", "Glob"],
+                  allowedTools: [
+                  "Read",
+                  "Edit",
+                  "Write",
+                  "Bash",
+                  "Grep",
+                  "Glob",
+                  "mcp__trigger__search_docs",
+                  "mcp__context7__resolve-library-id",
+                  "mcp__context7__query-docs",
+                ],
                 },
               });
 
@@ -871,11 +1050,14 @@ Fix this build error. Read the relevant files, understand the issue, and make wh
 
               // Commit the fix
               await commitChanges();
+
+              // Reset buildFailed so the loop tries the build again
+              buildFailed = false;
             } else {
               // Out of retries, show final error
               await appendChatMessage({
                 type: "text",
-                delta: `\n[Build failed after ${MAX_BUILD_RETRIES + 1} attempts: ${buildError.slice(0, 200)}]\n`,
+                delta: `\n\n❌ BUILD FAILED PERMANENTLY (Story: ${story.title}) after ${MAX_BUILD_RETRIES + 1} attempts:\n\`\`\`\n${buildError.slice(0, 800)}\n\`\`\`\n`,
               });
             }
           }
@@ -912,7 +1094,9 @@ Fix this build error. Read the relevant files, understand the issue, and make wh
             usage,
           });
 
-          // Approval gate on failure (unless yolo mode or last story)
+          // Build failed after all retries - STOP, don't continue to broken code
+          // In yolo mode, still stop (can't push broken builds)
+          // In non-yolo mode, ask user what to do
           const isLastStory = i === stories.length - 1;
           if (!yoloMode && !isLastStory) {
             const token = await wait.createToken({ timeout: "24h" });
@@ -946,10 +1130,13 @@ Fix this build error. Read the relevant files, understand the issue, and make wh
                 id: `story-failed-${token.id}`,
                 action: "Continue",
               });
+              continue; // User chose to continue despite failure
             }
           }
 
-          continue;
+          // In yolo mode or last story: stop on build failure (can't ship broken code)
+          userStopped = true;
+          break;
         }
 
         completedStories++;
@@ -1179,9 +1366,21 @@ ${completedStoryTitles.map((t) => `- ${t}`).join("\n")}
         }
       }
 
+      // Determine completion message and error
+      const noStoriesCompleted = completedStories === 0;
+      const completionError = noStoriesCompleted
+        ? `All ${stories.length} stories failed their builds. Check the errors above - the agent couldn't fix them automatically.`
+        : pushError ?? undefined;
+
+      const someStoriesFailed = completedStories > 0 && completedStories < stories.length;
+
       await appendStatus({
         type: "complete",
-        message: `We did it! ${completedStories}/${stories.length} stories done - you're my best friend!`,
+        message: noStoriesCompleted
+          ? `Uh oh... none of the stories passed their builds. My cat's breath smells like cat food.`
+          : someStoriesFailed
+          ? `Partial success: ${completedStories}/${stories.length} stories done. Some stories failed - check errors above.`
+          : `We did it! ${completedStories}/${stories.length} stories done - you're my best friend!`,
         usage,
       });
 
@@ -1191,7 +1390,7 @@ ${completedStoryTitles.map((t) => `- ${t}`).join("\n")}
         prUrl: prUrl ?? undefined,
         prTitle: prTitle ?? undefined,
         branchUrl: branchUrl ?? undefined,
-        error: pushError ?? undefined,
+        error: completionError,
       });
 
       return {

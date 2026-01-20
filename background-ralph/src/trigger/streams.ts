@@ -14,6 +14,8 @@ export type PrdStory = {
   title: string
   acceptance: string[]
   dependencies: string[]
+  files: string[]  // Paths this story will create or modify
+  context?: string  // Research summary: versions, imports, patterns, warnings
   passes?: boolean
 }
 
