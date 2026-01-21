@@ -134,8 +134,10 @@ export function RalphApp() {
       const params = new URLSearchParams();
       params.set("runId", result.value.runId);
       params.set("token", result.value.token);
-      params.set("repo", formData.get("repoUrl") as string);
-      params.set("prompt", formData.get("prompt") as string);
+      const repo = formData.get("repoUrl");
+      const prompt = formData.get("prompt");
+      if (typeof repo === "string") params.set("repo", repo);
+      if (typeof prompt === "string") params.set("prompt", prompt);
       router.push(`?${params.toString()}`);
     } else {
       setError(result.error);
@@ -305,7 +307,7 @@ export function RalphApp() {
                   placeholder="e.g. Add a dark mode toggle to the settings page"
                   rows={3}
                   required
-                  className="text-[13px] resize-none"
+                  className="text-[13px] min-h-56"
                 />
               </div>
 

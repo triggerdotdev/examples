@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef, useEffect, useState, useMemo } from "react";
-import { useRealtimeStream, useWaitToken } from "@trigger.dev/react-hooks";
+import { useEffect, useState, useMemo } from "react";
+import { useRealtimeStream } from "@trigger.dev/react-hooks";
 import { Streamdown } from "streamdown";
 import {
   agentOutputStream,
@@ -11,6 +11,8 @@ import {
   type StatusUpdate,
 } from "@/trigger/streams";
 import { Button } from "@/components/ui/button";
+import { useApprovalFlow } from "@/hooks/use-approval-flow";
+import { useAutoScroll } from "@/hooks/use-auto-scroll";
 
 type Props = {
   runId: string;
@@ -301,7 +303,7 @@ function Countdown({
   );
 }
 
-// Inline approval buttons for story approvals
+/** Inline approval buttons for story approvals */
 function StoryApprovalButtons({
   tokenId,
   publicAccessToken,
@@ -319,26 +321,10 @@ function StoryApprovalButtons({
   timeoutMs?: number;
   remainingStories?: number;
 }) {
-  const [submittedAction, setSubmittedAction] = useState<string | null>(null);
-  const [isCompleted, setIsCompleted] = useState(false);
-  const [error, setError] = useState<string>();
-  const { complete } = useWaitToken(tokenId, {
-    accessToken: publicAccessToken,
-  });
-
-  async function handleAction(
-    action: "continue" | "stop" | "approve_complete"
-  ) {
-    setSubmittedAction(action);
-    setError(undefined);
-    try {
-      await complete({ action });
-      setIsCompleted(true); // Mark as completed locally
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed");
-      setSubmittedAction(null);
-    }
-  }
+  const { submittedAction, error, isCompleted, submit } = useApprovalFlow(
+    tokenId,
+    publicAccessToken
+  );
 
   // Hide when responded - approval_response block will show the message
   if (responded || isCompleted) {
@@ -375,14 +361,14 @@ function StoryApprovalButtons({
       <div className="flex gap-2 flex-wrap">
         <Button
           size="sm"
-          onClick={() => handleAction("continue")}
+          onClick={() => submit({ action: "continue" })}
           className="h-7 text-[11px] px-3"
         >
           Next story
         </Button>
         <Button
           size="sm"
-          onClick={() => handleAction("approve_complete")}
+          onClick={() => submit({ action: "approve_complete" })}
           className="h-7 text-[11px] px-3 bg-green-600 hover:bg-green-700"
         >
           Yolo remaining{remainingStories ? ` ${remainingStories}` : ""}
@@ -390,7 +376,7 @@ function StoryApprovalButtons({
         <Button
           size="sm"
           variant="outline"
-          onClick={() => handleAction("stop")}
+          onClick={() => submit({ action: "stop" })}
           className="h-7 text-[11px] px-3"
         >
           Stop
@@ -400,7 +386,7 @@ function StoryApprovalButtons({
   );
 }
 
-// Inline approval button for PRD review
+/** Inline approval button for PRD review */
 function PrdApprovalButton({
   tokenId,
   publicAccessToken,
@@ -420,13 +406,10 @@ function PrdApprovalButton({
   timeoutMs?: number;
   storyCount: number;
 }) {
-  const [submittedAction, setSubmittedAction] = useState<"start" | "yolo" | null>(null);
-  const [error, setError] = useState<string>();
-  const { complete } = useWaitToken(tokenId, {
-    accessToken: publicAccessToken,
-  });
-
-  const [isCompleted, setIsCompleted] = useState(false);
+  const { submittedAction, error, isCompleted, submit } = useApprovalFlow(
+    tokenId,
+    publicAccessToken
+  );
 
   // Auto-refresh if PRD doesn't load within 2 seconds
   useEffect(() => {
@@ -437,17 +420,9 @@ function PrdApprovalButton({
     return () => clearTimeout(timer);
   }, [prd]);
 
-  async function handleApprove(yolo: boolean) {
+  function handleApprove(yolo: boolean) {
     if (!prd) return; // Wait for PRD to load
-    setSubmittedAction(yolo ? "yolo" : "start");
-    setError(undefined);
-    try {
-      await complete({ action: "approve_prd", prd, yolo });
-      setIsCompleted(true); // Mark as completed locally
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed");
-      setSubmittedAction(null);
-    }
+    submit({ action: "approve_prd", prd, yolo });
   }
 
   // Show loading state while waiting for PRD
@@ -469,12 +444,13 @@ function PrdApprovalButton({
 
   // Show submitting state (waiting for response)
   if (submittedAction) {
+    const isYolo = submittedAction.includes("yolo") || submittedAction === "approve_prd";
     return (
       <div className="my-3 p-3 border border-blue-500/30 bg-blue-500/5 rounded-md">
         <div className="flex items-center gap-2">
           <span className="animate-spin text-[14px]">🍩</span>
           <p className="text-[12px] text-blue-700">
-            {submittedAction === "yolo" ? `Starting all ${storyCount} stories...` : "Starting..."}
+            {isYolo ? `Starting all ${storyCount} stories...` : "Starting..."}
           </p>
         </div>
       </div>
@@ -554,10 +530,11 @@ function ToolBlock({
   );
 }
 
+/**
+ * Main chat component that displays agent output as a message stream.
+ * Parses NDJSON from agentOutputStream into structured message blocks.
+ */
 export function Chat({ runId, accessToken }: Props) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [isAutoScroll, setIsAutoScroll] = useState(true);
-
   const { parts: outputParts } = useRealtimeStream(agentOutputStream, runId, {
     accessToken,
     timeoutInSeconds: 600, // Max allowed by API
@@ -572,6 +549,13 @@ export function Chat({ runId, accessToken }: Props) {
   // Track PRD in state to ensure re-renders when it arrives
   const [currentPrd, setCurrentPrd] = useState<Prd | null>(null);
   const [planningStatus, setPlanningStatus] = useState<string | null>(null);
+
+  const rawOutput = outputParts?.join("") ?? "";
+  const blocks = useMemo(() => parseMessages(rawOutput), [rawOutput]);
+
+  // Auto-scroll with pause on user scroll
+  const { containerRef, isAutoScroll, handleScroll, resumeScroll } =
+    useAutoScroll<HTMLDivElement>([blocks]);
 
   // Update PRD state when status stream updates
   useEffect(() => {
@@ -602,9 +586,6 @@ export function Chat({ runId, accessToken }: Props) {
     }
   }, [rawStatusParts, rawStatusParts?.length, currentPrd, planningStatus]);
 
-  const rawOutput = outputParts?.join("") ?? "";
-  const blocks = useMemo(() => parseMessages(rawOutput), [rawOutput]);
-
   // Track which approvals have been responded to
   const respondedApprovals = useMemo(() => {
     const responded = new Set<string>();
@@ -615,40 +596,6 @@ export function Chat({ runId, accessToken }: Props) {
     }
     return responded;
   }, [blocks]);
-
-  // Find the latest pending story approval for keyboard shortcuts
-  const pendingStoryApproval = useMemo(() => {
-    for (let i = blocks.length - 1; i >= 0; i--) {
-      const block = blocks[i];
-      if (
-        block.type === "approval" &&
-        block.variant === "story" &&
-        !respondedApprovals.has(block.id)
-      ) {
-        return {
-          tokenId: block.tokenId,
-          publicAccessToken: block.publicAccessToken,
-        };
-      }
-    }
-    return null;
-  }, [blocks, respondedApprovals]);
-
-
-  // Auto-scroll when new content arrives (if not paused)
-  useEffect(() => {
-    if (isAutoScroll && containerRef.current) {
-      containerRef.current.scrollTop = containerRef.current.scrollHeight;
-    }
-  }, [blocks, isAutoScroll]);
-
-  // Pause auto-scroll on user scroll up
-  function handleScroll() {
-    if (!containerRef.current) return;
-    const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
-    const isAtBottom = scrollHeight - scrollTop - clientHeight < 50;
-    setIsAutoScroll(isAtBottom);
-  }
 
   // Check if agent is actively working (not at waitpoint, not complete)
   const isWorking = useMemo(() => {
@@ -678,7 +625,7 @@ export function Chat({ runId, accessToken }: Props) {
         </span>
         {!isAutoScroll && (
           <button
-            onClick={() => setIsAutoScroll(true)}
+            onClick={resumeScroll}
             className="text-[10px] text-blue-400 hover:text-blue-300"
           >
             Resume scroll

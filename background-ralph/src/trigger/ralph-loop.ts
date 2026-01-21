@@ -20,6 +20,14 @@ import {
   type Prd,
   type TokenUsage,
 } from "./streams";
+import {
+  MCP_SERVERS,
+  RALPH_PERSONALITY,
+  DEFAULT_MAX_TURNS_PER_STORY,
+  MAX_BUILD_FIX_ATTEMPTS,
+} from "./config";
+import { streamAgentToChat } from "./stream-helpers";
+import { getErrorMessage } from "@/lib/safe-parse";
 
 const execAsync = promisify(exec);
 
@@ -30,22 +38,51 @@ export type RalphLoopPayload = {
   maxTurnsPerStory?: number; // Max agent turns per story (default: 5)
 };
 
-const DEFAULT_MAX_TURNS_PER_STORY = 20;
+/**
+ * Get git diff with fallback to empty string on error.
+ * Used after commits to capture changes for UI display.
+ */
+async function getDiff(repoPath: string, ref = "HEAD~1"): Promise<string> {
+  try {
+    const { stdout } = await execAsync(`git -C ${repoPath} diff ${ref}`);
+    return stdout;
+  } catch {
+    return "";
+  }
+}
 
-// MCP servers for accurate documentation lookup
-const MCP_SERVERS = {
-  trigger: {
-    command: "npx",
-    args: ["trigger.dev@latest", "mcp"],
-  },
-  context7: {
-    command: "npx",
-    args: ["-y", "@upstash/context7-mcp"],
-  },
-};
-
-// Shared Ralph Wiggum personality - used in PRD generation and story execution
-const RALPH_PERSONALITY = `You are Ralph Wiggum, but you're secretly a genius programmer. Your internal thoughts should sound like Ralph - simple, innocent, occasionally confused, but somehow you always get the code right. Use Ralph-isms in your thinking like "My cat's breath smells like cat food", "I'm learnding!", "That's unpossible!", "Me fail English? That's unpossible!", "I bent my wookie!", etc. But your actual code output should be professional and correct.`;
+/**
+ * Parse git clone/push errors and provide helpful hints.
+ */
+function getGitErrorHint(
+  message: string,
+  context: "clone" | "push",
+  hasToken: boolean
+): string {
+  if (message.includes("Authentication failed") || message.includes("could not read Username")) {
+    return context === "clone"
+      ? hasToken
+        ? "The GITHUB_TOKEN may not have access to this repository."
+        : "This may be a private repo. Set GITHUB_TOKEN env var to access private repositories."
+      : "The GITHUB_TOKEN may not have push access. Check token permissions (needs 'repo' scope).";
+  }
+  if (message.includes("not found") || message.includes("Repository not found")) {
+    return "Check that the repository URL is correct and the repo exists.";
+  }
+  if (message.includes("Could not resolve host")) {
+    return "Network error. Check your internet connection and try again.";
+  }
+  if (message.includes("timed out") || message.includes("Timeout")) {
+    return "Clone timed out. The repository may be very large, or there's a network issue.";
+  }
+  if (message.includes("Permission denied")) {
+    return "The GITHUB_TOKEN may not have push access. Check token permissions (needs 'repo' scope).";
+  }
+  if (message.includes("protected branch")) {
+    return "The target branch is protected. Try pushing to a different branch or update branch protection rules.";
+  }
+  return "";
+}
 
 async function cloneRepo(
   repoUrl: string,
@@ -101,8 +138,7 @@ async function installDeps(repoPath: string): Promise<void> {
       await execAsync(cmd, { cwd: repoPath, timeout: 300000 }); // 5 min timeout
       logger.info("Dependencies installed");
     } catch (error) {
-      const err = error as { message?: string };
-      logger.warn("Dependency install failed", { error: err.message });
+      logger.warn("Dependency install failed", { error: getErrorMessage(error) });
       // Don't throw - let agent continue and handle if needed
     }
   }
@@ -431,7 +467,7 @@ async function createPullRequest(
     const pr = (await response.json()) as { html_url: string; title: string };
     return { url: pr.html_url, title: pr.title };
   } catch (error) {
-    logger.error("PR creation error", { error });
+    logger.error("PR creation error", { error: getErrorMessage(error) });
     return null;
   }
 }
@@ -470,32 +506,8 @@ export const ralphLoop = task({
       repoPath = result.path;
       cleanup = result.cleanup;
     } catch (error) {
-      const rawMessage = error instanceof Error
-        ? error.message
-        : "Unknown clone error";
-
-      // Parse git error and provide helpful hints
-      let hint = "";
-      if (
-        rawMessage.includes("Authentication failed") ||
-        rawMessage.includes("could not read Username")
-      ) {
-        hint = githubToken
-          ? "The GITHUB_TOKEN may not have access to this repository."
-          : "This may be a private repo. Set GITHUB_TOKEN env var to access private repositories.";
-      } else if (
-        rawMessage.includes("not found") ||
-        rawMessage.includes("Repository not found")
-      ) {
-        hint = "Check that the repository URL is correct and the repo exists.";
-      } else if (rawMessage.includes("Could not resolve host")) {
-        hint = "Network error. Check your internet connection and try again.";
-      } else if (
-        rawMessage.includes("timed out") || rawMessage.includes("Timeout")
-      ) {
-        hint =
-          "Clone timed out. The repository may be very large, or there's a network issue.";
-      }
+      const rawMessage = getErrorMessage(error);
+      const hint = getGitErrorHint(rawMessage, "clone", !!githubToken);
 
       const message = hint
         ? `Uh oh, something went wrong... my cat's breath smells like cat food.\n\nClone failed: ${rawMessage}\n\nHint: ${hint}`
@@ -932,9 +944,7 @@ Complete this story by creating/editing ALL ${storyFiles.length} files listed ab
 
         // Run build check with retry loop - agent gets chance to fix errors
         // Skip if already failed (e.g., no file changes)
-        const MAX_BUILD_RETRIES = 4; // 5 total attempts
-
-        for (let buildAttempt = 0; !buildFailed && buildAttempt <= MAX_BUILD_RETRIES; buildAttempt++) {
+        for (let buildAttempt = 0; !buildFailed && buildAttempt <= MAX_BUILD_FIX_ATTEMPTS; buildAttempt++) {
           try {
             const pkgPath = join(repoPath, "package.json");
             const pkg = JSON.parse(await readFile(pkgPath, "utf-8"));
@@ -950,30 +960,27 @@ Complete this story by creating/editing ALL ${storyFiles.length} files listed ab
               break; // No build script, nothing to check
             }
           } catch (error) {
-            const err = error as {
-              message?: string;
-              stderr?: string;
-              stdout?: string;
-            };
+            const errorMsg = getErrorMessage(error);
+            const errObj = error as { stderr?: string; stdout?: string };
             // Only mark as build failure if it's not missing package.json
-            if (err.message?.includes("ENOENT")) {
+            if (errorMsg.includes("ENOENT")) {
               break; // No package.json, skip build check
             }
 
             buildFailed = true;
-            buildError = err.stderr || err.stdout || err.message || "Build failed";
+            buildError = errObj.stderr || errObj.stdout || errorMsg;
             buildError = buildError.slice(-1000); // Keep last 1000 chars for context
             logger.warn("Build failed for story", {
               story: story.title,
               attempt: buildAttempt,
-              error: err.message,
+              error: errorMsg,
             });
 
             // If we have retries left, let agent fix the error
-            if (buildAttempt < MAX_BUILD_RETRIES) {
+            if (buildAttempt < MAX_BUILD_FIX_ATTEMPTS) {
               await appendChatMessage({
                 type: "text",
-                delta: `\n\n🔴 BUILD FAILED (Story: ${story.title}, attempt ${buildAttempt + 1}/${MAX_BUILD_RETRIES + 1}):\n\`\`\`\n${buildError.slice(0, 800)}\n\`\`\`\n\nLet me fix that...\n`,
+                delta: `\n\n🔴 BUILD FAILED (Story: ${story.title}, attempt ${buildAttempt + 1}/${MAX_BUILD_FIX_ATTEMPTS + 1}):\n\`\`\`\n${buildError.slice(0, 800)}\n\`\`\`\n\nLet me fix that...\n`,
               });
 
               // Run agent again with fix prompt
@@ -1057,7 +1064,7 @@ Read the relevant files, understand the issue, and make the fix.`;
               // Out of retries, show final error
               await appendChatMessage({
                 type: "text",
-                delta: `\n\n❌ BUILD FAILED PERMANENTLY (Story: ${story.title}) after ${MAX_BUILD_RETRIES + 1} attempts:\n\`\`\`\n${buildError.slice(0, 800)}\n\`\`\`\n`,
+                delta: `\n\n❌ BUILD FAILED PERMANENTLY (Story: ${story.title}) after ${MAX_BUILD_FIX_ATTEMPTS + 1} attempts:\n\`\`\`\n${buildError.slice(0, 800)}\n\`\`\`\n`,
               });
             }
           }
@@ -1066,17 +1073,7 @@ Read the relevant files, understand the issue, and make the fix.`;
         // Handle story failure (build failed)
         if (buildFailed) {
           // Capture per-story diff for UI even on failure
-          let storyDiff = "";
-          if (storyCommitHash) {
-            try {
-              const { stdout: diff } = await execAsync(
-                `git -C ${repoPath} diff HEAD~1`,
-              );
-              storyDiff = diff;
-            } catch {
-              // No diff available
-            }
-          }
+          const storyDiff = storyCommitHash ? await getDiff(repoPath) : "";
 
           await appendStatus({
             type: "story_failed",
@@ -1147,17 +1144,7 @@ Read the relevant files, understand the issue, and make the fix.`;
         );
 
         // Capture per-story diff for UI
-        let storyDiff = "";
-        if (storyCommitHash) {
-          try {
-            const { stdout: diff } = await execAsync(
-              `git -C ${repoPath} diff HEAD~1`,
-            );
-            storyDiff = diff;
-          } catch {
-            // No diff available
-          }
-        }
+        const storyDiff = storyCommitHash ? await getDiff(repoPath) : "";
 
         // Story complete status (commit URLs only available after push)
         await appendStatus({
@@ -1181,17 +1168,7 @@ Read the relevant files, understand the issue, and make the fix.`;
         const isLastStory = i === stories.length - 1;
         if (!yoloMode && !isLastStory) {
           const token = await wait.createToken({ timeout: "24h" });
-
-          // Get current diff
-          let currentDiff = "";
-          try {
-            const { stdout: diff } = await execAsync(
-              `git -C ${repoPath} diff HEAD~1`,
-            );
-            currentDiff = diff;
-          } catch {
-            // No diff
-          }
+          const currentDiff = await getDiff(repoPath);
 
           await appendStatus({
             type: "waitpoint",
@@ -1337,27 +1314,10 @@ ${completedStoryTitles.map((t) => `- ${t}`).join("\n")}
               prTitle: prTitle ?? undefined,
             });
           } catch (error) {
-            const rawMessage = error instanceof Error
-              ? error.message
-              : "Unknown push error";
+            const rawMessage = getErrorMessage(error);
             logger.error("Failed to push", { error: rawMessage });
 
-            // Parse push error and provide helpful hints
-            let hint = "";
-            if (
-              rawMessage.includes("Permission denied") ||
-              rawMessage.includes("Authentication failed")
-            ) {
-              hint =
-                "The GITHUB_TOKEN may not have push access. Check token permissions (needs 'repo' scope).";
-            } else if (rawMessage.includes("protected branch")) {
-              hint =
-                "The target branch is protected. Try pushing to a different branch or update branch protection rules.";
-            } else if (rawMessage.includes("Could not resolve host")) {
-              hint =
-                "Network error. Check your internet connection and try again.";
-            }
-
+            const hint = getGitErrorHint(rawMessage, "push", true);
             pushError = hint
               ? `Uh oh, I couldn't push my changes... That's unpossible!\n\nPush failed: ${rawMessage}\n\nHint: ${hint}`
               : `Uh oh, I couldn't push my changes... That's unpossible!\n\nPush failed: ${rawMessage}`;

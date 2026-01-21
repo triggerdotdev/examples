@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { useAutoScroll } from "@/hooks/use-auto-scroll"
 
 type Props = {
   progress: string | null
@@ -8,14 +8,7 @@ type Props = {
 }
 
 export function ProgressLog({ progress, isActive = false }: Props) {
-  const scrollRef = useRef<HTMLDivElement>(null)
-
-  // Auto-scroll to bottom when progress updates
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
-    }
-  }, [progress])
+  const { containerRef: scrollRef } = useAutoScroll<HTMLDivElement>([progress])
 
   if (!progress) {
     return (

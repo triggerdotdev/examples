@@ -2,10 +2,18 @@
 
 import { useState, useCallback, useEffect } from "react"
 import { useRealtimeRun, useRealtimeStream } from "@trigger.dev/react-hooks"
-import { statusStream, type StatusUpdate, type Prd } from "@/trigger/streams"
+import { statusStream, type Prd } from "@/trigger/streams"
 import { PrdJsonEditor } from "./prd-json-editor"
 import { ProgressLog } from "./progress-log"
 import type { ralphLoop } from "@/trigger/ralph-loop"
+import {
+  parseStatusParts,
+  extractPrdFromStatus,
+  extractCompletedStories,
+  extractFailedStories,
+  getCurrentStoryId,
+  getLatestProgress,
+} from "@/lib/parse-status"
 
 type Props = {
   runId: string
@@ -71,61 +79,23 @@ export function RunViewer({ runId, accessToken }: Props) {
     timeoutInSeconds: 600, // Max allowed by API
   })
 
+  // Parse status parts using utility
+  const statusParts = parseStatusParts(rawStatusParts ?? [])
+
   // Track progress in state to ensure re-renders when it updates
   useEffect(() => {
-    if (!rawStatusParts || rawStatusParts.length === 0) return
-
-    for (const part of rawStatusParts) {
-      try {
-        const status = JSON.parse(part) as StatusUpdate
-        if (status.type === "story_complete" && status.progress) {
-          setLatestProgress(status.progress)
-        }
-      } catch {
-        // Ignore parse errors
-      }
+    const progress = getLatestProgress(statusParts)
+    if (progress && progress !== latestProgress) {
+      setLatestProgress(progress)
     }
-  }, [rawStatusParts, rawStatusParts?.length])
+  }, [statusParts, latestProgress])
 
-  // Parse JSON strings back to objects
-  const statusParts: StatusUpdate[] = (rawStatusParts ?? []).map(part => {
-    try {
-      return JSON.parse(part) as StatusUpdate
-    } catch {
-      console.warn("[RunViewer] Failed to parse status part:", part)
-      return { type: "error", message: `Parse error: ${part}` } as StatusUpdate
-    }
-  })
-
-  // Derive PRD from status events (prd_generated takes precedence over prd_review)
-  const serverPrd = statusParts.reduce<Prd | null>((acc, s) => {
-    if (s.type === "prd_generated" && s.prd) return s.prd
-    if (s.type === "prd_review" && s.prd && !acc) return s.prd
-    return acc
-  }, null)
+  // Derive state from status using utility functions
+  const serverPrd = extractPrdFromStatus(statusParts)
   const currentPrd = localPrdOverride ?? serverPrd
-
-  // Derive completed/failed stories from status events
-  const completedStoryIds = new Set<string>()
-  const failedStoryIds = new Set<string>()
-  for (const s of statusParts) {
-    if (s.type === "story_complete" && s.story?.id) {
-      completedStoryIds.add(s.story.id)
-    }
-    if (s.type === "story_failed" && s.story?.id) {
-      failedStoryIds.add(s.story.id)
-    }
-  }
-
-  // Derive current story from latest story_start
-  const currentStoryId = statusParts.reduce<string | undefined>((acc, s) => {
-    if (s.type === "story_start" && s.story?.id) return s.story.id
-    if (s.type === "story_complete" && s.story?.id === acc) return undefined
-    if (s.type === "story_failed" && s.story?.id === acc) return undefined
-    return acc
-  }, undefined)
-
-  // latestProgress is now tracked via useEffect above for proper reactivity
+  const completedStoryIds = extractCompletedStories(statusParts)
+  const failedStoryIds = extractFailedStories(statusParts)
+  const currentStoryId = getCurrentStoryId(statusParts)
 
   // Handle PRD changes from editor
   function handlePrdChange(prd: Prd) {
