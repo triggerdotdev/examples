@@ -621,7 +621,7 @@ export function Chat({ runId, accessToken }: Props) {
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-2 border-b shrink-0">
         <span className="text-[11px] font-medium text-slate-600 uppercase tracking-wider">
-          Agent
+          Agent (Ralph) Wiggum
         </span>
         {!isAutoScroll && (
           <button
