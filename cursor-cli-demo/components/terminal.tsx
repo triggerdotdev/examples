@@ -6,6 +6,13 @@ import type { cursorAgentTask, STREAMS } from "@/trigger/cursor-agent";
 import { parseCursorEvent } from "@/lib/cursor-events";
 import { CursorEventRow } from "./cursor-event";
 
+function getRunErrorMessage(output: unknown): string {
+  if (typeof output !== "object" || output === null) return "Task failed";
+  if ("message" in output && typeof output.message === "string") return output.message;
+  if ("error" in output && typeof output.error === "string") return output.error;
+  return "Task failed";
+}
+
 export function Terminal({
   runId,
   publicAccessToken,
@@ -98,11 +105,7 @@ export function Terminal({
 
       {isFailed && (
         <div className="text-red-400 text-sm">
-          {(() => {
-            const output = run?.output as Record<string, unknown> | undefined;
-            const msg = output?.message ?? output?.error;
-            return typeof msg === "string" ? msg : "Task failed";
-          })()}
+          {getRunErrorMessage(run?.output)}
         </div>
       )}
 

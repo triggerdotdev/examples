@@ -64,14 +64,17 @@ export type ResultEvent = {
   session_id: string;
 };
 
-const knownTypes = new Set(["system", "user", "assistant", "tool_call", "result"]);
+const knownTypes = new Set<string>(["system", "user", "assistant", "tool_call", "result"]);
+
+function isCursorEvent(data: unknown): data is CursorEvent {
+  if (typeof data !== "object" || data === null) return false;
+  if (!("type" in data)) return false;
+  return typeof data.type === "string" && knownTypes.has(data.type);
+}
 
 /** Parse raw JSON into a CursorEvent, returns null for unknown types */
 export function parseCursorEvent(data: unknown): CursorEvent | null {
-  if (typeof data !== "object" || data === null || !("type" in data)) return null;
-  const typed = data as { type: string };
-  if (!knownTypes.has(typed.type)) return null;
-  return data as CursorEvent;
+  return isCursorEvent(data) ? data : null;
 }
 
 /** Extract the tool name from a tool_call event */
