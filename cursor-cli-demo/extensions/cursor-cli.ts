@@ -1,13 +1,8 @@
 import type { BuildExtension } from "@trigger.dev/build";
-import type { ChildProcess } from "child_process";
 import { spawn } from "child_process";
 import { chmodSync, copyFileSync, existsSync, readdirSync } from "fs";
-import type { Readable } from "stream";
-
-export type CursorAgentProcess = ChildProcess & {
-  stdout: Readable;
-  stderr: Readable;
-};
+import type { CursorEvent } from "@/lib/cursor-events";
+import { logger } from "@trigger.dev/sdk";
 
 /** Where the build layer copies cursor-agent's resolved files */
 export const CURSOR_AGENT_DIR = "/usr/local/lib/cursor-agent";
@@ -35,6 +30,16 @@ export function cursorCli(): BuildExtension {
   };
 }
 
+export type ExitResult = {
+  exitCode: number;
+  stderr: string;
+};
+
+export type CursorAgent = {
+  stream: ReadableStream<CursorEvent>;
+  waitUntilExit: () => Promise<ExitResult>;
+};
+
 type SpawnCursorAgentOptions = {
   cwd: string;
   env?: Record<string, string | undefined>;
@@ -43,6 +48,9 @@ type SpawnCursorAgentOptions = {
 /**
  * Spawn cursor-agent at runtime inside the Trigger.dev container.
  *
+ * Returns a NDJSON ReadableStream of CursorEvents and a waitUntilExit()
+ * that resolves with the exit code and stderr.
+ *
  * Handles the /tmp copy + chmod workaround needed because the runtime
  * strips execute permissions, and cursor-agent's native .node modules
  * require its bundled node (ABI mismatch with container node).
@@ -50,7 +58,7 @@ type SpawnCursorAgentOptions = {
 export function spawnCursorAgent(
   args: string[],
   options: SpawnCursorAgentOptions,
-): CursorAgentProcess {
+): CursorAgent {
   const entryPoint = `${CURSOR_AGENT_DIR}/index.js`;
   const bundledNode = `${CURSOR_AGENT_DIR}/node`;
   const tmpNode = "/tmp/cursor-node";
@@ -65,8 +73,7 @@ export function spawnCursorAgent(
   copyFileSync(bundledNode, tmpNode);
   chmodSync(tmpNode, 0o755);
 
-  // stdio: ["ignore", "pipe", "pipe"] guarantees stdout/stderr are non-null
-  return spawn(tmpNode, [entryPoint, ...args], {
+  const child = spawn(tmpNode, [entryPoint, ...args], {
     stdio: ["ignore", "pipe", "pipe"],
     env: {
       ...process.env,
@@ -74,5 +81,69 @@ export function spawnCursorAgent(
       CURSOR_INVOKED_AS: "cursor-agent",
     },
     cwd: options.cwd,
-  }) as CursorAgentProcess;
+  });
+
+  // Collect stderr
+  let stderr = "";
+  child.stderr!.on("data", (chunk: Buffer) => {
+    stderr += chunk.toString();
+    logger.warn("cursor-agent stderr", { text: chunk.toString() });
+  });
+
+  // Build NDJSON ReadableStream from stdout
+  let buffer = "";
+  let streamClosed = false;
+  const stream = new ReadableStream<CursorEvent>({
+    start(controller) {
+      const safeClose = () => {
+        if (!streamClosed) {
+          streamClosed = true;
+          controller.close();
+        }
+      };
+
+      child.stdout!.on("data", (chunk: Buffer) => {
+        buffer += chunk.toString();
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        for (const line of lines) {
+          if (line.trim()) {
+            try {
+              controller.enqueue(JSON.parse(line));
+            } catch {
+              logger.warn("Malformed NDJSON line", { line });
+            }
+          }
+        }
+      });
+
+      child.stdout!.on("end", () => {
+        if (buffer.trim()) {
+          try {
+            controller.enqueue(JSON.parse(buffer));
+          } catch {
+            // skip
+          }
+        }
+        safeClose();
+      });
+
+      child.stdout!.on("error", () => safeClose());
+      child.on("error", () => safeClose());
+    },
+  });
+
+  // waitUntilExit resolves when the child process exits
+  const waitUntilExit = (): Promise<ExitResult> =>
+    new Promise((resolve) => {
+      if (child.exitCode !== null) {
+        resolve({ exitCode: child.exitCode, stderr });
+        return;
+      }
+      child.on("close", (code) => {
+        resolve({ exitCode: code ?? 1, stderr });
+      });
+    });
+
+  return { stream, waitUntilExit };
 }
