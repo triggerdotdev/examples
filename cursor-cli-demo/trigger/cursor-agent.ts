@@ -1,7 +1,7 @@
 import { logger, metadata, task } from "@trigger.dev/sdk";
-import { spawn } from "child_process";
-import { chmodSync, copyFileSync, existsSync, mkdirSync, readdirSync } from "fs";
+import { mkdirSync } from "fs";
 import type { CursorEvent } from "@/lib/cursor-events";
+import { spawnCursorAgent } from "../extensions/cursor-cli";
 
 export type CursorAgentPayload = {
   prompt: string;
@@ -22,44 +22,12 @@ export const cursorAgentTask = task({
 
     const model = payload.model ?? "sonnet-4.5";
 
-    // The Trigger.dev runtime strips execute permissions from all binaries.
-    // cursor-agent bundles native .node modules (pty, sqlite3, etc.) compiled for its own node,
-    // so we must use cursor-agent's bundled node — not the container's node (ABI mismatch).
-    // Workaround: copy the bundled node to /tmp and chmod +x it there.
-    const cursorDir = "/usr/local/lib/cursor-agent";
-    const entryPoint = `${cursorDir}/index.js`;
-    const bundledNode = `${cursorDir}/node`;
-    const tmpNode = "/tmp/cursor-node";
+    logger.info("Spawning cursor-agent", { workspace, model });
 
-    if (!existsSync(entryPoint)) {
-      const dirExists = existsSync(cursorDir);
-      throw new Error(`cursor-agent not found at ${entryPoint}. Dir: ${dirExists}. Contents: ${dirExists ? readdirSync(cursorDir).join(", ") : "N/A"}`);
-    }
-
-    // Copy bundled node to /tmp and make it executable
-    copyFileSync(bundledNode, tmpNode);
-    chmodSync(tmpNode, 0o755);
-
-    logger.info("Spawning cursor-agent", { node: tmpNode, entryPoint, workspace, model });
-
-    const child = spawn(tmpNode, [
-      entryPoint,
-      "-p",
-      "--force",
-      "--output-format",
-      "stream-json",
-      "--model",
-      model,
-      payload.prompt,
-    ], {
-      stdio: ["ignore", "pipe", "pipe"],
-      env: {
-        ...process.env,
-        CURSOR_API_KEY: process.env.CURSOR_API_KEY,
-        CURSOR_INVOKED_AS: "cursor-agent",
-      },
-      cwd: workspace,
-    });
+    const child = spawnCursorAgent(
+      ["-p", "--force", "--output-format", "stream-json", "--model", model, payload.prompt],
+      { cwd: workspace, env: { CURSOR_API_KEY: process.env.CURSOR_API_KEY } },
+    );
 
     let spawnError: Error | null = null;
     child.on("error", (err) => {
