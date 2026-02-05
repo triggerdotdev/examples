@@ -12,7 +12,7 @@ Type a prompt, pick a model, and watch the agent create files and write code fro
 4. NDJSON output from stdout is parsed and piped to a Realtime Stream
 5. `useRealtimeRunWithStreams` renders each event live in a terminal panel
 
-```
+```text
 [Browser] <-- Realtime Streams v2 --> [Trigger.dev Cloud]
     |                                        |
     | POST /api/trigger                      | task.trigger()
@@ -70,7 +70,7 @@ The build extension in `trigger.config.ts` installs `cursor-agent` into the cont
 
 ## Project structure
 
-```
+```text
 ├── app/
 │   ├── layout.tsx              # Root layout with Geist fonts
 │   ├── page.tsx                # Main UI: control bar + terminal

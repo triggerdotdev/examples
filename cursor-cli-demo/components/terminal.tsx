@@ -36,6 +36,21 @@ export function Terminal({
     userScrolledUp.current = !atBottom;
   }, []);
 
+  const status = run?.status;
+  const isRunning = status === "EXECUTING";
+  const isQueued = status === "PENDING_VERSION" || status === "DELAYED" || !status;
+  const isFailed = status === "FAILED" || status === "CRASHED" || status === "SYSTEM_FAILURE";
+  const isComplete = status === "COMPLETED";
+
+  // Notify parent when run finishes
+  const notified = useRef(false);
+  useEffect(() => {
+    if ((isComplete || isFailed) && !notified.current) {
+      notified.current = true;
+      onComplete?.();
+    }
+  }, [isComplete, isFailed, onComplete]);
+
   // Auto-scroll when new events arrive (unless user scrolled up)
   useEffect(() => {
     if (events.length > 0 && !userScrolledUp.current) {
@@ -52,21 +67,6 @@ export function Terminal({
       </div>
     );
   }
-
-  const status = run?.status;
-  const isRunning = status === "EXECUTING";
-  const isQueued = status === "PENDING_VERSION" || status === "DELAYED" || !status;
-  const isFailed = status === "FAILED" || status === "CRASHED" || status === "SYSTEM_FAILURE";
-  const isComplete = status === "COMPLETED";
-
-  // Notify parent when run finishes
-  const notified = useRef(false);
-  useEffect(() => {
-    if ((isComplete || isFailed) && !notified.current) {
-      notified.current = true;
-      onComplete?.();
-    }
-  }, [isComplete, isFailed, onComplete]);
 
   return (
     <div
