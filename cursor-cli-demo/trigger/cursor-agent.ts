@@ -1,7 +1,8 @@
-import { logger, streams, task } from "@trigger.dev/sdk";
+import { logger, task } from "@trigger.dev/sdk";
 import { mkdirSync } from "fs";
 import type { CursorEvent } from "@/lib/cursor-events";
 import { spawnCursorAgent } from "../extensions/cursor-cli";
+import { cursorStream } from "./cursor-stream";
 
 export type CursorAgentPayload = {
   prompt: string;
@@ -29,7 +30,7 @@ export const cursorAgentTask = task({
       { cwd: workspace, env: { CURSOR_API_KEY: process.env.CURSOR_API_KEY } },
     );
 
-    const { waitUntilComplete } = streams.pipe("cursor-events", agent.stream);
+    const { waitUntilComplete } = cursorStream.pipe(agent.stream);
 
     const { exitCode, stderr } = await agent.waitUntilExit();
     await waitUntilComplete();
