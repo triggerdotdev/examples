@@ -43,7 +43,7 @@ export const cursorAgentTask = task({
       agent.kill();
     });
 
-    const { stream, waitUntilComplete } = cursorStream.pipe(agent.stream);
+    const { waitUntilComplete } = cursorStream.pipe(agent.stream);
 
     const { exitCode, stderr } = await agent.waitUntilExit();
     await waitUntilComplete();

@@ -10,7 +10,7 @@ export function AgentRunner() {
     <div className="flex flex-col gap-6">
       <ControlBar runState={runState} onRun={startRun} onReset={reset} />
 
-      {(runState.status === "running" || runState.status === "complete") && (
+      {(runState.status === "running" || runState.status === "complete" || runState.status === "failed") && (
         <div className="animate-fade-in">
           <Terminal
             runId={runState.runId}
