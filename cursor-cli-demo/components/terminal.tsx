@@ -36,6 +36,11 @@ export function Terminal({
     [rawEvents]
   );
 
+  const workspaceCwd = useMemo(() => {
+    const systemEvent = events.find((e) => e.type === "system");
+    return systemEvent?.type === "system" ? systemEvent.cwd : undefined;
+  }, [events]);
+
   const handleScroll = useCallback(() => {
     const el = scrollRef.current;
     if (!el) return;
@@ -49,7 +54,6 @@ export function Terminal({
   const isFailed = status === "FAILED" || status === "CRASHED" || status === "SYSTEM_FAILURE";
   const isComplete = status === "COMPLETED";
 
-  // Notify parent when run finishes
   const notified = useRef(false);
   useEffect(() => {
     if ((isComplete || isFailed) && !notified.current) {
@@ -58,7 +62,6 @@ export function Terminal({
     }
   }, [isComplete, isFailed, onComplete]);
 
-  // Auto-scroll when new events arrive (unless user scrolled up)
   useEffect(() => {
     if (events.length > 0 && !userScrolledUp.current) {
       requestAnimationFrame(() => {
@@ -69,49 +72,113 @@ export function Terminal({
 
   if (error) {
     return (
-      <div className="bg-[var(--terminal-bg)] border border-red-500/20 rounded-lg p-4 font-mono text-sm text-red-400">
+      <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4 font-mono text-sm text-red-400">
         Connection error: {error.message}
       </div>
     );
   }
 
+  const statusLabel = isQueued
+    ? "Queued"
+    : isRunning
+      ? "Running"
+      : isComplete
+        ? "Complete"
+        : isFailed
+          ? "Failed"
+          : "";
+
+  const statusDotClass = isQueued
+    ? "bg-warning"
+    : isRunning
+      ? "bg-accent"
+      : isComplete
+        ? "bg-success"
+        : isFailed
+          ? "bg-error"
+          : "bg-dim";
+
+  const statusTextClass = isQueued
+    ? "text-warning"
+    : isRunning
+      ? "text-accent"
+      : isComplete
+        ? "text-success"
+        : isFailed
+          ? "text-error"
+          : "text-dim";
+
   return (
     <div
-      ref={scrollRef}
-      onScroll={handleScroll}
-      className="bg-[var(--terminal-bg)] border border-[var(--terminal-border)] rounded-lg p-4 font-[family-name:var(--font-geist-mono)] text-sm overflow-y-auto max-h-[600px] min-h-[300px]"
+      className={`rounded-xl border overflow-hidden transition-colors duration-500 bg-terminal-bg ${
+        isRunning ? "animate-pulse-glow" : "border-border"
+      }`}
     >
-      {isQueued && (
-        <div className="flex items-center gap-2 text-white/30 text-xs">
-          <span className="inline-block w-2 h-2 rounded-full bg-yellow-400 animate-pulse" />
-          Queued — waiting for worker...
+      {/* Header */}
+      <div className="flex items-center justify-between px-5 py-3 border-b border-border bg-white/[0.012]">
+        <div className="flex items-center gap-2.5">
+          <span className="text-xs text-accent">◆</span>
+          <span className="text-xs font-mono text-muted">cursor-agent</span>
         </div>
-      )}
-
-      {events.length === 0 && isRunning && (
-        <div className="flex items-center gap-2 text-white/30 text-xs">
-          <span className="inline-block w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-          Starting cursor-agent...
+        <div className="flex items-center gap-2">
+          <span
+            className={`w-1.5 h-1.5 rounded-full ${statusDotClass} ${isRunning || isQueued ? "animate-pulse" : ""}`}
+          />
+          <span className={`text-[11px] font-mono ${statusTextClass}`}>
+            {statusLabel}
+          </span>
         </div>
-      )}
+      </div>
 
-      {events.map((event, i) => (
-        <CursorEventRow key={i} event={event} />
-      ))}
+      {/* Content */}
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className="p-5 font-mono text-sm overflow-y-auto max-h-[600px] min-h-[200px]"
+      >
+        {isQueued && (
+          <div className="flex items-center gap-2.5 text-dim text-xs">
+            <LoadingSpinner />
+            Waiting for worker...
+          </div>
+        )}
 
-      {isRunning && (
-        <span className="inline-block w-2 h-4 bg-white/60 animate-pulse ml-0.5" />
-      )}
+        {events.length === 0 && isRunning && (
+          <div className="flex items-center gap-2.5 text-dim text-xs">
+            <LoadingSpinner />
+            Initializing cursor-agent...
+          </div>
+        )}
 
-      {isFailed && (
-        <div className="text-red-400 text-sm">
-          {getRunErrorMessage(run?.output)}
-        </div>
-      )}
+        {events.map((event, i) => (
+          <CursorEventRow key={i} event={event} workspaceCwd={workspaceCwd} />
+        ))}
 
-      {isComplete && events.length === 0 && (
-        <div className="text-white/40 text-xs">Task completed with no output</div>
-      )}
+        {isRunning && <span className="inline-block w-[7px] h-[15px] bg-accent animate-cursor-blink ml-0.5 align-text-bottom rounded-[1px]" />}
+
+        {isFailed && (
+          <div className="mt-2 text-red-400 text-sm">{getRunErrorMessage(run?.output)}</div>
+        )}
+
+        {isComplete && events.length === 0 && (
+          <div className="text-dim text-xs">Completed with no output</div>
+        )}
+      </div>
     </div>
+  );
+}
+
+function LoadingSpinner() {
+  return (
+    <svg className="animate-spin h-3 w-3 text-dim" viewBox="0 0 24 24" fill="none">
+      <circle className="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+      <path
+        className="opacity-80"
+        d="M4 12a8 8 0 018-8"
+        stroke="currentColor"
+        strokeWidth="3"
+        strokeLinecap="round"
+      />
+    </svg>
   );
 }

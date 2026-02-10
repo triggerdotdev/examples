@@ -2,17 +2,30 @@ import { AgentRunner } from "@/components/agent-runner";
 
 export default function Home() {
   return (
-    <main className="min-h-screen p-6 md:p-10 max-w-4xl mx-auto flex flex-col gap-6">
-      <div>
-        <h1 className="text-xl font-bold font-[family-name:var(--font-geist-mono)]">
-          Cursor Agent Runner
-        </h1>
-        <p className="text-xs text-white/30 mt-1">
-          Powered by Trigger.dev — watch an AI agent generate code in real time
-        </p>
-      </div>
+    <div className="min-h-screen bg-grid">
+      <main className="max-w-5xl mx-auto px-6 md:px-10 pt-16 md:pt-24 pb-16">
+        <header className="animate-fade-in-up [animation-delay:0.05s] mb-6">
+          <h1 className="text-[28px] md:text-[34px] font-mono font-bold tracking-tight text-text">
+            <span className="text-accent mr-2 relative -top-[2px]">&gt;</span>
+            background cursor
+          </h1>
+          <p className="text-[11px] tracking-[0.2em] uppercase text-accent mt-3 font-mono">
+            Powered by{" "}
+            <a
+              href="https://trigger.dev"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-accent"
+            >
+              Trigger.dev
+            </a>
+          </p>
+        </header>
 
-      <AgentRunner />
-    </main>
+        <div className="animate-fade-in-up [animation-delay:0.2s]">
+          <AgentRunner />
+        </div>
+      </main>
+    </div>
   );
 }
