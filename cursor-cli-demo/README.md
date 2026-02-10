@@ -8,6 +8,10 @@ Learn how to run Cursor's headless CLI agent inside a Trigger.dev task, parsing 
 - **[Cursor CLI](https://cursor.com)** – Headless AI coding agent spawned as a child process
 - **[Trigger.dev](https://trigger.dev)** – Background task orchestration with real-time streaming to the frontend, observability, and deployment
 
+## Video
+
+https://github.com/user-attachments/assets/459aa160-6659-478e-868f-32e74f79d21a
+
 ## Running the project locally
 
 1. **Install dependencies**
