@@ -1,6 +1,6 @@
 import type { BuildExtension } from "@trigger.dev/build";
 import { spawn } from "child_process";
-import { chmodSync, copyFileSync, existsSync, readdirSync } from "fs";
+import { existsSync, readdirSync } from "fs";
 import type { CursorEvent } from "@/lib/cursor-events";
 import { logger } from "@trigger.dev/sdk";
 
@@ -49,12 +49,8 @@ type SpawnCursorAgentOptions = {
 /**
  * Spawn cursor-agent at runtime inside the Trigger.dev container.
  *
- * Returns a NDJSON ReadableStream of CursorEvents and a waitUntilExit()
- * that resolves with the exit code and stderr.
- *
- * Handles the /tmp copy + chmod workaround needed because the runtime
- * strips execute permissions, and cursor-agent's native .node modules
- * require its bundled node (ABI mismatch with container node).
+ * Uses cursor-agent's bundled node (not process.execPath) because its
+ * native .node modules require ABI compatibility.
  */
 export function spawnCursorAgent(
   args: string[],
@@ -62,7 +58,6 @@ export function spawnCursorAgent(
 ): CursorAgent {
   const entryPoint = `${CURSOR_AGENT_DIR}/index.js`;
   const bundledNode = `${CURSOR_AGENT_DIR}/node`;
-  const tmpNode = "/tmp/cursor-node";
 
   if (!existsSync(entryPoint)) {
     const dirExists = existsSync(CURSOR_AGENT_DIR);
@@ -71,17 +66,7 @@ export function spawnCursorAgent(
     );
   }
 
-  try {
-    copyFileSync(bundledNode, tmpNode);
-    chmodSync(tmpNode, 0o755);
-  } catch (err: unknown) {
-    // ETXTBSY = file is being executed by another run on this machine — safe to skip
-    if (!(err instanceof Error && "code" in err && err.code === "ETXTBSY")) {
-      throw err;
-    }
-  }
-
-  const child = spawn(tmpNode, [entryPoint, ...args], {
+  const child = spawn(bundledNode, [entryPoint, ...args], {
     stdio: ["ignore", "pipe", "pipe"],
     env: {
       ...process.env,
