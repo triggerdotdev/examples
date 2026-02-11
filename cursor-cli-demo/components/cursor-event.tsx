@@ -3,7 +3,16 @@
 import type { CursorEvent, ToolCallEvent } from "@/lib/cursor-events";
 import { getToolName, getToolArgs } from "@/lib/cursor-events";
 
-function ToolCallStarted({ event }: { event: ToolCallEvent }) {
+function stripWorkspacePath(filePath: string, workspaceCwd?: string): string {
+  if (workspaceCwd && filePath.startsWith(workspaceCwd)) {
+    const stripped = filePath.slice(workspaceCwd.length);
+    return stripped.startsWith("/") ? stripped.slice(1) : stripped;
+  }
+  const match = filePath.match(/\/tmp\/workspace-[^/]+\/(.+)/);
+  return match?.[1] ?? filePath;
+}
+
+function ToolCallStarted({ event, workspaceCwd }: { event: ToolCallEvent; workspaceCwd?: string }) {
   const toolName = getToolName(event);
   const args = getToolArgs(event);
 
@@ -11,23 +20,37 @@ function ToolCallStarted({ event }: { event: ToolCallEvent }) {
     case "writeToolCall":
     case "editToolCall":
     case "deleteToolCall": {
-      const filePath = (args.filePath as string) ?? (args.path as string) ?? "unknown";
-      const action = toolName === "writeToolCall" ? "create" : toolName === "editToolCall" ? "edit" : "delete";
-      const color = toolName === "deleteToolCall" ? "text-red-400" : "text-green-400";
+      const rawPath = (args.filePath as string) ?? (args.path as string) ?? "unknown";
+      const filePath = stripWorkspacePath(rawPath, workspaceCwd);
+      const prefix =
+        toolName === "writeToolCall" ? "+" : toolName === "editToolCall" ? "~" : "-";
+      const color =
+        toolName === "writeToolCall"
+          ? "text-emerald-400"
+          : toolName === "editToolCall"
+            ? "text-teal-300"
+            : "text-rose-400";
+      const bg =
+        toolName === "writeToolCall"
+          ? "bg-emerald-500/8"
+          : toolName === "editToolCall"
+            ? "bg-teal-500/8"
+            : "bg-rose-500/8";
       return (
-        <div className="flex items-center gap-2 py-1">
-          <span className={`text-xs px-2 py-0.5 rounded bg-white/5 ${color} font-mono`}>
-            {action}
+        <div className={`flex items-center gap-2.5 py-1 px-2.5 rounded-md ${bg} -mx-1`}>
+          <span className={`font-mono font-bold text-xs ${color} w-3 text-center shrink-0`}>
+            {prefix}
           </span>
-          <span className="text-sm font-mono text-white/80">{filePath}</span>
+          <span className="text-sm font-mono text-text">{filePath}</span>
         </div>
       );
     }
     case "shellToolCall": {
       const command = (args.command as string) ?? (args.cmd as string) ?? "";
       return (
-        <div className="py-1">
-          <span className="text-sm font-mono text-white/40">$ {command}</span>
+        <div className="flex items-center gap-2 py-1.5 px-2.5 rounded-md bg-white/[0.02] -mx-1">
+          <span className="text-xs font-mono shrink-0 text-accent">$</span>
+          <span className="text-sm font-mono text-muted">{command}</span>
         </div>
       );
     }
@@ -35,17 +58,27 @@ function ToolCallStarted({ event }: { event: ToolCallEvent }) {
     case "grepToolCall":
     case "lsToolCall":
     case "globToolCall": {
-      const target = (args.filePath as string) ?? (args.path as string) ?? (args.pattern as string) ?? "";
+      const rawTarget =
+        (args.filePath as string) ??
+        (args.path as string) ??
+        (args.pattern as string) ??
+        "";
+      const target = stripWorkspacePath(rawTarget, workspaceCwd);
       return (
         <div className="py-0.5">
-          <span className="text-xs font-mono text-white/30">{toolName.replace("ToolCall", "")} {target}</span>
+          <span className="text-xs font-mono text-dim">
+            {toolName.replace("ToolCall", "")}
+          </span>
+          {target && (
+            <span className="text-xs font-mono text-dim ml-1.5">{target}</span>
+          )}
         </div>
       );
     }
     default:
       return (
         <div className="py-0.5">
-          <span className="text-xs font-mono text-white/30">{toolName}</span>
+          <span className="text-xs font-mono text-dim">{toolName}</span>
         </div>
       );
   }
@@ -61,29 +94,62 @@ function ToolCallCompleted({ event }: { event: ToolCallEvent }) {
 
   if (hasError) {
     return (
-      <div className="py-0.5">
-        <span className="text-xs font-mono text-red-400/60">✗ {toolName.replace("ToolCall", "")} failed</span>
+      <div className="py-0.5 px-2.5 -mx-1">
+        <span className="text-xs font-mono text-red-400/60">
+          ✗ {toolName.replace("ToolCall", "")} failed
+        </span>
       </div>
     );
   }
 
-  // Successful completions are silent (the started event already showed the action)
   return null;
 }
 
-export function CursorEventRow({ event }: { event: CursorEvent }) {
+export function CursorEventRow({
+  event,
+  workspaceCwd,
+}: {
+  event: CursorEvent;
+  workspaceCwd?: string;
+}) {
+  return (
+    <div className="animate-event-enter">
+      <CursorEventContent event={event} workspaceCwd={workspaceCwd} />
+    </div>
+  );
+}
+
+function CursorEventContent({
+  event,
+  workspaceCwd,
+}: {
+  event: CursorEvent;
+  workspaceCwd?: string;
+}) {
   switch (event.type) {
     case "system": {
       return (
-        <div className="py-2 text-xs font-mono text-white/30 border-b border-white/5">
-          cursor-agent · {event.model} · {event.cwd}
+        <div className="py-2.5 mb-2 border-b border-border">
+          <span className="text-xs font-mono text-dim">
+            ┌ cursor-agent ·{" "}
+            <span className="text-accent">{event.model}</span> · session started
+          </span>
         </div>
       );
     }
 
-    case "user":
-      // User already sees their prompt in the control bar
-      return null;
+    case "user": {
+      const text = event.message.content
+        .filter((c) => c.type === "text")
+        .map((c) => c.text)
+        .join("");
+      if (!text) return null;
+      return (
+        <div className="py-2">
+          <span className="text-sm font-mono text-dim">{">"} {text}</span>
+        </div>
+      );
+    }
 
     case "assistant": {
       const text = event.message.content
@@ -92,7 +158,7 @@ export function CursorEventRow({ event }: { event: CursorEvent }) {
         .join("");
       if (!text) return null;
       return (
-        <div className="py-2 text-sm text-white/90 leading-relaxed whitespace-pre-wrap">
+        <div className="py-2.5 text-sm text-text leading-relaxed whitespace-pre-wrap">
           {text}
         </div>
       );
@@ -100,17 +166,30 @@ export function CursorEventRow({ event }: { event: CursorEvent }) {
 
     case "tool_call": {
       if (event.subtype === "started") {
-        return <ToolCallStarted event={event} />;
+        return <ToolCallStarted event={event} workspaceCwd={workspaceCwd} />;
       }
       return <ToolCallCompleted event={event} />;
     }
 
     case "result": {
+      const isError = event.is_error;
+      const seconds = (event.duration_ms / 1000).toFixed(1);
+      const borderColor = isError ? "border-red-400/20" : "border-emerald-400/20";
+      const bgColor = isError ? "bg-red-500/5" : "bg-emerald-500/5";
+      const textColor = isError ? "text-red-400" : "text-emerald-400";
+      const pillBg = isError ? "bg-red-500/10" : "bg-emerald-500/10";
       return (
-        <div className="py-3 mt-2 border-t border-white/10">
-          <div className="text-sm text-white/90 whitespace-pre-wrap">{event.result}</div>
-          <div className="text-xs text-white/30 mt-1">
-            Completed in {(event.duration_ms / 1000).toFixed(1)}s
+        <div className={`mt-4 rounded-xl border ${borderColor} ${bgColor} p-4`}>
+          <div className="flex items-center gap-2.5 mb-3">
+            <span className={`text-sm font-medium ${textColor}`}>
+              {isError ? "✗ Failed" : "✓ Complete"}
+            </span>
+            <span className={`text-[11px] font-mono px-2 py-0.5 rounded-full ${pillBg} ${textColor}`}>
+              {seconds}s
+            </span>
+          </div>
+          <div className="text-sm text-muted whitespace-pre-wrap leading-relaxed">
+            {event.result}
           </div>
         </div>
       );

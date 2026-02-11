@@ -66,7 +66,9 @@ export function ControlBar({
   onRun: (prompt: string, model: string) => void;
   onReset: () => void;
 }) {
-  const [prompt, setPrompt] = useState("Create a TypeScript CLI tool that converts celsius to fahrenheit with input validation");
+  const [prompt, setPrompt] = useState(
+    "Create a TypeScript CLI tool that converts celsius to fahrenheit with input validation"
+  );
   const [model, setModel] = useState("sonnet-4.5");
 
   const isDisabled = runState.status === "starting" || runState.status === "running";
@@ -77,71 +79,103 @@ export function ControlBar({
     onRun(prompt.trim(), model);
   }
 
+  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      if (!prompt.trim() || isDisabled) return;
+      onRun(prompt.trim(), model);
+    }
+  }
+
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-      <div className="flex gap-3">
-        <input
-          type="text"
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          disabled={isDisabled}
-          placeholder="Describe what to create..."
-          className="flex-1 bg-[var(--terminal-bg)] border border-[var(--terminal-border)] rounded-lg px-4 py-2.5 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-white/30 disabled:opacity-50 font-[family-name:var(--font-geist-mono)]"
-        />
+    <div>
+      <form onSubmit={handleSubmit}>
+        <div className="bg-white/[0.018] backdrop-blur-[16px] rounded-2xl border border-border p-1.5 transition-colors focus-within:border-border-strong">
+          <textarea
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            onKeyDown={handleKeyDown}
+            disabled={isDisabled}
+            placeholder="Describe what to build..."
+            rows={2}
+            className="w-full bg-transparent resize-none px-4 py-3.5 text-sm text-text placeholder:text-dim focus:outline-none disabled:opacity-40 font-mono leading-relaxed"
+          />
 
-        <select
-          value={model}
-          onChange={(e) => setModel(e.target.value)}
-          disabled={isDisabled}
-          className="bg-[var(--terminal-bg)] border border-[var(--terminal-border)] rounded-lg px-3 py-2.5 text-sm text-white/80 focus:outline-none focus:border-white/30 disabled:opacity-50"
-        >
-          {models.map((m) => (
-            <option key={m.value} value={m.value}>{m.label}</option>
-          ))}
-        </select>
+          <div className="flex items-center justify-between px-3 pb-2.5 pt-1">
+            <div className="flex items-center gap-1.5">
+              {models.map((m) => (
+                <button
+                  key={m.value}
+                  type="button"
+                  disabled={isDisabled}
+                  onClick={() => setModel(m.value)}
+                  className={`border transition-all duration-150 ease cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed px-3 py-1.5 rounded-lg text-xs font-medium ${
+                    model === m.value
+                      ? "bg-accent-soft border-[rgba(45,212,191,0.15)] text-accent"
+                      : "border-border text-muted hover:not-disabled:border-border-strong hover:not-disabled:bg-white/[0.025]"
+                  }`}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
 
-        {runState.status === "complete" || runState.status === "failed" ? (
-          <button
-            type="button"
-            onClick={onReset}
-            className="px-5 py-2.5 rounded-lg bg-white/10 text-white text-sm font-medium hover:bg-white/15 transition-colors"
-          >
-            New run
-          </button>
-        ) : (
-          <button
-            type="submit"
-            disabled={isDisabled || !prompt.trim()}
-            className="px-5 py-2.5 rounded-lg bg-white text-black text-sm font-medium hover:bg-white/90 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-          >
-            {runState.status === "starting" ? "Starting..." : "Run"}
-          </button>
-        )}
-      </div>
+            {runState.status === "complete" || runState.status === "failed" ? (
+              <button
+                type="button"
+                onClick={onReset}
+                className="px-4 py-2 rounded-lg border border-border text-muted text-xs font-medium hover:border-border-strong hover:text-text transition-all"
+              >
+                New run
+              </button>
+            ) : (
+              <button
+                type="submit"
+                disabled={isDisabled || !prompt.trim()}
+                className="bg-linear-to-br from-accent to-[#25B5A3] text-surface font-semibold transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] hover:not-disabled:shadow-[0_0_24px_rgba(45,212,191,0.3),0_2px_8px_rgba(0,0,0,0.3)] hover:not-disabled:-translate-y-px active:not-disabled:translate-y-0 disabled:opacity-25 disabled:cursor-not-allowed px-5 py-2 rounded-lg text-sm"
+              >
+                {runState.status === "starting" ? (
+                  <span className="flex items-center gap-2">
+                    <Spinner />
+                    Starting...
+                  </span>
+                ) : (
+                  "Run"
+                )}
+              </button>
+            )}
+          </div>
+        </div>
+      </form>
 
-      <div className="flex items-center gap-2">
-        <StatusDot status={runState.status} />
-        <span className="text-xs text-white/40">
-          {runState.status === "idle" && "Ready"}
-          {runState.status === "starting" && "Triggering task..."}
-          {runState.status === "running" && "Agent is working..."}
-          {runState.status === "complete" && "Complete"}
-          {runState.status === "failed" && `Failed: ${runState.error}`}
-        </span>
-      </div>
-    </form>
+      {runState.status === "starting" && (
+        <div className="mt-3 flex items-center gap-2 px-2">
+          <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
+          <span className="text-xs text-dim">Triggering task...</span>
+        </div>
+      )}
+
+      {runState.status === "failed" && (
+        <div className="mt-3 rounded-lg border border-red-500/20 bg-red-500/5 px-4 py-3 flex items-center gap-2.5">
+          <span className="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0" />
+          <span className="text-xs text-red-400 font-mono">{runState.error}</span>
+        </div>
+      )}
+    </div>
   );
 }
 
-function StatusDot({ status }: { status: RunState["status"] }) {
-  const color =
-    status === "running" || status === "starting"
-      ? "bg-yellow-400 animate-pulse"
-      : status === "complete"
-        ? "bg-green-400"
-        : status === "failed"
-          ? "bg-red-400"
-          : "bg-white/20";
-
-  return <div className={`w-2 h-2 rounded-full ${color}`} />;
+function Spinner() {
+  return (
+    <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24" fill="none">
+      <circle className="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+      <path
+        className="opacity-80"
+        d="M4 12a8 8 0 018-8"
+        stroke="currentColor"
+        strokeWidth="3"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
 }

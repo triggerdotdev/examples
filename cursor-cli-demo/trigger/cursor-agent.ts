@@ -1,4 +1,4 @@
-import { logger, task } from "@trigger.dev/sdk";
+import { logger, task, tasks } from "@trigger.dev/sdk";
 import { mkdirSync } from "fs";
 import type { CursorEvent } from "@/lib/cursor-events";
 import { spawnCursorAgent } from "../extensions/cursor-cli";
@@ -26,9 +26,22 @@ export const cursorAgentTask = task({
     logger.info("Spawning cursor-agent", { workspace, model });
 
     const agent = spawnCursorAgent(
-      ["-p", "--force", "--output-format", "stream-json", "--model", model, payload.prompt],
+      [
+        "-p",
+        "--force",
+        "--output-format",
+        "stream-json",
+        "--model",
+        model,
+        payload.prompt,
+      ],
       { cwd: workspace, env: { CURSOR_API_KEY: process.env.CURSOR_API_KEY } },
     );
+
+    tasks.onCancel(() => {
+      logger.info("Task cancelled, killing cursor-agent");
+      agent.kill();
+    });
 
     const { waitUntilComplete } = cursorStream.pipe(agent.stream);
 

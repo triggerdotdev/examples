@@ -1,13 +1,16 @@
-# Cursor Agent using the Cursor CLI and Trigger.dev
+# Cursor background agent using the Cursor CLI and Trigger.dev
 
-Run Cursor's headless CLI agent inside a Trigger.dev task, parsing NDJSON stdout into a Realtime Stream that renders live in a browser terminal. Built with Next.js and Trigger.dev.
+Learn how to run Cursor's headless CLI agent inside a Trigger.dev task, parsing NDJSON stdout into a Realtime Stream that renders live in a browser terminal.
 
 ## Tech stack
 
 - **[Next.js](https://nextjs.org)** – App Router frontend with server actions to trigger runs
 - **[Cursor CLI](https://cursor.com)** – Headless AI coding agent spawned as a child process
 - **[Trigger.dev](https://trigger.dev)** – Background task orchestration with real-time streaming to the frontend, observability, and deployment
-- **[Tailwind CSS](https://tailwindcss.com)** – Styling with Geist Mono for the terminal UI
+
+## Video
+
+https://github.com/user-attachments/assets/459aa160-6659-478e-868f-32e74f79d21a
 
 ## Running the project locally
 

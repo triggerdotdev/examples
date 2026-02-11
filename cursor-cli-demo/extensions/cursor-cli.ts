@@ -38,6 +38,7 @@ export type ExitResult = {
 export type CursorAgent = {
   stream: ReadableStream<CursorEvent>;
   waitUntilExit: () => Promise<ExitResult>;
+  kill: () => void;
 };
 
 type SpawnCursorAgentOptions = {
@@ -70,8 +71,15 @@ export function spawnCursorAgent(
     );
   }
 
-  copyFileSync(bundledNode, tmpNode);
-  chmodSync(tmpNode, 0o755);
+  try {
+    copyFileSync(bundledNode, tmpNode);
+    chmodSync(tmpNode, 0o755);
+  } catch (err: unknown) {
+    // ETXTBSY = file is being executed by another run on this machine — safe to skip
+    if (!(err instanceof Error && "code" in err && err.code === "ETXTBSY")) {
+      throw err;
+    }
+  }
 
   const child = spawn(tmpNode, [entryPoint, ...args], {
     stdio: ["ignore", "pipe", "pipe"],
@@ -145,5 +153,11 @@ export function spawnCursorAgent(
       });
     });
 
-  return { stream, waitUntilExit };
+  const kill = () => {
+    if (child.exitCode === null) {
+      child.kill("SIGTERM");
+    }
+  };
+
+  return { stream, waitUntilExit, kill };
 }
