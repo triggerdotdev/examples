@@ -50,7 +50,7 @@ https://github.com/user-attachments/assets/459aa160-6659-478e-868f-32e74f79d21a
 - **Long-running tasks** – cursor-agent runs for minutes; Trigger.dev handles lifecycle, timeouts, and retries
 - **Machine selection** – `medium-2x` preset for resource-intensive CLI tools
 - **Model picker** – Switch between Claude models from the UI before triggering a run
-- **Container binary workaround** – Demonstrates the `/tmp` copy + `chmod` pattern needed when the runtime strips execute permissions
+- **Bundled binary support** – Spawns cursor-agent's own node binary for native module ABI compatibility
 
 ## Relevant files
 
