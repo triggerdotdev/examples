@@ -24,9 +24,9 @@ npx trigger dev   # Trigger.dev dev server
 
 ## Deploy to Vercel
 
-Click the deploy button above, then install the [Trigger.dev Vercel integration](https://vercel.com/integrations/trigger-dev) to automatically sync your environment variables.
+Click the deploy button above, then install the [Trigger.dev Vercel integration](https://vercel.com/marketplace/trigger) to automatically sync your environment variables.
 
-## Learn more
+## Learn more about Trigger.dev
 
 - [Quick start](https://trigger.dev/docs/quick-start)
 - [Writing tasks](https://trigger.dev/docs/tasks/overview)
