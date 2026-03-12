@@ -1,4 +1,4 @@
-import { logger, task, wait } from "@trigger.dev/sdk/v3";
+import { logger, task, wait } from "@trigger.dev/sdk";
 
 export const helloWorldTask = task({
   id: "hello-world",
@@ -10,7 +10,9 @@ export const helloWorldTask = task({
 
     await wait.for({ seconds: 1 });
 
-    const message = `${payload.message} — completed at ${new Date().toISOString()}`;
+    const message = `${payload.message} — completed at ${
+      new Date().toISOString()
+    }`;
 
     logger.info("Hello world task completed", { message });
 
