@@ -10,13 +10,13 @@ const featureCards = [
     href: "https://trigger.dev/docs/quick-start",
   },
   {
-    title: "Build with AI",
-    description: "Tools for building with AI coding assistants.",
-    href: "https://trigger.dev/docs/deploy",
+    title: "Building with AI",
+    description: "Tools using Trigger.dev with AI assistants",
+    href: "https://trigger.dev/docs/building-with-ai",
   },
   {
     title: "Realtime",
-    description: "Subscribe to runs from your app",
+    description: "Trigger/subscribe to runs from your app",
     href: "https://trigger.dev/docs/realtime",
   },
   {
