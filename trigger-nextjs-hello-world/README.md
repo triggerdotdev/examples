@@ -1,7 +1,5 @@
 # Next.js + Trigger.dev Hello World
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/triggerdotdev/trigger-nextjs-hello-world)
-
 A minimal Next.js app that triggers a background task from an API route. Click a button, fire a task, watch it run on [Trigger.dev](https://trigger.dev).
 
 The whole thing is ~20 lines of task code in `trigger/hello-world.ts`.
@@ -21,10 +19,6 @@ pnpm install
 pnpm dev          # Next.js on :3000
 npx trigger dev   # Trigger.dev dev server
 ```
-
-## Deploy to Vercel
-
-Click the deploy button above, then install the [Trigger.dev Vercel integration](https://vercel.com/marketplace/trigger) to automatically sync your environment variables.
 
 ## Learn more about Trigger.dev
 
