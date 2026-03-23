@@ -1,6 +1,6 @@
 {
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.654.0",
+    "@aws-sdk/client-s3": "^3.1013.0",
     "@deepgram/sdk": "^3.7.0",
     "@supabase/storage-js": "^2.7.0",
     "@supabase/supabase-js": "^2.57.4",

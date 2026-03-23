@@ -11,7 +11,7 @@
   "dependencies": {
     "@ai-sdk/openai": "^2.0.24",
     "@ai-sdk/replicate": "^1.0.8",
-    "@aws-sdk/client-s3": "^3.882.0",
+    "@aws-sdk/client-s3": "^3.1013.0",
     "@hookform/resolvers": "^3.10.0",
     "@radix-ui/react-accordion": "1.2.2",
     "@radix-ui/react-alert-dialog": "1.1.4",
