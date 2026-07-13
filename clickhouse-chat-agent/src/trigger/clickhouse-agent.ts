@@ -3,6 +3,7 @@ import { anthropic } from "@ai-sdk/anthropic";
 import { createClient, type ClickHouseClient } from "@clickhouse/client";
 import { stepCountIs, streamText, tool } from "ai";
 import { z } from "zod";
+import { catalogPromptSection, validateSpec, type VisualizationSpec } from "../lib/catalog";
 
 // ============================================================================
 // ClickHouse client (Node.js client, HTTPS interface)
@@ -123,7 +124,41 @@ const runQuery = tool({
   },
 });
 
-const tools = { listTables, describeTable, runQuery };
+// The UI spec the model passes here is rendered in the Next.js app with
+// json-render + shadcn components. Validation errors are returned to the
+// model so it can fix the spec and retry.
+const renderVisualization = tool({
+  description:
+    "Render charts, tables and stat cards for the user, instead of describing data as text. " +
+    "Pass a json-render spec built from the components listed in the system prompt, with the " +
+    "data rows inlined. Use whenever an answer contains tabular data, a trend, a comparison " +
+    "or a headline number.",
+  inputSchema: z.object({
+    spec: z.object({
+      root: z.string().describe("Key of the root element"),
+      elements: z.record(
+        z.string(),
+        z.object({
+          type: z.string().describe("A component name from the system prompt"),
+          props: z.record(z.string(), z.unknown()),
+          children: z.array(z.string()).optional().describe("Keys of child elements"),
+        })
+      ),
+    }),
+  }),
+  execute: async ({ spec }) => {
+    const result = validateSpec(spec as VisualizationSpec);
+    if (!result.ok) {
+      return { ok: false, errors: result.errors };
+    }
+    return {
+      ok: true,
+      note: "Rendered to the user. Don't repeat the data as text — add at most a one-sentence takeaway.",
+    };
+  },
+});
+
+const tools = { listTables, describeTable, runQuery, renderVisualization };
 
 // ============================================================================
 // The chat agent
@@ -136,7 +171,16 @@ Guidelines:
 - Write ClickHouse SQL (not Postgres/MySQL dialect). Prefer aggregations over fetching raw rows.
 - Always LIMIT raw-row queries to 100 rows or fewer.
 - If a query fails, read the error, fix the SQL, and retry.
-- Present results as concise markdown — use tables for tabular data and call out the key takeaway in a sentence.`;
+
+Presenting results:
+- Whenever the answer contains tabular data, a trend, a comparison or a headline number, call renderVisualization instead of writing the data out as text: LineChart/AreaChart for time series, BarChart for rankings and comparisons, PieChart for share-of-total, Table for detail rows, a Grid of Stats for KPIs, PointMap for geographic questions when the data has coordinates (aggregate to at most ~200 points in SQL, e.g. round coordinates and count).
+- Compose visualizations inside a Card with a title; put multiple related views in one spec (e.g. a Stat row above a chart).
+- Keep chart data to a reasonable number of points (aggregate in SQL first) and pre-format display values (round numbers, currency symbols) in the props.
+- After rendering, add at most a one-or-two-sentence takeaway in text. Never repeat the rendered data as a markdown table.
+
+## renderVisualization spec reference
+
+${catalogPromptSection()}`;
 
 export const clickhouseAgent = chat.agent({
   id: "clickhouse-agent",
