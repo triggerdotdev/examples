@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@plugin "tailwind-scrollbar";
 
 /* Tailwind only scans app source by default — include the pre-built
    @json-render/shadcn components so their classes are generated. */

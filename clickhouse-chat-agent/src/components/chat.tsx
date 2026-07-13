@@ -51,7 +51,7 @@ export function Chat() {
         </span>
       </header>
 
-      <div className="flex-1 space-y-6 overflow-y-auto px-4 py-6">
+      <div className="flex-1 space-y-6 overflow-y-auto px-4 py-6 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-secondary">
         {messages.length === 0 && (
           <div className="mt-16 space-y-4 text-center">
             <p className="text-sm text-muted-foreground">
@@ -194,7 +194,9 @@ function MessagePart({ part }: { part: UIMessage["parts"][number] }) {
           <span className="opacity-60 group-open:hidden">— click to expand</span>
         </summary>
         {input?.query && (
-          <pre className="mt-2 overflow-x-auto rounded-lg bg-muted p-3 text-xs">{input.query}</pre>
+          <pre className="mt-2 overflow-x-auto rounded-lg bg-muted p-3 text-xs scrollbar-thin scrollbar-track-transparent scrollbar-thumb-secondary">
+            {input.query}
+          </pre>
         )}
       </details>
     );
