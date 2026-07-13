@@ -1,7 +1,8 @@
+import { prompts } from "@trigger.dev/sdk";
 import { chat } from "@trigger.dev/sdk/ai";
 import { anthropic } from "@ai-sdk/anthropic";
 import { createClient, type ClickHouseClient } from "@clickhouse/client";
-import { stepCountIs, streamText, tool } from "ai";
+import { createProviderRegistry, stepCountIs, streamText, tool } from "ai";
 import { z } from "zod";
 import { catalogPromptSection, validateSpec, type VisualizationSpec } from "../lib/catalog";
 
@@ -68,10 +69,15 @@ const describeTable = tool({
       .describe("The table name, optionally qualified with a database, e.g. 'default.trips'"),
   }),
   execute: async ({ table }) => {
-    // Identifier param — the client binds it safely, no string interpolation.
+    // Identifier params — the client binds them safely, no string interpolation.
+    // A qualified name must bind as two identifiers; one param would escape
+    // the whole string as a single (nonexistent) table name.
+    const [database, name] = table.includes(".") ? table.split(".", 2) : [undefined, table];
     const result = await getClickHouse().query({
-      query: "DESCRIBE TABLE {table: Identifier}",
-      query_params: { table },
+      query: database
+        ? "DESCRIBE TABLE {database: Identifier}.{name: Identifier}"
+        : "DESCRIBE TABLE {name: Identifier}",
+      query_params: { database, name },
       format: "JSONEachRow",
     });
     return { columns: await result.json() };
@@ -164,7 +170,20 @@ const tools = { listTables, describeTable, runQuery, renderVisualization };
 // The chat agent
 // ============================================================================
 
-const SYSTEM_PROMPT = `You are a ClickHouse data analyst. You answer questions about the data in the connected ClickHouse database by running SQL queries.
+const registry = createProviderRegistry({ anthropic });
+
+// A versioned AI Prompt: edit or override the analyst guidance (and model/
+// temperature) from the dashboard without redeploying. The json-render
+// component reference is generated from the catalog at run time and injected
+// as a template variable, so it always matches the deployed code.
+const systemPrompt = prompts.define({
+  id: "clickhouse-analyst",
+  description: "System prompt for the ClickHouse data-analyst chat agent",
+  model: "anthropic:claude-opus-4-8",
+  variables: z.object({
+    componentReference: z.string(),
+  }),
+  content: `You are a ClickHouse data analyst. You answer questions about the data in the connected ClickHouse database by running SQL queries.
 
 Guidelines:
 - If you don't know what data exists yet, call listTables first, then describeTable before querying a table.
@@ -180,7 +199,8 @@ Presenting results:
 
 ## renderVisualization spec reference
 
-${catalogPromptSection()}`;
+{{componentReference}}`,
+});
 
 export const clickhouseAgent = chat.agent({
   id: "clickhouse-agent",
@@ -190,16 +210,29 @@ export const clickhouseAgent = chat.agent({
   // across turns; the resolved set comes back typed on the run payload.
   tools,
 
+  onChatStart: async () => {
+    // Resolves the latest prompt version (or an active dashboard override)
+    // and stores it for the run. chat.toStreamTextOptions() picks up the
+    // system text, model, config AND experimental_telemetry from it — the
+    // telemetry is what links model-call spans to the prompt and makes LLM
+    // observability (tokens, cost, latency) show up in the dashboard.
+    const resolved = await systemPrompt.resolve({
+      componentReference: catalogPromptSection(),
+    });
+    chat.prompt.set(resolved);
+  },
+
   run: async ({ messages, tools, signal }) => {
     return streamText({
-      // Spread chat.toStreamTextOptions() FIRST — it wires up
-      // prepareStep (compaction, steering, background injection),
-      // the system prompt set via chat.prompt(), and telemetry.
-      // Skipping this is the single most common cause of subtle
-      // bugs (silent broken compaction, missing steering, etc.).
-      ...chat.toStreamTextOptions(),
+      // Fallback model only — placed BEFORE the spread so the stored
+      // prompt's model (including dashboard overrides) wins when set.
       model: anthropic("claude-opus-4-8"),
-      system: SYSTEM_PROMPT,
+      // Spread chat.toStreamTextOptions() — it wires up prepareStep
+      // (compaction, steering, background injection), plus the system
+      // prompt + model + config + telemetry from chat.prompt().
+      // Skipping this is the single most common cause of subtle bugs
+      // (silent broken compaction, missing LLM observability, etc.).
+      ...chat.toStreamTextOptions({ registry }),
       messages,
       tools,
       stopWhen: stepCountIs(15),

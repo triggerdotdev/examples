@@ -6,7 +6,7 @@ The agent decides when a visualization beats prose: it calls a `renderVisualizat
 
 ## How it works
 
-**The agent** (`src/trigger/clickhouse-agent.ts`) is a single `chat.agent()` call — Trigger.dev handles the chat session, turn loop, streaming and resumability. It has four tools:
+**The agent** (`src/trigger/clickhouse-agent.ts`) is a single `chat.agent()` call — Trigger.dev handles the chat session, turn loop, streaming and resumability. Its system prompt is a versioned [AI Prompt](https://trigger.dev/docs/ai/prompts) (`prompts.define()` + `chat.prompt.set()`), so you can edit the analyst guidance, model or temperature from the dashboard without redeploying — and every model call is traced in the run with token, cost and latency metrics linked to the prompt version. It has four tools:
 
 - **`listTables`** — lists tables with engine, row counts and size (from `system.tables`)
 - **`describeTable`** — returns column names and types, using a bound `Identifier` query param (no SQL string interpolation)
