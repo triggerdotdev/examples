@@ -8,14 +8,14 @@ import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { mintChatAccessToken, startChatSession } from "@/app/actions";
-import type { VisualizationSpec } from "@/lib/catalog";
+import { normalizeSpec } from "@/lib/catalog";
 import { Visualization } from "@/components/visualization";
 import type { clickhouseAgent } from "@/trigger/clickhouse-agent";
 
 const SUGGESTIONS = [
+  "Give me a dashboard of the taxi data: daily trip volume over time, demand by hour of day, and revenue share by payment type",
+  "Where do trips start and end? Show pickup and dropoff hotspots on two maps, sized by trip count",
   "What data do I have?",
-  "Show the top 5 busiest pickup days as a bar chart",
-  "How do trip counts and average fares trend by month?",
   "Break down trips by payment type",
 ];
 
@@ -152,18 +152,19 @@ function MessagePart({ part }: { part: UIMessage["parts"][number] }) {
   }
 
   if (part.type === "tool-renderVisualization") {
-    const input = part.input as { spec?: VisualizationSpec } | undefined;
+    const input = part.input as { spec?: unknown } | undefined;
     const output = part.output as { ok?: boolean } | undefined;
+    const spec = part.state === "input-streaming" ? null : normalizeSpec(input?.spec);
 
     // Wait for the full spec before rendering; if validation failed the
     // agent fixes the spec and calls the tool again.
-    if (part.state === "input-streaming" || !input?.spec) {
+    if (!spec) {
       return <ToolStatus label="Building visualization…" spinning />;
     }
     if (output && output.ok === false) {
       return <ToolStatus label="Refining visualization…" spinning />;
     }
-    return <Visualization spec={input.spec} />;
+    return <Visualization spec={spec} />;
   }
 
   if (part.type === "tool-listTables") {

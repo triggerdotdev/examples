@@ -149,6 +149,25 @@ ${components}`;
 }
 
 /**
+ * Accepts a spec-shaped value, tolerating one accidental extra `{ spec: ... }`
+ * wrapping (models occasionally double-nest the tool input). Used by both the
+ * agent tool and the client renderer so they can't disagree on the shape.
+ */
+export function normalizeSpec(input: unknown): VisualizationSpec | null {
+  const looksLikeSpec = (v: unknown): v is VisualizationSpec =>
+    typeof v === "object" &&
+    v !== null &&
+    typeof (v as VisualizationSpec).root === "string" &&
+    typeof (v as VisualizationSpec).elements === "object" &&
+    (v as VisualizationSpec).elements !== null;
+
+  if (looksLikeSpec(input)) return input;
+  const inner = (input as { spec?: unknown } | null)?.spec;
+  if (looksLikeSpec(inner)) return inner;
+  return null;
+}
+
+/**
  * Validates a spec against the catalog: known component types, per-component
  * props (missing nullable props are treated as null), and resolvable children.
  * Returns errors phrased for the model to correct and retry.

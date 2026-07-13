@@ -4,7 +4,7 @@ import { anthropic } from "@ai-sdk/anthropic";
 import { createClient, type ClickHouseClient } from "@clickhouse/client";
 import { createProviderRegistry, stepCountIs, streamText, tool } from "ai";
 import { z } from "zod";
-import { catalogPromptSection, validateSpec, type VisualizationSpec } from "../lib/catalog";
+import { catalogPromptSection, normalizeSpec, validateSpec } from "../lib/catalog";
 
 // ============================================================================
 // ClickHouse client (Node.js client, HTTPS interface)
@@ -153,8 +153,14 @@ const renderVisualization = tool({
     }),
   }),
   execute: async ({ spec }) => {
-    const result = validateSpec(spec as VisualizationSpec);
+    const normalized = normalizeSpec(spec);
+    if (!normalized) {
+      return { ok: false, errors: ['spec must be an object of the form { root: "<key>", elements: { ... } }'] };
+    }
+    const result = validateSpec(normalized);
     if (!result.ok) {
+      // Surfaces in the run log — handy when tuning the catalog or prompt.
+      console.warn("renderVisualization spec rejected:", result.errors);
       return { ok: false, errors: result.errors };
     }
     return {
