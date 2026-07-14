@@ -33,10 +33,11 @@ function seriesColor(index: number): string {
   return `var(--chart-${(index % 5) + 1})`;
 }
 
+// Config carries labels only. Colors are applied directly on the marks
+// (Bar/Line/Cell fills) — keeping model/data-derived keys out of the
+// stylesheet that ChartStyle would otherwise inject them into.
 function buildConfig(series: Series[]): ChartConfig {
-  return Object.fromEntries(
-    series.map((s, i) => [s.dataKey, { label: s.label ?? s.dataKey, color: seriesColor(i) }])
-  );
+  return Object.fromEntries(series.map((s) => [s.dataKey, { label: s.label ?? s.dataKey }]));
 }
 
 function ChartFrame({ title, children }: { title?: string | null; children: React.ReactNode }) {
@@ -176,7 +177,7 @@ export function PieChartView({
   title?: string | null;
 }) {
   const config: ChartConfig = Object.fromEntries(
-    data.map((row, i) => [String(row[nameKey]), { label: String(row[nameKey]), color: seriesColor(i) }])
+    data.map((row) => [String(row[nameKey]), { label: String(row[nameKey]) }])
   );
 
   return (

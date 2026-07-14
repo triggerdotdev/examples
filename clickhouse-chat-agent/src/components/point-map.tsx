@@ -16,7 +16,11 @@ const MAX_SIZE = 30;
 
 export function PointMapView({ points, title }: { points: Point[]; title?: string | null }) {
   const valid = points.filter(
-    (p) => Number.isFinite(p.lat) && Number.isFinite(p.lng) && Math.abs(p.lat) <= 90
+    (p) =>
+      Number.isFinite(p.lat) &&
+      Number.isFinite(p.lng) &&
+      Math.abs(p.lat) <= 90 &&
+      Math.abs(p.lng) <= 180
   );
   if (valid.length === 0) {
     return <div className="text-sm text-muted-foreground">No mappable points.</div>;

@@ -88,7 +88,10 @@ ${colorConfig
     const color =
       itemConfig.theme?.[theme as keyof typeof itemConfig.theme] ||
       itemConfig.color
-    return color ? `  --color-${key}: ${color};` : null
+    // Config keys can be data-derived — strip anything that could break out
+    // of the stylesheet before interpolating into the CSS var name.
+    const safeKey = key.replace(/[^a-zA-Z0-9_-]/g, "_")
+    return color ? `  --color-${safeKey}: ${color};` : null
   })
   .join("\n")}
 }
@@ -208,7 +211,7 @@ const ChartTooltipContent = React.forwardRef<
                       !hideIndicator && (
                         <div
                           className={cn(
-                            "shrink-0 rounded-[2px] border-[--color-border] bg-[--color-bg]",
+                            "shrink-0 rounded-[2px] border-(--color-border) bg-(--color-bg)",
                             {
                               "h-2.5 w-2.5": indicator === "dot",
                               "w-1": indicator === "line",

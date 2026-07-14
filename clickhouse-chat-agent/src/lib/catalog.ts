@@ -15,11 +15,14 @@ const chartData = z
   .array(z.record(z.string(), z.union([z.string(), z.number(), z.null()])))
   .describe("Data rows, one object per x-axis entry");
 
+// Nested optional fields use .nullish() (not .nullable()) so the model can
+// omit them: the top-level null-fill in validateSpec doesn't recurse into
+// arrays, and bare .nullable() rejects a missing key.
 const series = z
   .array(
     z.object({
       dataKey: z.string().describe("Key in each data row holding this series' numeric value"),
-      label: z.string().nullable().describe("Human-readable series name for legend/tooltip"),
+      label: z.string().nullish().describe("Human-readable series name for legend/tooltip"),
     })
   )
   .describe("One entry per plotted series");
@@ -74,10 +77,10 @@ export const chartComponentDefinitions = {
           z.object({
             lat: z.number(),
             lng: z.number(),
-            label: z.string().nullable().describe("Shown in the marker tooltip"),
+            label: z.string().nullish().describe("Shown in the marker tooltip"),
             value: z
               .number()
-              .nullable()
+              .nullish()
               .describe("Optional magnitude — scales the marker size and shows in the tooltip"),
           })
         )
