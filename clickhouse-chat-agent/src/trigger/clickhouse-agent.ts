@@ -1,8 +1,10 @@
+import { prompts } from "@trigger.dev/sdk";
 import { chat } from "@trigger.dev/sdk/ai";
 import { anthropic } from "@ai-sdk/anthropic";
 import { createClient, type ClickHouseClient } from "@clickhouse/client";
-import { stepCountIs, streamText, tool } from "ai";
+import { createProviderRegistry, stepCountIs, streamText, tool } from "ai";
 import { z } from "zod";
+import { catalogPromptSection, normalizeSpec, validateSpec } from "../lib/catalog";
 
 // ============================================================================
 // ClickHouse client (Node.js client, HTTPS interface)
@@ -67,10 +69,15 @@ const describeTable = tool({
       .describe("The table name, optionally qualified with a database, e.g. 'default.trips'"),
   }),
   execute: async ({ table }) => {
-    // Identifier param — the client binds it safely, no string interpolation.
+    // Identifier params — the client binds them safely, no string interpolation.
+    // A qualified name must bind as two identifiers; one param would escape
+    // the whole string as a single (nonexistent) table name.
+    const [database, name] = table.includes(".") ? table.split(".", 2) : [undefined, table];
     const result = await getClickHouse().query({
-      query: "DESCRIBE TABLE {table: Identifier}",
-      query_params: { table },
+      query: database
+        ? "DESCRIBE TABLE {database: Identifier}.{name: Identifier}"
+        : "DESCRIBE TABLE {name: Identifier}",
+      query_params: { database, name },
       format: "JSONEachRow",
     });
     return { columns: await result.json() };
@@ -123,20 +130,83 @@ const runQuery = tool({
   },
 });
 
-const tools = { listTables, describeTable, runQuery };
+// The UI spec the model passes here is rendered in the Next.js app with
+// json-render + shadcn components. Validation errors are returned to the
+// model so it can fix the spec and retry.
+const renderVisualization = tool({
+  description:
+    "Render charts, tables and stat cards for the user, instead of describing data as text. " +
+    "Pass a json-render spec built from the components listed in the system prompt, with the " +
+    "data rows inlined. Use whenever an answer contains tabular data, a trend, a comparison " +
+    "or a headline number.",
+  inputSchema: z.object({
+    spec: z.object({
+      root: z.string().describe("Key of the root element"),
+      elements: z.record(
+        z.string(),
+        z.object({
+          type: z.string().describe("A component name from the system prompt"),
+          props: z.record(z.string(), z.unknown()),
+          children: z.array(z.string()).optional().describe("Keys of child elements"),
+        })
+      ),
+    }),
+  }),
+  execute: async ({ spec }) => {
+    const normalized = normalizeSpec(spec);
+    if (!normalized) {
+      return { ok: false, errors: ['spec must be an object of the form { root: "<key>", elements: { ... } }'] };
+    }
+    const result = validateSpec(normalized);
+    if (!result.ok) {
+      // Surfaces in the run log — handy when tuning the catalog or prompt.
+      console.warn("renderVisualization spec rejected:", result.errors);
+      return { ok: false, errors: result.errors };
+    }
+    return {
+      ok: true,
+      note: "Rendered to the user. Don't repeat the data as text — add at most a one-sentence takeaway.",
+    };
+  },
+});
+
+const tools = { listTables, describeTable, runQuery, renderVisualization };
 
 // ============================================================================
 // The chat agent
 // ============================================================================
 
-const SYSTEM_PROMPT = `You are a ClickHouse data analyst. You answer questions about the data in the connected ClickHouse database by running SQL queries.
+const registry = createProviderRegistry({ anthropic });
+
+// A versioned AI Prompt: edit or override the analyst guidance (and model/
+// temperature) from the dashboard without redeploying. The json-render
+// component reference is generated from the catalog at run time and injected
+// as a template variable, so it always matches the deployed code.
+const systemPrompt = prompts.define({
+  id: "clickhouse-analyst",
+  description: "System prompt for the ClickHouse data-analyst chat agent",
+  model: "anthropic:claude-opus-4-8",
+  variables: z.object({
+    componentReference: z.string(),
+  }),
+  content: `You are a ClickHouse data analyst. You answer questions about the data in the connected ClickHouse database by running SQL queries.
 
 Guidelines:
 - If you don't know what data exists yet, call listTables first, then describeTable before querying a table.
 - Write ClickHouse SQL (not Postgres/MySQL dialect). Prefer aggregations over fetching raw rows.
 - Always LIMIT raw-row queries to 100 rows or fewer.
 - If a query fails, read the error, fix the SQL, and retry.
-- Present results as concise markdown — use tables for tabular data and call out the key takeaway in a sentence.`;
+
+Presenting results:
+- Whenever the answer contains tabular data, a trend, a comparison or a headline number, call renderVisualization instead of writing the data out as text: LineChart/AreaChart for time series, BarChart for rankings and comparisons, PieChart for share-of-total, Table for detail rows, a Grid of Stats for KPIs, PointMap for geographic questions when the data has coordinates (aggregate to at most ~200 points in SQL, e.g. round coordinates and count).
+- Compose visualizations inside a Card with a title; put multiple related views in one spec (e.g. a Stat row above a chart).
+- Keep chart data to a reasonable number of points (aggregate in SQL first) and pre-format display values (round numbers, currency symbols) in the props.
+- After rendering, add at most a one-or-two-sentence takeaway in text. Never repeat the rendered data as a markdown table.
+
+## renderVisualization spec reference
+
+{{componentReference}}`,
+});
 
 export const clickhouseAgent = chat.agent({
   id: "clickhouse-agent",
@@ -146,16 +216,29 @@ export const clickhouseAgent = chat.agent({
   // across turns; the resolved set comes back typed on the run payload.
   tools,
 
+  onChatStart: async () => {
+    // Resolves the latest prompt version (or an active dashboard override)
+    // and stores it for the run. chat.toStreamTextOptions() picks up the
+    // system text, model, config AND experimental_telemetry from it — the
+    // telemetry is what links model-call spans to the prompt and makes LLM
+    // observability (tokens, cost, latency) show up in the dashboard.
+    const resolved = await systemPrompt.resolve({
+      componentReference: catalogPromptSection(),
+    });
+    chat.prompt.set(resolved);
+  },
+
   run: async ({ messages, tools, signal }) => {
     return streamText({
-      // Spread chat.toStreamTextOptions() FIRST — it wires up
-      // prepareStep (compaction, steering, background injection),
-      // the system prompt set via chat.prompt(), and telemetry.
-      // Skipping this is the single most common cause of subtle
-      // bugs (silent broken compaction, missing steering, etc.).
-      ...chat.toStreamTextOptions(),
+      // Fallback model only — placed BEFORE the spread so the stored
+      // prompt's model (including dashboard overrides) wins when set.
       model: anthropic("claude-opus-4-8"),
-      system: SYSTEM_PROMPT,
+      // Spread chat.toStreamTextOptions() — it wires up prepareStep
+      // (compaction, steering, background injection), plus the system
+      // prompt + model + config + telemetry from chat.prompt().
+      // Skipping this is the single most common cause of subtle bugs
+      // (silent broken compaction, missing LLM observability, etc.).
+      ...chat.toStreamTextOptions({ registry }),
       messages,
       tools,
       stopWhen: stepCountIs(15),
