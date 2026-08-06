@@ -72,9 +72,27 @@ const RESIZE_JS = `
   })();
 `;
 
+// Content-Security-Policy for the lesson document. `allow-scripts` alone still
+// lets a (prompt-injected) lesson `fetch()`/post a form/img-beacon data out —
+// e.g. a fake "re-enter your token" form that exfiltrates what the user types.
+// This CSP closes those channels: no network (`connect-src 'none'`), no form
+// posts (`form-action 'none'`), no external image beacons (`img-src data:`),
+// while still allowing the quiz's inline scripts, our inline styles, and the
+// Fontshare stylesheet/fonts. Defense-in-depth on top of the opaque-origin
+// sandbox (which already blocks reading the parent DOM, cookies, and token).
+const LESSON_CSP =
+  "default-src 'none'; " +
+  "script-src 'unsafe-inline'; " +
+  "style-src 'unsafe-inline' https://api.fontshare.com; " +
+  "font-src https://cdn.fontshare.com https://api.fontshare.com; " +
+  "img-src data:; " +
+  "connect-src 'none'; " +
+  "form-action 'none'; " +
+  "base-uri 'none'";
+
 function buildSrcDoc(html: string): string {
   return `<!doctype html><html><head><meta charset="utf-8" />
-<link rel="preconnect" href="https://api.fontshare.com" crossorigin />
+<meta http-equiv="Content-Security-Policy" content="${LESSON_CSP}" />
 <link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=satoshi@700,500&display=swap" />
 <style>${LESSON_CSS}</style></head>
 <body>${html}<script>${RESIZE_JS}</script></body></html>`;
@@ -91,8 +109,8 @@ export function LessonView({ title, html }: { title: string; html: string }) {
     function onMessage(e: MessageEvent) {
       if (e.source !== iframeRef.current?.contentWindow) return;
       const data = e.data as { __lesson?: boolean; height?: number };
-      if (data?.__lesson && typeof data.height === "number") {
-        setHeight(Math.min(2000, Math.max(160, Math.ceil(data.height))));
+      if (data?.__lesson && Number.isFinite(data.height)) {
+        setHeight(Math.min(2000, Math.max(160, Math.ceil(data.height as number))));
       }
     }
     window.addEventListener("message", onMessage);
