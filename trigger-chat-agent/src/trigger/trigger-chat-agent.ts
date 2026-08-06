@@ -27,18 +27,21 @@ let docsToolsPromise: Promise<ToolSet> | undefined;
 // Wrap each docs tool so its output is quarantined before the model sees it:
 // the retrieved documentation is untrusted (a poisoned page is the upstream
 // injection vector), so we coerce it to text and wrap it as data-not-instructions.
-// Overriding `execute` (rather than `toModelOutput`) keeps the quarantined text
-// stable across turns' history re-conversion regardless of the MCP tool's shape.
+// We override `toModelOutput` (NOT `execute`) — this is the layer that decides
+// what text the model reads, it leaves the raw MCP result shape intact for the
+// SDK (the MCP tool's own toModelOutput does `'content' in output`, which throws
+// on a plain string), and it's re-applied on cross-turn history re-conversion,
+// so the quarantine wrapping persists across turns.
 function quarantineDocsTools(tools: ToolSet): ToolSet {
   const wrapped: ToolSet = {};
   for (const [name, t] of Object.entries(tools)) {
-    const original = t.execute;
-    wrapped[name] = original
-      ? {
-          ...t,
-          execute: async (input: unknown, options) => quarantineDocs(renderToolText(await original(input, options))),
-        }
-      : t;
+    wrapped[name] = {
+      ...t,
+      toModelOutput: ({ output }: { output: unknown }) => ({
+        type: "text" as const,
+        value: quarantineDocs(renderToolText(output)),
+      }),
+    };
   }
   return wrapped;
 }
