@@ -1,7 +1,8 @@
 "use client";
 
 import { motion, useReducedMotion } from "motion/react";
-import { Highlight, themes } from "prism-react-renderer";
+import { Highlight } from "prism-react-renderer";
+import { triggerCodeTheme } from "@/lib/code-theme";
 import { reducedVariants, revealBlur, staggerContainer } from "@/lib/motion";
 
 /**
@@ -39,10 +40,11 @@ export function CodeCard({
         {title && <span className="ml-2 font-mono text-xs text-dimmed">{title}</span>}
       </motion.div>
       <motion.div variants={item}>
-        <Highlight code={code.trimEnd()} language={language ?? "typescript"} theme={themes.vsDark}>
-          {({ className, tokens, getLineProps, getTokenProps }) => (
+        <Highlight code={code.trimEnd()} language={language ?? "typescript"} theme={triggerCodeTheme}>
+          {({ className, style, tokens, getLineProps, getTokenProps }) => (
             <pre
-              className={`${className} max-h-[28rem] overflow-auto bg-transparent px-4 py-4 text-xs leading-relaxed scrollbar-thin scrollbar-track-transparent scrollbar-thumb-secondary`}
+              className={`${className} max-h-[28rem] overflow-auto px-4 py-4 font-mono text-xs leading-relaxed scrollbar-thin scrollbar-track-transparent scrollbar-thumb-charcoal-700`}
+              style={style}
             >
               {tokens.map((line, i) => (
                 <div key={i} {...getLineProps({ line })}>
