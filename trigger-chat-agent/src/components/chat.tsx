@@ -71,8 +71,8 @@ export function Chat() {
           <div className="mx-auto mt-16 max-w-lg space-y-6 text-center">
             <AgentWordmark className="text-[clamp(2rem,7vw,3rem)]" />
             <p className="text-sm text-dimmed">
-              Learn how Trigger.dev works — it teaches you with interactive diagrams and lessons, grounded in the
-              live docs. Pick a starting point:
+              Learn how Trigger.dev works — it teaches you with interactive diagrams, lessons and quizzes, all
+              grounded in the live docs. Pick a starting point:
             </p>
             <ChipGroup label="Start here" items={START_HERE} onPick={submit} />
             <ChipGroup label="Go deeper" items={GO_DEEPER} onPick={submit} />
