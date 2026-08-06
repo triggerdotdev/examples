@@ -140,4 +140,9 @@
   body {
     @apply bg-background text-foreground;
   }
+  /* Clickable buttons (chips, send, quiz options, copy) show a pointer;
+     disabled ones don't. Native buttons default to the arrow cursor. */
+  button:not(:disabled) {
+    cursor: pointer;
+  }
 }
