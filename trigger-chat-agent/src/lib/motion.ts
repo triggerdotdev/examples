@@ -57,3 +57,25 @@ export function staggerContainer(staggerChildren = 0.05, delayChildren = 0): Var
     show: { transition: { staggerChildren, delayChildren } },
   };
 }
+
+/**
+ * Speech-bubble entrance — the "a message just arrived" pop shared by every
+ * text bubble. The bubble grows from its tail corner (pair with
+ * `origin-bottom-left` / `origin-bottom-right`) with a short fade + rise, so a
+ * turn lands like an iMessage bubble rather than blinking in. Quick (≤~250ms)
+ * and critically damped (no bounce). Rich cards use `revealBlur` instead:
+ * bubbles grow, cards resolve.
+ */
+export const bubbleIn: Variants = {
+  hidden: { opacity: 0, scale: 0.94, y: 6 },
+  show: {
+    opacity: 1,
+    scale: 1,
+    y: 0,
+    transition: {
+      opacity: { duration: durations.fast, ease: easings.outExpo },
+      scale: { duration: 0.25, ease: easings.outExpo },
+      y: { duration: 0.25, ease: easings.outExpo },
+    },
+  },
+};

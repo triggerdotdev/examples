@@ -3,21 +3,20 @@
 import { useChat } from "@ai-sdk/react";
 import { useTriggerChatTransport } from "@trigger.dev/sdk/chat/react";
 import type { UIMessage } from "ai";
-import { ArrowRight, ArrowUp, BookOpen, GraduationCap, Loader2, Shuffle, Sparkles, Square, Zap } from "lucide-react";
-import { useState } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import { ArrowRight, ArrowUp, BookOpen, GraduationCap, Shuffle, Sparkles, Square } from "lucide-react";
+import { motion, useReducedMotion } from "motion/react";
+import { useEffect, useRef, useState } from "react";
 import { mintChatAccessToken, startChatSession } from "@/app/actions";
 import { normalizeSpec } from "@/lib/catalog";
+import { bubbleIn, easings } from "@/lib/motion";
+import { AssistantText } from "@/components/streaming-text";
+import { AgentWordmark } from "@/components/wordmark";
+import { FocusGlow } from "@/components/composer-glow";
 import { Visualization } from "@/components/visualization";
 import type { triggerChatAgent } from "@/trigger/trigger-chat-agent";
 
-// The empty-state seed. The altitude of the chip the learner picks is a
-// zone-of-proximal-development signal the agent uses to calibrate the session.
-const START_HERE = [
-  "What is Trigger.dev, and how does it work?",
-  "What's a task, and how do I run one?",
-];
+// The empty-state seed. The altitude of the chip picked calibrates the session.
+const START_HERE = ["What is Trigger.dev, and how does it work?", "What's a task, and how do I run one?"];
 const GO_DEEPER = [
   "How does a fan-out with retries work?",
   "How does a run survive a redeploy?",
@@ -26,20 +25,16 @@ const GO_DEEPER = [
 ];
 const MORE_TOPICS = "Suggest more Trigger.dev topics I could learn — mix beginner and advanced.";
 
-// Icon + accent per suggestNext chip kind.
 const CHIP_KINDS: Record<string, { icon: typeof ArrowRight; className: string }> = {
   deeper: { icon: ArrowRight, className: "border-apple-500/40 text-apple-500 hover:bg-apple-500/10" },
-  sideways: { icon: Shuffle, className: "border-border text-muted-foreground hover:bg-accent" },
-  practice: { icon: GraduationCap, className: "border-border text-foreground hover:bg-accent" },
-  topic: { icon: Sparkles, className: "border-border text-muted-foreground hover:bg-accent" },
+  sideways: { icon: Shuffle, className: "border-charcoal-700 text-dimmed hover:bg-charcoal-800" },
+  practice: { icon: GraduationCap, className: "border-charcoal-700 text-bright hover:bg-charcoal-800" },
+  topic: { icon: Sparkles, className: "border-charcoal-700 text-dimmed hover:bg-charcoal-800" },
 };
 
 export function Chat() {
   const transport = useTriggerChatTransport<typeof triggerChatAgent>({
     task: "trigger-chat-agent",
-    // Only needed when the agent runs somewhere other than cloud.trigger.dev
-    // (e.g. self-hosted) — the server-side TRIGGER_API_URL isn't visible in
-    // the browser, so the SSE endpoints get their base URL from this.
     baseURL: process.env.NEXT_PUBLIC_TRIGGER_API_URL,
     accessToken: ({ chatId }) => mintChatAccessToken(chatId),
     startSession: ({ chatId, clientData }) => startChatSession({ chatId, clientData }),
@@ -47,7 +42,15 @@ export function Chat() {
 
   const { messages, sendMessage, stop, status } = useChat({ transport });
   const [input, setInput] = useState("");
+  const reduce = useReducedMotion();
   const busy = status === "submitted" || status === "streaming";
+
+  // Land the newest turn at its TOP (tall answers start at the top, not pinned
+  // to the bottom) — a genuine DOM effect, keyed on the message count.
+  const lastRowRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    lastRowRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
+  }, [messages.length]);
 
   function submit(text: string) {
     const trimmed = text.trim();
@@ -57,17 +60,17 @@ export function Chat() {
   }
 
   return (
-    <div className="mx-auto flex h-dvh w-full max-w-3xl flex-col">
-      <header className="flex items-center gap-2 border-b px-4 py-3">
-        <Zap className="size-4 fill-apple-500 text-apple-500" />
-        <h1 className="font-title text-sm font-semibold">Trigger.dev chat agent</h1>
-        <span className="ml-auto text-xs text-muted-foreground">Learn by doing, not walls of text</span>
+    <div className="mx-auto flex h-dvh w-full max-w-3xl flex-col px-4">
+      <header className="flex items-center justify-between gap-2 py-4">
+        <AgentWordmark className="text-lg" />
+        <span className="font-mono text-2xs uppercase tracking-widest text-dimmed">learn trigger.dev</span>
       </header>
 
-      <div className="flex-1 space-y-6 overflow-y-auto px-4 py-6 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-secondary">
-        {messages.length === 0 && (
-          <div className="mx-auto mt-12 max-w-lg space-y-6">
-            <p className="text-center text-sm text-muted-foreground">
+      <div className="flex-1 space-y-5 overflow-y-auto py-4 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-charcoal-800 [mask-image:linear-gradient(to_bottom,transparent,#000_1.25rem,#000_calc(100%-1.25rem),transparent)]">
+        {messages.length === 0 ? (
+          <div className="mx-auto mt-16 max-w-lg space-y-6 text-center">
+            <AgentWordmark className="text-[clamp(2rem,7vw,3rem)]" />
+            <p className="text-sm text-dimmed">
               Learn how Trigger.dev works — it teaches you with interactive diagrams and lessons, grounded in the
               live docs. Pick a starting point:
             </p>
@@ -83,17 +86,15 @@ export function Chat() {
               </button>
             </div>
           </div>
+        ) : (
+          messages.map((message, i) => (
+            <div key={message.id} ref={i === messages.length - 1 ? lastRowRef : undefined} className="scroll-mt-4">
+              <Message message={message} onPick={submit} busy={busy} reduce={!!reduce} streamingNow={status === "streaming" && i === messages.length - 1} />
+            </div>
+          ))
         )}
 
-        {messages.map((message) => (
-          <Message key={message.id} message={message} onPick={submit} busy={busy} />
-        ))}
-
-        {status === "submitted" && (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="size-3.5 animate-spin" /> Thinking…
-          </div>
-        )}
+        {status === "submitted" && <Thinking />}
       </div>
 
       <form
@@ -101,35 +102,41 @@ export function Chat() {
           e.preventDefault();
           submit(input);
         }}
-        className="border-t px-4 py-3"
+        className="py-4"
       >
-        <div className="flex items-center gap-2 rounded-xl border bg-card px-3 py-2 focus-within:ring-2 focus-within:ring-ring/50">
-          <input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask how Trigger.dev works…"
-            className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-          />
-          {busy ? (
-            <button
-              type="button"
-              onClick={() => stop()}
-              className="rounded-lg bg-secondary p-2 text-secondary-foreground transition-colors hover:bg-secondary/80"
-              aria-label="Stop"
-            >
-              <Square className="size-3.5" />
-            </button>
-          ) : (
-            <button
-              type="submit"
-              disabled={!input.trim()}
-              className="rounded-lg bg-primary p-2 text-primary-foreground transition-colors disabled:opacity-40"
-              aria-label="Send"
-            >
-              <ArrowUp className="size-3.5" />
-            </button>
-          )}
+        <div className="relative [&:focus-within]:[--lw3-glow-focus:1]">
+          <FocusGlow radiusClassName="rounded-full" />
+          <div className="relative z-10 flex items-center gap-2 rounded-full border border-charcoal-700 bg-charcoal-900 py-1.5 pl-5 pr-1.5 transition-colors focus-within:border-charcoal-500">
+            <input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Ask how Trigger.dev works…"
+              className="flex-1 border-0 bg-transparent px-0 py-2 text-sm text-foreground caret-apple-500 outline-none ring-0 placeholder:text-charcoal-500"
+            />
+            {busy ? (
+              <button
+                type="button"
+                onClick={() => stop()}
+                className="flex size-9 shrink-0 items-center justify-center rounded-full bg-charcoal-800 text-bright transition-colors hover:bg-charcoal-700"
+                aria-label="Stop"
+              >
+                <Square className="size-3.5" />
+              </button>
+            ) : (
+              <button
+                type="submit"
+                disabled={!input.trim()}
+                className="group flex size-9 shrink-0 items-center justify-center rounded-full bg-apple-500 text-charcoal-900 shadow-[0_0_14px_rgba(64,204,127,0.45)] transition-colors duration-150 hover:bg-apple-400 disabled:bg-charcoal-800 disabled:text-charcoal-500 disabled:shadow-none"
+                aria-label="Send"
+              >
+                <ArrowUp className="size-4 transition-transform duration-150 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:-translate-y-0.5" />
+              </button>
+            )}
+          </div>
         </div>
+        <p className="mt-2.5 text-center text-2xs text-charcoal-600">
+          A Trigger.dev chat.agent. It can be wrong — check the linked docs.
+        </p>
       </form>
     </div>
   );
@@ -145,7 +152,7 @@ function ChipGroup({ label, items, onPick }: { label: string; items: string[]; o
             key={s}
             type="button"
             onClick={() => onPick(s)}
-            className="rounded-full border px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+            className="rounded-full border border-charcoal-700 px-3 py-1.5 text-xs text-dimmed transition-colors hover:bg-charcoal-800 hover:text-bright"
           >
             {s}
           </button>
@@ -155,31 +162,69 @@ function ChipGroup({ label, items, onPick }: { label: string; items: string[]; o
   );
 }
 
-function Message({ message, onPick, busy }: { message: UIMessage; onPick: (t: string) => void; busy: boolean }) {
+function Message({
+  message,
+  onPick,
+  busy,
+  reduce,
+  streamingNow,
+}: {
+  message: UIMessage;
+  onPick: (t: string) => void;
+  busy: boolean;
+  reduce: boolean;
+  streamingNow: boolean;
+}) {
   if (message.role === "user") {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[80%] rounded-2xl bg-primary px-4 py-2 text-sm text-primary-foreground">
+        <motion.div
+          variants={bubbleIn}
+          initial={reduce ? false : "hidden"}
+          animate="show"
+          className="max-w-[80%] origin-bottom-right rounded-2xl rounded-br-sm bg-lavender-500 px-5 py-3 text-sm text-white"
+        >
           {message.parts.map((part, i) => (part.type === "text" ? <span key={i}>{part.text}</span> : null))}
-        </div>
+        </motion.div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-1 text-sm">
+    <div className="space-y-2">
       {message.parts.map((part, i) => (
-        <MessagePart key={i} part={part} onPick={onPick} busy={busy} />
+        <MessagePart key={i} part={part} onPick={onPick} busy={busy} reduce={reduce} streamingNow={streamingNow} />
       ))}
     </div>
   );
 }
 
-function MessagePart({ part, onPick, busy }: { part: UIMessage["parts"][number]; onPick: (t: string) => void; busy: boolean }) {
+function MessagePart({
+  part,
+  onPick,
+  busy,
+  reduce,
+  streamingNow,
+}: {
+  part: UIMessage["parts"][number];
+  onPick: (t: string) => void;
+  busy: boolean;
+  reduce: boolean;
+  streamingNow: boolean;
+}) {
   if (part.type === "text") {
+    const state = (part as { state?: "streaming" | "done" }).state;
+    const streaming = state === "streaming" || (state === undefined && streamingNow);
     return (
-      <div className="prose-sm max-w-none leading-relaxed [&_a]:underline [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-xs">
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>{part.text}</ReactMarkdown>
+      <div className="flex justify-start">
+        <motion.div
+          variants={bubbleIn}
+          initial={reduce ? false : "hidden"}
+          animate="show"
+          className="w-fit max-w-full origin-bottom-left rounded-2xl rounded-bl-sm border border-charcoal-700 bg-charcoal-850/75 px-5 py-3"
+        >
+          <AssistantText text={part.text} streaming={streaming} />
+        </motion.div>
       </div>
     );
   }
@@ -188,25 +233,17 @@ function MessagePart({ part, onPick, busy }: { part: UIMessage["parts"][number];
     const input = part.input as { spec?: unknown } | undefined;
     const output = part.output as { ok?: boolean } | undefined;
     const spec = part.state === "input-streaming" ? null : normalizeSpec(input?.spec);
-
-    // Wait for the full spec before rendering; if validation failed the
-    // agent fixes the spec and calls the tool again.
-    if (!spec) {
-      return <ToolStatus label="Drawing…" spinning />;
-    }
-    if (output && output.ok === false) {
-      return <ToolStatus label="Refining…" spinning />;
-    }
+    if (!spec) return <ToolStatus label="Drawing…" spinning />;
+    if (output && output.ok === false) return <ToolStatus label="Refining…" spinning />;
     return <Visualization spec={spec} />;
   }
 
-  // Next-step chips — the flywheel. The label is sent verbatim on click.
   if (part.type === "tool-suggestNext") {
     const input = part.input as { chips?: { label: string; kind: string }[] } | undefined;
     const chips = input?.chips?.filter((c) => c?.label) ?? [];
     if (chips.length === 0) return null;
     return (
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div className="mt-1 flex flex-wrap gap-2">
         {chips.map((chip, i) => {
           const kind = CHIP_KINDS[chip.kind] ?? CHIP_KINDS.topic;
           const Icon = kind.icon;
@@ -226,8 +263,6 @@ function MessagePart({ part, onPick, busy }: { part: UIMessage["parts"][number];
     );
   }
 
-  // Docs MCP tool calls (dynamic names, e.g. resolve-library-id /
-  // get-library-docs) — show a compact grounding indicator.
   if (part.type.startsWith("tool-") || part.type === "dynamic-tool") {
     const state = (part as { state?: string }).state;
     return <ToolStatus label="Checking the Trigger.dev docs" spinning={state !== "output-available"} docs />;
@@ -236,11 +271,30 @@ function MessagePart({ part, onPick, busy }: { part: UIMessage["parts"][number];
   return null;
 }
 
-function ToolStatus({ label, spinning, docs }: { label: string; spinning?: boolean; docs?: boolean }) {
-  const Icon = docs ? BookOpen : Zap;
+function Thinking() {
   return (
-    <div className="my-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-      {spinning ? <Loader2 className="size-3 animate-spin" /> : <Icon className="size-3" />}
+    <div className="flex justify-start">
+      <div className="flex items-center gap-2 text-xs text-dimmed">
+        <span className="relative flex size-2">
+          <motion.span
+            className="absolute inset-0 rounded-full bg-apple-500"
+            initial={{ opacity: 0.6, scale: 1 }}
+            animate={{ opacity: 0, scale: 2.4 }}
+            transition={{ duration: 1.4, repeat: Infinity, ease: easings.outExpo }}
+          />
+          <span className="size-2 rounded-full bg-apple-500" />
+        </span>
+        Thinking…
+      </div>
+    </div>
+  );
+}
+
+function ToolStatus({ label, spinning, docs }: { label: string; spinning?: boolean; docs?: boolean }) {
+  return (
+    <div className="my-1 flex items-center gap-1.5 text-xs text-dimmed">
+      <BookOpen className={`size-3 ${spinning ? "opacity-60" : ""} ${docs ? "" : "hidden"}`} />
+      <span className={`size-1.5 rounded-full bg-apple-500 ${spinning ? "animate-pulse" : ""} ${docs ? "hidden" : ""}`} />
       {label}
     </div>
   );

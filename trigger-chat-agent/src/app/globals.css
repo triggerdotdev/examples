@@ -84,6 +84,9 @@
   --color-apple-900: #20370a;
   --color-apple-950: #152506;
 
+  --color-lavender-400: #826dff;
+  --color-lavender-500: #7655fd; /* user message bubble */
+
   --color-bright: #d7d9dd; /* charcoal-200 */
   --color-dimmed: #878c99; /* charcoal-400 */
   --color-grid-bright: #272a2e; /* charcoal-700 */
@@ -102,7 +105,7 @@
 :root,
 .dark {
   --radius: 0.875rem;
-  --background: #121317; /* charcoal-900 */
+  --background: #0b0c0f; /* charcoal-1000 — the page is the darkest; cards sit above it */
   --foreground: #e8e9ec; /* charcoal-100 */
   --card: #15171a; /* charcoal-850 */
   --card-foreground: #e8e9ec;
@@ -136,5 +139,27 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+/* Streaming text reveal — each word blurs into focus as it arrives (the
+   "streamdown" cue), so live tokens read as materializing rather than blinking
+   in. Runs once per word on mount; the growing final word doesn't re-trigger. */
+@keyframes word-in {
+  from {
+    opacity: 0;
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+.word-in {
+  animation: word-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .word-in {
+    animation: none;
   }
 }
