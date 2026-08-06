@@ -33,17 +33,20 @@ The same catalog generates the system-prompt component reference and validates t
 
 1. Create a project in the [Trigger.dev dashboard](https://cloud.trigger.dev) and copy its project ref and a dev secret key (API keys page).
 
-2. Configure the environment:
+2. Create a `.env` in this directory with your Trigger.dev credentials:
 
    ```sh
-   cp .env.example .env
-   # paste your project ref and secret key into .env
+   TRIGGER_PROJECT_REF=proj_xxxxxxxxxxxx
+   TRIGGER_SECRET_KEY=tr_dev_xxxxxxxxxxxx
+   # Optional, only if self-hosting (exposed to the browser for the SSE endpoints):
+   # NEXT_PUBLIC_TRIGGER_API_URL=https://your-trigger-instance
    ```
 
 3. In the dashboard, add environment variables (Environment Variables page) for the Dev environment (and Prod if you deploy):
 
    - `ANTHROPIC_API_KEY` — the agent uses Claude via the AI SDK
    - `DOCS_MCP_URL` *(optional)* — the docs MCP server to ground answers on. Defaults to `https://mcp.context7.com/mcp`. Point it at another product's docs MCP to fork the demo to a different domain.
+   - `LESSON_SCREENING` *(optional)* — set to `off` to skip the LLM fan-out that screens generated lessons (the deterministic scan, CSP, and iframe sandbox still apply).
 
 4. Install and run both processes (two terminals):
 
