@@ -6,7 +6,6 @@ import { CodeCard } from "@/components/code-card";
 import { DiagramCard } from "@/components/diagram-card";
 import { FlowGraph } from "@/components/flow-graph";
 import { HeroCard } from "@/components/hero-card";
-import { LessonView } from "@/components/lesson";
 import { PromptCard } from "@/components/prompt-card";
 import { Quiz } from "@/components/quiz";
 import { StatCard } from "@/components/stat-card";
@@ -39,6 +38,5 @@ export const { registry } = defineRegistry(catalog, {
     Steps: ({ props }) => <Steps steps={props.steps} />,
     Glossary: ({ props }) => <Glossary terms={props.terms} />,
     Compare: ({ props }) => <Compare title={props.title} a={props.a} b={props.b} />,
-    Lesson: ({ props }) => <LessonView title={props.title} html={props.html} />,
   },
 });

@@ -170,26 +170,6 @@ export const cardComponentDefinitions = {
     }),
     description: "A two-column comparison, e.g. 'batchTrigger vs a loop'. Each column has a label and bullet points.",
   },
-  Lesson: {
-    props: z.object({
-      title: z.string().describe("Lesson title shown in the window chrome, e.g. 'Retries & idempotency'"),
-      html: z
-        .string()
-        .describe(
-          "A self-contained HTML BODY fragment for the lesson: headings, short prose, an interactive " +
-            "retrieval quiz, and citation links to the docs. A stylesheet is injected for you (dark, " +
-            "Tufte-style, charcoal/apple, Satoshi headings) — do NOT add <style>, <html>, <head> or " +
-            "<body> tags, and use semantic HTML (h2/h3, p, ul, blockquote, a, figure). Inline <script> " +
-            "IS allowed and runs sandboxed — use it for the quiz's immediate-feedback loop. Keep it short " +
-            "(one tangible win) and cite every load-bearing claim with a docs link."
-        ),
-    }),
-    description:
-      "A rich, self-contained HTML lesson rendered in a sandboxed iframe (isolated, on-brand). This is the " +
-      "primary teaching unit: use it for 'teach me X' turns — a tightly-scoped concept, taught knowledge-first " +
-      "then reinforced with a quick quiz, grounded in the docs. Prefer FlowGraph/CodeCard for quick factual " +
-      "answers; reach for a Lesson when the user is here to LEARN a concept in depth.",
-  },
 } as const;
 
 export const catalog = defineCatalog(schema, {
