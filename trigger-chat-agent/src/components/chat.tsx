@@ -89,7 +89,7 @@ export function Chat() {
         ) : (
           messages.map((message, i) => (
             <div key={message.id} ref={i === messages.length - 1 ? lastRowRef : undefined} className="scroll-mt-4">
-              <Message message={message} onPick={submit} busy={busy} reduce={!!reduce} streamingNow={status === "streaming" && i === messages.length - 1} />
+              <Message message={message} onPick={submit} busy={busy} reduce={!!reduce} />
             </div>
           ))
         )}
@@ -167,13 +167,11 @@ function Message({
   onPick,
   busy,
   reduce,
-  streamingNow,
 }: {
   message: UIMessage;
   onPick: (t: string) => void;
   busy: boolean;
   reduce: boolean;
-  streamingNow: boolean;
 }) {
   if (message.role === "user") {
     return (
@@ -193,7 +191,7 @@ function Message({
   return (
     <div className="space-y-2">
       {message.parts.map((part, i) => (
-        <MessagePart key={i} part={part} onPick={onPick} busy={busy} reduce={reduce} streamingNow={streamingNow} />
+        <MessagePart key={i} part={part} onPick={onPick} busy={busy} reduce={reduce} />
       ))}
     </div>
   );
@@ -204,17 +202,13 @@ function MessagePart({
   onPick,
   busy,
   reduce,
-  streamingNow,
 }: {
   part: UIMessage["parts"][number];
   onPick: (t: string) => void;
   busy: boolean;
   reduce: boolean;
-  streamingNow: boolean;
 }) {
   if (part.type === "text") {
-    const state = (part as { state?: "streaming" | "done" }).state;
-    const streaming = state === "streaming" || (state === undefined && streamingNow);
     return (
       <div className="flex justify-start">
         <motion.div
@@ -223,7 +217,7 @@ function MessagePart({
           animate="show"
           className="w-fit max-w-full origin-bottom-left rounded-2xl rounded-bl-sm border border-charcoal-700 bg-charcoal-850/75 px-5 py-3"
         >
-          <AssistantText text={part.text} streaming={streaming} />
+          <AssistantText text={part.text} />
         </motion.div>
       </div>
     );

@@ -141,25 +141,3 @@
     @apply bg-background text-foreground;
   }
 }
-
-/* Streaming text reveal — each word blurs into focus as it arrives (the
-   "streamdown" cue), so live tokens read as materializing rather than blinking
-   in. Runs once per word on mount; the growing final word doesn't re-trigger. */
-@keyframes word-in {
-  from {
-    opacity: 0;
-    filter: blur(6px);
-  }
-  to {
-    opacity: 1;
-    filter: blur(0);
-  }
-}
-.word-in {
-  animation: word-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-@media (prefers-reduced-motion: reduce) {
-  .word-in {
-    animation: none;
-  }
-}
