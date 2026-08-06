@@ -32,20 +32,18 @@ export const reducedVariants: Variants = {
 };
 
 /**
- * Rise + fade + de-blur — the signature entrance for generative-UI cards.
- * Opacity arrives first, then y and blur settle together, so a card reads as
- * "fading into solidity" as the agent's answer streams in.
+ * Rise + fade — the card entrance. Transform + opacity only (no `filter: blur`,
+ * which repaints every frame and reads jerky), so it stays GPU-composited and
+ * smooth. Name kept for the existing imports.
  */
 export const revealBlur: Variants = {
-  hidden: { opacity: 0, y: 14, filter: "blur(6px)" },
+  hidden: { opacity: 0, y: 10 },
   show: {
     opacity: 1,
     y: 0,
-    filter: "blur(0px)",
     transition: {
       opacity: { duration: durations.base, ease: easings.outExpo },
       y: { duration: durations.slow, ease: easings.outExpo },
-      filter: { duration: durations.slow, ease: easings.outExpo },
     },
   },
 };

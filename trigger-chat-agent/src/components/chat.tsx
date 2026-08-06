@@ -45,11 +45,15 @@ export function Chat() {
   const reduce = useReducedMotion();
   const busy = status === "submitted" || status === "streaming";
 
-  // Land the newest turn at its TOP (tall answers start at the top, not pinned
-  // to the bottom) — a genuine DOM effect, keyed on the message count.
+  // On send, land the user's question at the top so the answer fills below.
+  // Only on the user's own message — scrolling again as the answer streams in
+  // would fight its entrance animation and read as jerky.
   const lastRowRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    lastRowRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
+    if (messages[messages.length - 1]?.role === "user") {
+      lastRowRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages.length]);
 
   function submit(text: string) {
