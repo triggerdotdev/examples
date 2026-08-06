@@ -52,13 +52,32 @@ const diagramStep = z.object({
 });
 
 export const cardComponentDefinitions = {
-  Stat: {
+  HeroCard: {
     props: z.object({
-      label: z.string(),
-      value: z.string().describe("The headline value, pre-formatted (e.g. '5s', '10k/min', '3x')"),
-      caption: z.string().nullable().describe("Small print under the value, e.g. a comparison"),
+      icon: z
+        .enum(["bolt", "server", "cpu", "clock", "rocket", "command", "cog", "database", "chart", "shield", "signal", "check"])
+        .nullable()
+        .describe("Icon badge above the title, defaults to 'bolt'"),
+      kicker: z.string().nullable().describe("Small mono label above the title, e.g. 'Core concept'"),
+      title: z.string().describe("Short headline, e.g. 'The task lifecycle'"),
+      description: z.string().describe("One or two sentence summary"),
+      featured: z.boolean().nullable().describe("Larger type for the single lead card that opens an answer"),
     }),
-    description: "A single big-number stat. Use a Grid of Stats for a row of KPIs.",
+    description:
+      "Large intro card with an icon badge, a kicker, a title and a blurb. Use to OPEN a topic or an answer.",
+  },
+  StatCard: {
+    props: z.object({
+      label: z.string().describe("Small uppercase label, e.g. 'Cold start'"),
+      value: z.string().describe("Pre-formatted headline value, e.g. '300ms', '10k/min', '3x'"),
+      deltaLabel: z.string().nullable().describe("Small badge next to the label, e.g. '+340%'"),
+      deltaPositive: z.boolean().nullable().describe("Colors the delta apple (true) or red (false)"),
+      bars: z
+        .array(z.number())
+        .nullable()
+        .describe("Relative heights for a mini bar chart, e.g. [20, 45, 30, 80, 60, 95]. Omit for no chart."),
+    }),
+    description: "A single KPI stat: a headline number (counts up) with an optional delta badge and mini bar chart.",
   },
   FlowGraph: {
     props: z.object({
@@ -105,6 +124,51 @@ export const cardComponentDefinitions = {
       "A copy-paste prompt block with a one-click Copy button. Use to hand the user a ready prompt " +
       "to paste into Claude Code, Cursor, or any coding agent to build the thing being discussed. " +
       "Distinct from CodeCard: code is read, this is taken.",
+  },
+  Quiz: {
+    props: z.object({
+      question: z.string(),
+      options: z
+        .array(
+          z.object({
+            text: z.string(),
+            correct: z.boolean().nullish().describe("Set true on exactly one option"),
+          })
+        )
+        .describe("2-4 options, exactly one correct. Keep them similar in length so formatting doesn't hint the answer."),
+      explanation: z.string().nullable().describe("Shown after answering — why the answer is right"),
+    }),
+    description:
+      "A single multiple-choice question with immediate feedback. Use to reinforce a concept with retrieval practice.",
+  },
+  Callout: {
+    props: z.object({
+      variant: z.enum(["tip", "warn", "note"]).nullable().describe("tip (apple), warn (amber), note (grey). Default note."),
+      title: z.string().nullable(),
+      text: z.string(),
+    }),
+    description: "A tip / warning / note box for a caveat or gotcha.",
+  },
+  Steps: {
+    props: z.object({
+      steps: z.array(z.object({ title: z.string(), text: z.string() })).describe("Ordered walkthrough steps"),
+    }),
+    description:
+      "A numbered vertical walkthrough — 'do this, then this'. For an ordered procedure (distinct from DiagramCard's status track).",
+  },
+  Glossary: {
+    props: z.object({
+      terms: z.array(z.object({ term: z.string(), definition: z.string() })).describe("Term → definition pairs"),
+    }),
+    description: "A term/definition list for Trigger.dev nomenclature (task, run, attempt, waitpoint, queue…).",
+  },
+  Compare: {
+    props: z.object({
+      title: z.string().nullable(),
+      a: z.object({ label: z.string(), points: z.array(z.string()) }),
+      b: z.object({ label: z.string(), points: z.array(z.string()) }),
+    }),
+    description: "A two-column comparison, e.g. 'batchTrigger vs a loop'. Each column has a label and bullet points.",
   },
   Lesson: {
     props: z.object({
