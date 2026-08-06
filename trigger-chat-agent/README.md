@@ -1,17 +1,25 @@
-# Trigger.dev chat agent — diagrams, not walls of text
+# Trigger.dev chat agent — learn by doing, not walls of text
 
-A [Trigger.dev chat agent](https://trigger.dev/docs/ai-chat/overview) that teaches you how Trigger.dev works — and answers by **drawing**. Ask "how does a fan-out with retries work?" and instead of a wall of text you get an **interactive node-graph** of the flow, plus a code card you can read and a prompt card you can paste into your own coding agent.
+A [Trigger.dev chat agent](https://trigger.dev/docs/ai-chat/overview) that **teaches you Trigger.dev** — and teaches by *drawing* and by *building interactive lessons* instead of dumping paragraphs. Ask "how does a fan-out with retries work?" and you get an **interactive node-graph** of the flow; ask it to teach you retries and you get a **self-contained lesson** with a quick quiz. Every turn ends with next-step chips so the learning keeps flowing.
 
-The agent decides when a visualization beats prose: it calls a `renderVisualization` tool with a [json-render](https://json-render.dev) spec, and the Next.js chat UI renders it live with [React Flow](https://reactflow.dev) and [shadcn/ui](https://ui.shadcn.com) components. Every fact it states is grounded on the live docs through a documentation [MCP server](https://modelcontextprotocol.io), so it doesn't invent API surface.
+The agent decides how best to teach: it calls a `renderVisualization` tool with a [json-render](https://json-render.dev) spec, and the Next.js chat UI renders it live with [React Flow](https://reactflow.dev), [shadcn/ui](https://ui.shadcn.com), and sandboxed HTML lessons. Every fact it states is grounded on the live docs through a documentation [MCP server](https://modelcontextprotocol.io), so it doesn't invent API surface.
+
+The teaching method — mission-first, one tangible win per turn, knowledge then a retrieval quiz, ground everything in trusted sources — is adapted from [Matt Pocock's "teach" skill](https://www.aihero.dev/learn-anything-with-my-teach-skill) ([source](https://github.com/mattpocock/skills/tree/main/skills/productivity/teach)), reworked from a local-filesystem workspace into an in-chat experience.
 
 ## How it works
 
 **The agent** (`src/trigger/trigger-chat-agent.ts`) is a single `chat.agent()` call — Trigger.dev handles the chat session, turn loop, streaming and resumability. Its system prompt is a versioned [AI Prompt](https://trigger.dev/docs/ai/prompts) (`prompts.define()` + `chat.prompt.set()`), so you can edit the teaching guidance, model or temperature from the dashboard without redeploying — and every model call is traced in the run with token, cost and latency metrics linked to the prompt version. It has two kinds of tools:
 
-- **`renderVisualization`** — takes a json-render UI spec (an interactive FlowGraph, plus code / diagram / prompt / stat cards, composed in cards and grids). The spec is validated against the component catalog; validation errors go back to the model so it can correct the spec and retry.
+- **`renderVisualization`** — takes a json-render UI spec (an interactive FlowGraph, an HTML `Lesson`, plus code / diagram / prompt / stat cards). The spec is validated against the component catalog; validation errors go back to the model so it can correct the spec and retry.
+- **`suggestNext`** — called at the end of every turn with 2–4 next-step chips (a *deeper* step, a *sideways* related concept, a *practice* quiz, or fresh *topic* suggestions). The chip's label is sent verbatim as the next message when clicked, so the learning keeps flowing without the user having to think up the next question.
 - **Docs MCP tools** — merged in from a documentation MCP server (default: the hosted [Context7](https://context7.com) server) so the agent looks up Trigger.dev APIs, config and behaviour instead of answering from memory. The tools are resolved per turn and declared on the agent config, so their calls survive Trigger.dev's cross-turn history re-conversion. Swap `DOCS_MCP_URL` to point the demo at any other product's docs MCP.
 
-**The shared catalog** (`src/lib/catalog.ts`) defines which components the model may use — `Card`, `Stack`, `Grid`, `Heading`, `Text`, `Badge` from [`@json-render/shadcn`](https://www.npmjs.com/package/@json-render/shadcn), plus custom `FlowGraph`, `DiagramCard`, `CodeCard`, `PromptCard` and `Stat` components. The star is **`FlowGraph`** (`src/components/flow-graph.tsx`): a directed node-graph on [React Flow](https://reactflow.dev) + [dagre](https://github.com/dagrejs/dagre) styled like the Trigger.dev dashboard — status dots, dashed retry edges, an animated topological reveal, and an optional timed status sequence. The same catalog generates the system-prompt component reference and validates tool calls, so the prompt and the renderer can't drift apart.
+**The shared catalog** (`src/lib/catalog.ts`) defines which components the model may use — `Card`, `Stack`, `Grid`, `Heading`, `Text`, `Badge` from [`@json-render/shadcn`](https://www.npmjs.com/package/@json-render/shadcn), plus custom `FlowGraph`, `Lesson`, `DiagramCard`, `CodeCard`, `PromptCard` and `Stat` components. Two do the heavy lifting:
+
+- **`FlowGraph`** (`src/components/flow-graph.tsx`) — a directed node-graph on [React Flow](https://reactflow.dev) + [dagre](https://github.com/dagrejs/dagre) styled like the Trigger.dev dashboard: status dots, dashed retry edges, an animated topological reveal, an optional timed status sequence.
+- **`Lesson`** (`src/components/lesson.tsx`) — a model-authored HTML lesson (Tufte-style prose + an interactive quiz + citations) rendered in a **sandboxed `<iframe>`** (`allow-scripts`, no `allow-same-origin`), so its scripts run isolated and can't reach the app origin or the Trigger session token — the same model as Claude/v0 artifacts. A shared stylesheet is injected so every lesson is on-brand.
+
+The same catalog generates the system-prompt component reference and validates tool calls, so the prompt and the renderer can't drift apart.
 
 **The frontend** (`src/app`, `src/components`) is a Next.js app using [`useChat`](https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-chat) with [`useTriggerChatTransport`](https://trigger.dev/docs/ai-chat/frontend) — the browser talks directly to Trigger.dev's durable streams, no API route needed. `renderVisualization` tool parts in the message stream are rendered with json-render's `<Renderer>` and the shadcn component registry (`src/lib/registry.tsx`).
 
@@ -43,11 +51,13 @@ The agent decides when a visualization beats prose: it calls a `renderVisualizat
 
 ## Try asking
 
-- "How does a fan-out with retries work?"
-- "Show me the lifecycle of a task run"
-- "How do waitpoints and human-in-the-loop work?"
-- "How does this chat agent work under the hood?"
-- "How do queues and concurrency limits fit together?"
+- "What is Trigger.dev, and how does it work?" — a ground-up explainer
+- "Teach me retries properly" — a full interactive lesson with a quiz
+- "How does a fan-out with retries work?" — an interactive FlowGraph
+- "How does a run survive a redeploy?" — checkpoints, drawn
+- "Suggest more topics" — the agent proposes a fresh set, grounded in the docs
+
+Then follow the next-step chips under each answer to keep going.
 
 ## Deploy
 

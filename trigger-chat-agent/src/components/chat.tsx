@@ -3,7 +3,7 @@
 import { useChat } from "@ai-sdk/react";
 import { useTriggerChatTransport } from "@trigger.dev/sdk/chat/react";
 import type { UIMessage } from "ai";
-import { ArrowUp, BookOpen, Loader2, Square, Zap } from "lucide-react";
+import { ArrowRight, ArrowUp, BookOpen, GraduationCap, Loader2, Shuffle, Sparkles, Square, Zap } from "lucide-react";
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -12,12 +12,27 @@ import { normalizeSpec } from "@/lib/catalog";
 import { Visualization } from "@/components/visualization";
 import type { triggerChatAgent } from "@/trigger/trigger-chat-agent";
 
-const SUGGESTIONS = [
-  "How does a fan-out with retries work?",
-  "Show me the lifecycle of a task run",
-  "How do waitpoints and human-in-the-loop work?",
-  "How does this chat agent work under the hood?",
+// The empty-state seed. The altitude of the chip the learner picks is a
+// zone-of-proximal-development signal the agent uses to calibrate the session.
+const START_HERE = [
+  "What is Trigger.dev, and how does it work?",
+  "What's a task, and how do I run one?",
 ];
+const GO_DEEPER = [
+  "How does a fan-out with retries work?",
+  "How does a run survive a redeploy?",
+  "Queues vs concurrency — how do they interact?",
+  "Waitpoints & human-in-the-loop",
+];
+const MORE_TOPICS = "Suggest more Trigger.dev topics I could learn — mix beginner and advanced.";
+
+// Icon + accent per suggestNext chip kind.
+const CHIP_KINDS: Record<string, { icon: typeof ArrowRight; className: string }> = {
+  deeper: { icon: ArrowRight, className: "border-apple-500/40 text-apple-500 hover:bg-apple-500/10" },
+  sideways: { icon: Shuffle, className: "border-border text-muted-foreground hover:bg-accent" },
+  practice: { icon: GraduationCap, className: "border-border text-foreground hover:bg-accent" },
+  topic: { icon: Sparkles, className: "border-border text-muted-foreground hover:bg-accent" },
+};
 
 export function Chat() {
   const transport = useTriggerChatTransport<typeof triggerChatAgent>({
@@ -46,32 +61,32 @@ export function Chat() {
       <header className="flex items-center gap-2 border-b px-4 py-3">
         <Zap className="size-4 fill-apple-500 text-apple-500" />
         <h1 className="font-title text-sm font-semibold">Trigger.dev chat agent</h1>
-        <span className="ml-auto text-xs text-muted-foreground">Diagrams, not walls of text</span>
+        <span className="ml-auto text-xs text-muted-foreground">Learn by doing, not walls of text</span>
       </header>
 
       <div className="flex-1 space-y-6 overflow-y-auto px-4 py-6 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-secondary">
         {messages.length === 0 && (
-          <div className="mt-16 space-y-4 text-center">
-            <p className="text-sm text-muted-foreground">
-              Ask how Trigger.dev works — tasks, retries, queues, agents. It answers by drawing.
+          <div className="mx-auto mt-12 max-w-lg space-y-6">
+            <p className="text-center text-sm text-muted-foreground">
+              Learn how Trigger.dev works — it teaches you with interactive diagrams and lessons, grounded in the
+              live docs. Pick a starting point:
             </p>
-            <div className="mx-auto flex max-w-md flex-wrap justify-center gap-2">
-              {SUGGESTIONS.map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => submit(s)}
-                  className="rounded-full border px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-                >
-                  {s}
-                </button>
-              ))}
+            <ChipGroup label="Start here" items={START_HERE} onPick={submit} />
+            <ChipGroup label="Go deeper" items={GO_DEEPER} onPick={submit} />
+            <div className="flex justify-center">
+              <button
+                type="button"
+                onClick={() => submit(MORE_TOPICS)}
+                className="inline-flex items-center gap-1.5 rounded-full border border-apple-500/40 px-3 py-1.5 text-xs font-medium text-apple-500 transition-colors hover:bg-apple-500/10"
+              >
+                <Sparkles className="size-3" /> Suggest more topics
+              </button>
             </div>
           </div>
         )}
 
         {messages.map((message) => (
-          <Message key={message.id} message={message} />
+          <Message key={message.id} message={message} onPick={submit} busy={busy} />
         ))}
 
         {status === "submitted" && (
@@ -120,7 +135,27 @@ export function Chat() {
   );
 }
 
-function Message({ message }: { message: UIMessage }) {
+function ChipGroup({ label, items, onPick }: { label: string; items: string[]; onPick: (t: string) => void }) {
+  return (
+    <div className="space-y-2">
+      <div className="text-center font-mono text-2xs uppercase tracking-widest text-dimmed/70">{label}</div>
+      <div className="flex flex-wrap justify-center gap-2">
+        {items.map((s) => (
+          <button
+            key={s}
+            type="button"
+            onClick={() => onPick(s)}
+            className="rounded-full border px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+          >
+            {s}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function Message({ message, onPick, busy }: { message: UIMessage; onPick: (t: string) => void; busy: boolean }) {
   if (message.role === "user") {
     return (
       <div className="flex justify-end">
@@ -134,13 +169,13 @@ function Message({ message }: { message: UIMessage }) {
   return (
     <div className="space-y-1 text-sm">
       {message.parts.map((part, i) => (
-        <MessagePart key={i} part={part} />
+        <MessagePart key={i} part={part} onPick={onPick} busy={busy} />
       ))}
     </div>
   );
 }
 
-function MessagePart({ part }: { part: UIMessage["parts"][number] }) {
+function MessagePart({ part, onPick, busy }: { part: UIMessage["parts"][number]; onPick: (t: string) => void; busy: boolean }) {
   if (part.type === "text") {
     return (
       <div className="prose-sm max-w-none leading-relaxed [&_a]:underline [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-xs">
@@ -160,9 +195,35 @@ function MessagePart({ part }: { part: UIMessage["parts"][number] }) {
       return <ToolStatus label="Drawing…" spinning />;
     }
     if (output && output.ok === false) {
-      return <ToolStatus label="Refining diagram…" spinning />;
+      return <ToolStatus label="Refining…" spinning />;
     }
     return <Visualization spec={spec} />;
+  }
+
+  // Next-step chips — the flywheel. The label is sent verbatim on click.
+  if (part.type === "tool-suggestNext") {
+    const input = part.input as { chips?: { label: string; kind: string }[] } | undefined;
+    const chips = input?.chips?.filter((c) => c?.label) ?? [];
+    if (chips.length === 0) return null;
+    return (
+      <div className="mt-3 flex flex-wrap gap-2">
+        {chips.map((chip, i) => {
+          const kind = CHIP_KINDS[chip.kind] ?? CHIP_KINDS.topic;
+          const Icon = kind.icon;
+          return (
+            <button
+              key={i}
+              type="button"
+              disabled={busy}
+              onClick={() => onPick(chip.label)}
+              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-40 ${kind.className}`}
+            >
+              <Icon className="size-3" /> {chip.label}
+            </button>
+          );
+        })}
+      </div>
+    );
   }
 
   // Docs MCP tool calls (dynamic names, e.g. resolve-library-id /

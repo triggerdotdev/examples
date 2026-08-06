@@ -5,6 +5,7 @@ import { shadcnComponents } from "@json-render/shadcn";
 import { CodeCard } from "@/components/code-card";
 import { DiagramCard } from "@/components/diagram-card";
 import { FlowGraph } from "@/components/flow-graph";
+import { LessonView } from "@/components/lesson";
 import { PromptCard } from "@/components/prompt-card";
 import { StatView } from "@/components/stat";
 import { catalog } from "./catalog";
@@ -25,5 +26,6 @@ export const { registry } = defineRegistry(catalog, {
     DiagramCard: ({ props }) => <DiagramCard title={props.title} steps={props.steps} />,
     CodeCard: ({ props }) => <CodeCard title={props.title} language={props.language} code={props.code} />,
     PromptCard: ({ props }) => <PromptCard title={props.title} prompt={props.prompt} caption={props.caption} />,
+    Lesson: ({ props }) => <LessonView title={props.title} html={props.html} />,
   },
 });
