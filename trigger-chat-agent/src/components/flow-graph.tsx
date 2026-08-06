@@ -1,0 +1,532 @@
+"use client";
+
+import dagre from "@dagrejs/dagre";
+import {
+  Background,
+  BackgroundVariant,
+  Controls,
+  Handle,
+  Position,
+  ReactFlow,
+  type Edge,
+  type Node,
+  type NodeProps,
+} from "@xyflow/react";
+import { motion, useReducedMotion } from "motion/react";
+import { useEffect, useMemo, useState } from "react";
+import { easings } from "@/lib/motion";
+import { cn } from "@/lib/utils";
+import "@xyflow/react/dist/style.css";
+
+/**
+ * FlowGraph — a directed node-graph styled like the Trigger.dev dashboard,
+ * built on React Flow (`@xyflow/react`) and restyled to the app's shadcn
+ * neutral tokens (panel nodes, status dots, dashed edges).
+ *
+ * The canvas is explorable but scroll-safe: drag to pan, pinch / double-click /
+ * the on-canvas buttons to zoom, but the mouse wheel is NEVER captured
+ * (`zoomOnScroll`/`panOnScroll` off) so the page keeps scrolling normally over
+ * the card. Nodes can't be dragged or selected. Layout is computed once: dagre
+ * top-to-bottom for branching graphs, or a serpentine wrap for long straight
+ * chains, so nothing renders as one long horizontal ribbon. Nodes reveal in
+ * topological order; edges fade in as the reveal cascades. If a `sequence` is
+ * supplied, node statuses transition on a timeline (the same shape a Realtime
+ * feed would emit) — e.g. running -> success, or error -> paused -> running.
+ * Under `prefers-reduced-motion` the graph renders static and fully revealed,
+ * with any sequence collapsed to its final per-node status.
+ */
+
+export type FlowNodeKind = "task" | "model" | "wait" | "trigger" | "stream" | "queue" | "decision";
+
+export type FlowNodeStatus = "default" | "running" | "error" | "warning" | "success" | "paused";
+
+export type FlowNode = {
+  id: string;
+  label: string;
+  sublabel?: string | null;
+  kind: FlowNodeKind;
+  status?: FlowNodeStatus | null;
+};
+
+export type FlowEdge = {
+  from: string;
+  to: string;
+  label?: string | null;
+  kind?: "default" | "retry" | "stream" | null;
+};
+
+export type FlowSeqStep = {
+  nodeId: string;
+  status: FlowNodeStatus;
+  atMs: number;
+};
+
+export type FlowGraphProps = {
+  title: string;
+  nodes: FlowNode[];
+  edges: FlowEdge[];
+  sequence?: FlowSeqStep[] | null;
+};
+
+// Tailwind classes for node chrome — these read from the shadcn theme tokens so
+// they track light/dark. `warning` uses amber and `success` emerald (the
+// neutral shadcn palette has no semantic warning/success token).
+const statusClasses: Record<FlowNodeStatus, { border: string; dot: string; text: string }> = {
+  default: { border: "border-border", dot: "bg-muted-foreground/50", text: "text-foreground" },
+  running: { border: "border-primary/40", dot: "bg-primary", text: "text-foreground" },
+  error: { border: "border-destructive/40", dot: "bg-destructive", text: "text-destructive" },
+  warning: { border: "border-amber-500/40", dot: "bg-amber-500", text: "text-amber-500" },
+  success: { border: "border-emerald-500/40", dot: "bg-emerald-500", text: "text-emerald-500" },
+  paused: { border: "border-amber-500/30", dot: "bg-amber-500/60", text: "text-muted-foreground" },
+};
+
+const kindLabels: Record<FlowNodeKind, string> = {
+  task: "task",
+  model: "model",
+  wait: "wait",
+  trigger: "trigger",
+  stream: "stream",
+  queue: "queue",
+  decision: "decision",
+};
+
+// Raw CSS colors for the React Flow SVG edge layer (Tailwind classes can't
+// reach `.react-flow__edge-path`). Tuned for the app's dark surface — neutral
+// greys for structure, amber for a retry, a brighter grey for a stream.
+const edgeStroke: Record<"default" | "retry" | "stream", string> = {
+  default: "#525252", // neutral-600
+  retry: "#f59e0b", // amber-500
+  stream: "#a3a3a3", // neutral-400
+};
+
+// Labels are terse (1-2 words) and detail lives in `sublabel`, so nodes are
+// narrow. A compact width lets 2-3 sit across the ~360-560px chat column.
+const NODE_WIDTH = 128;
+const nodeHeight = (n: FlowNode) => (n.sublabel ? 64 : 48);
+
+// Layout tuning. Dagre runs top-to-bottom (`TB`) so branching scenes fan out
+// horizontally within the column budget while depth grows downward — a narrow
+// DAG rather than a wide ribbon. A purely linear chain longer than
+// SERPENTINE_PER_ROW would just tower straight down, so those wrap into a
+// snaking grid instead (see `serpentineLayout`).
+const DAGRE_NODESEP = 22;
+const DAGRE_RANKSEP = 38;
+const SERPENTINE_PER_ROW = 3;
+const SERPENTINE_COL_GAP = 22;
+const SERPENTINE_ROW_GAP = 34;
+
+type Pos = { x: number; y: number; width: number; height: number };
+type EdgeHandles = { sourceHandle: string; targetHandle: string };
+type GraphLayout = { positions: Record<string, Pos>; handles: Record<string, EdgeHandles> };
+
+// Six anchor points per node so edges can enter/leave from whichever side the
+// layout needs: top-to-bottom for the dagre DAG, left/right (either direction)
+// plus a vertical drop for the serpentine snake.
+const HANDLE = {
+  targetTop: "t-top",
+  targetLeft: "t-left",
+  targetRight: "t-right",
+  sourceBottom: "s-bottom",
+  sourceLeft: "s-left",
+  sourceRight: "s-right",
+} as const;
+
+const edgeKey = (from: string, to: string) => `${from}->${to}`;
+
+type FlowNodeData = {
+  label: string;
+  sublabel: string | null;
+  kind: FlowNodeKind;
+  status: FlowNodeStatus;
+  revealDelay: number; // seconds
+  reduceMotion: boolean;
+};
+type FlowRFNode = Node<FlowNodeData, "flow">;
+
+/** True for a single unbranched chain (each node ≤1 in, ≤1 out, one source,
+ * one sink, edges === nodes-1) — the shape that should wrap rather than tower. */
+function isLinearPath(nodes: FlowNode[], edges: FlowEdge[]): boolean {
+  if (nodes.length < 2 || edges.length !== nodes.length - 1) return false;
+  const indeg = new Map<string, number>();
+  const outdeg = new Map<string, number>();
+  for (const n of nodes) {
+    indeg.set(n.id, 0);
+    outdeg.set(n.id, 0);
+  }
+  for (const e of edges) {
+    outdeg.set(e.from, (outdeg.get(e.from) ?? 0) + 1);
+    indeg.set(e.to, (indeg.get(e.to) ?? 0) + 1);
+  }
+  const within = nodes.every((n) => (indeg.get(n.id) ?? 0) <= 1 && (outdeg.get(n.id) ?? 0) <= 1);
+  const sources = nodes.filter((n) => (indeg.get(n.id) ?? 0) === 0).length;
+  const sinks = nodes.filter((n) => (outdeg.get(n.id) ?? 0) === 0).length;
+  return within && sources === 1 && sinks === 1;
+}
+
+/** Node ids in topological (path) order. */
+function orderedIds(nodes: FlowNode[], edges: FlowEdge[]): string[] {
+  return Array.from(topoOrder(nodes, edges).entries())
+    .sort((a, b) => a[1] - b[1])
+    .map(([id]) => id);
+}
+
+/** Dagre top-to-bottom layout for branched / short graphs. Edges drop from the
+ * bottom of one node into the top of the next. */
+function dagreLayout(nodes: FlowNode[], edges: FlowEdge[]): GraphLayout {
+  const g = new dagre.graphlib.Graph();
+  g.setGraph({
+    rankdir: "TB",
+    nodesep: DAGRE_NODESEP,
+    ranksep: DAGRE_RANKSEP,
+    marginx: 8,
+    marginy: 8,
+  });
+  g.setDefaultEdgeLabel(() => ({}));
+  for (const n of nodes) g.setNode(n.id, { width: NODE_WIDTH, height: nodeHeight(n) });
+  for (const e of edges) g.setEdge(e.from, e.to);
+  dagre.layout(g);
+
+  const positions: Record<string, Pos> = {};
+  for (const n of nodes) {
+    const dn = g.node(n.id);
+    positions[n.id] = dn
+      ? { x: dn.x - dn.width / 2, y: dn.y - dn.height / 2, width: dn.width, height: dn.height }
+      : { x: 0, y: 0, width: NODE_WIDTH, height: nodeHeight(n) };
+  }
+  const handles: Record<string, EdgeHandles> = {};
+  for (const e of edges) {
+    handles[edgeKey(e.from, e.to)] = {
+      sourceHandle: HANDLE.sourceBottom,
+      targetHandle: HANDLE.targetTop,
+    };
+  }
+  return { positions, handles };
+}
+
+/** Serpentine (boustrophedon) grid for a long linear chain: rows of
+ * SERPENTINE_PER_ROW that snake left→right then right→left, so the chain wraps
+ * into a compact block instead of one long line — and the row-to-row link is a
+ * clean vertical drop because the snake keeps the ends aligned. */
+function serpentineLayout(nodes: FlowNode[], edges: FlowEdge[]): GraphLayout {
+  const order = orderedIds(nodes, edges);
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const colWidth = NODE_WIDTH + SERPENTINE_COL_GAP;
+  const rowHeight = 64 + SERPENTINE_ROW_GAP; // tallest node (with sublabel) + gap
+
+  const positions: Record<string, Pos> = {};
+  const grid = new Map<string, { row: number; col: number }>();
+  order.forEach((id, k) => {
+    const row = Math.floor(k / SERPENTINE_PER_ROW);
+    const rawCol = k % SERPENTINE_PER_ROW;
+    const col = row % 2 === 0 ? rawCol : SERPENTINE_PER_ROW - 1 - rawCol; // snake
+    grid.set(id, { row, col });
+    const node = byId.get(id);
+    positions[id] = {
+      x: 8 + col * colWidth,
+      y: 8 + row * rowHeight,
+      width: NODE_WIDTH,
+      height: node ? nodeHeight(node) : 48,
+    };
+  });
+
+  const handles: Record<string, EdgeHandles> = {};
+  for (const e of edges) {
+    const a = grid.get(e.from);
+    const b = grid.get(e.to);
+    if (!a || !b) {
+      handles[edgeKey(e.from, e.to)] = {
+        sourceHandle: HANDLE.sourceRight,
+        targetHandle: HANDLE.targetLeft,
+      };
+      continue;
+    }
+    if (a.row !== b.row) {
+      handles[edgeKey(e.from, e.to)] = {
+        sourceHandle: HANDLE.sourceBottom,
+        targetHandle: HANDLE.targetTop,
+      };
+    } else if (b.col > a.col) {
+      handles[edgeKey(e.from, e.to)] = {
+        sourceHandle: HANDLE.sourceRight,
+        targetHandle: HANDLE.targetLeft,
+      };
+    } else {
+      handles[edgeKey(e.from, e.to)] = {
+        sourceHandle: HANDLE.sourceLeft,
+        targetHandle: HANDLE.targetRight,
+      };
+    }
+  }
+  return { positions, handles };
+}
+
+/** Pick the layout: wrap long straight chains, dagre-TB everything else. */
+function computeLayout(nodes: FlowNode[], edges: FlowEdge[]): GraphLayout {
+  if (isLinearPath(nodes, edges) && nodes.length > SERPENTINE_PER_ROW) {
+    return serpentineLayout(nodes, edges);
+  }
+  return dagreLayout(nodes, edges);
+}
+
+/** Kahn topological order → reveal index per node (cycle leftovers appended). */
+function topoOrder(nodes: FlowNode[], edges: FlowEdge[]): Map<string, number> {
+  const indegree = new Map<string, number>();
+  const adj = new Map<string, string[]>();
+  for (const n of nodes) {
+    indegree.set(n.id, 0);
+    adj.set(n.id, []);
+  }
+  for (const e of edges) {
+    if (!adj.has(e.from) || !indegree.has(e.to)) continue;
+    adj.get(e.from)!.push(e.to);
+    indegree.set(e.to, (indegree.get(e.to) ?? 0) + 1);
+  }
+  const q = nodes.filter((n) => (indegree.get(n.id) ?? 0) === 0).map((n) => n.id);
+  const order = new Map<string, number>();
+  let i = 0;
+  while (q.length > 0) {
+    const id = q.shift()!;
+    if (order.has(id)) continue;
+    order.set(id, i++);
+    for (const to of adj.get(id) ?? []) {
+      indegree.set(to, (indegree.get(to) ?? 1) - 1);
+      if ((indegree.get(to) ?? 0) === 0) q.push(to);
+    }
+  }
+  for (const n of nodes) if (!order.has(n.id)) order.set(n.id, i++);
+  return order;
+}
+
+/** Initial statuses; under reduced-motion a sequence collapses to final. */
+function initialStatuses(
+  nodes: FlowNode[],
+  sequence: FlowSeqStep[] | null | undefined,
+  reduceMotion: boolean
+): Record<string, FlowNodeStatus> {
+  const base: Record<string, FlowNodeStatus> = {};
+  for (const n of nodes) base[n.id] = n.status ?? "default";
+  if (reduceMotion && sequence) {
+    for (const step of [...sequence].sort((a, b) => a.atMs - b.atMs)) {
+      if (step.nodeId in base) base[step.nodeId] = step.status;
+    }
+  }
+  return base;
+}
+
+function StatusDot({ status, reduceMotion }: { status: FlowNodeStatus; reduceMotion: boolean }) {
+  const s = statusClasses[status];
+  return (
+    <span className="relative flex h-2 w-2 shrink-0">
+      {status === "running" && !reduceMotion && (
+        <motion.span
+          className="absolute inset-0 rounded-full bg-primary"
+          initial={{ opacity: 0.6, scale: 1 }}
+          animate={{ opacity: 0, scale: 2.4 }}
+          transition={{ duration: 1.1, repeat: Infinity, ease: easings.outExpo }}
+        />
+      )}
+      <span className={cn("relative h-2 w-2 rounded-full", s.dot)} />
+    </span>
+  );
+}
+
+/** Custom React Flow node — a panel with a status dot + labels. */
+function FlowNodeCard({ data }: NodeProps<FlowRFNode>) {
+  const s = statusClasses[data.status];
+  return (
+    <motion.div
+      // Rise + fade + settle, no overshoot (scale climbs 0.96 -> 1 and stops).
+      initial={data.reduceMotion ? false : { opacity: 0, y: 6, scale: 0.96 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={
+        data.reduceMotion ? { duration: 0 } : { delay: data.revealDelay, duration: 0.35, ease: easings.outExpo }
+      }
+      className={cn(
+        "relative flex min-w-[128px] flex-col gap-1 rounded-xl border bg-background px-3 py-2 shadow-sm",
+        s.border
+      )}
+    >
+      {/* Anchor points on every side; the layout chooses which pair each edge
+          uses (top-to-bottom for the DAG, left/right + drop for serpentine). */}
+      <Handle id={HANDLE.targetTop} type="target" position={Position.Top} isConnectable={false} className="!h-1.5 !w-1.5 !border-0 !bg-transparent" />
+      <Handle id={HANDLE.targetLeft} type="target" position={Position.Left} isConnectable={false} className="!h-1.5 !w-1.5 !border-0 !bg-transparent" />
+      <Handle id={HANDLE.targetRight} type="target" position={Position.Right} isConnectable={false} className="!h-1.5 !w-1.5 !border-0 !bg-transparent" />
+      <div className="flex items-center gap-2">
+        <StatusDot status={data.status} reduceMotion={data.reduceMotion} />
+        <span className={cn("font-sans text-sm font-medium leading-none", s.text)}>{data.label}</span>
+        <span className="ml-auto font-mono text-[10px] uppercase tracking-wider text-muted-foreground/60">
+          {kindLabels[data.kind]}
+        </span>
+      </div>
+      {data.sublabel && <span className="pl-4 font-mono text-xs text-muted-foreground">{data.sublabel}</span>}
+      <Handle id={HANDLE.sourceBottom} type="source" position={Position.Bottom} isConnectable={false} className="!h-1.5 !w-1.5 !border-0 !bg-transparent" />
+      <Handle id={HANDLE.sourceLeft} type="source" position={Position.Left} isConnectable={false} className="!h-1.5 !w-1.5 !border-0 !bg-transparent" />
+      <Handle id={HANDLE.sourceRight} type="source" position={Position.Right} isConnectable={false} className="!h-1.5 !w-1.5 !border-0 !bg-transparent" />
+    </motion.div>
+  );
+}
+
+// Defined at module scope so React Flow gets a stable reference (a new object
+// every render triggers its "nodeTypes changed" warning + remounts).
+const nodeTypes = { flow: FlowNodeCard };
+
+export function FlowGraph({ title, nodes, edges, sequence }: FlowGraphProps) {
+  const reduceMotion = !!useReducedMotion();
+
+  // Robustness guard: a model can emit an edge whose `from`/`to` doesn't match
+  // any node id (typo, stale reference, partial catalog data). React Flow
+  // doesn't validate this itself — an edge pointing at a missing node id can
+  // throw during rendering. Drop those edges before they reach layout, the
+  // topo sort, or React Flow; every downstream computation uses this filtered
+  // list instead of the raw `edges` prop.
+  const safeEdges = useMemo(() => {
+    const ids = new Set(nodes.map((n) => n.id));
+    return edges.filter((e) => ids.has(e.from) && ids.has(e.to));
+  }, [nodes, edges]);
+
+  const { positions, handles: edgeHandles } = useMemo(
+    () => computeLayout(nodes, safeEdges),
+    [nodes, safeEdges]
+  );
+
+  const revealDelays = useMemo(() => {
+    const order = topoOrder(nodes, safeEdges);
+    const maxOrder = Math.max(1, ...Array.from(order.values()));
+    const step = Math.min(0.09, 0.5 / maxOrder); // keep the whole cascade tight
+    const out: Record<string, number> = {};
+    for (const [id, o] of order) out[id] = 0.1 + o * step;
+    return out;
+  }, [nodes, safeEdges]);
+
+  const [statuses, setStatuses] = useState<Record<string, FlowNodeStatus>>(() =>
+    initialStatuses(nodes, sequence, reduceMotion)
+  );
+
+  // Genuine side effect: drive the timed status transitions. Reduced-motion
+  // path applies the final statuses synchronously and schedules nothing.
+  useEffect(() => {
+    setStatuses(initialStatuses(nodes, sequence, reduceMotion));
+    if (reduceMotion || !sequence || sequence.length === 0) return;
+    const timers = sequence.map((s) =>
+      window.setTimeout(() => {
+        setStatuses((prev) => (s.nodeId in prev ? { ...prev, [s.nodeId]: s.status } : prev));
+      }, Math.max(0, s.atMs))
+    );
+    return () => timers.forEach((t) => window.clearTimeout(t));
+  }, [nodes, sequence, reduceMotion]);
+
+  // Edges fade in mid-cascade so they don't dangle off still-hidden nodes.
+  const [edgesVisible, setEdgesVisible] = useState(reduceMotion);
+  const revealSpan = useMemo(() => Math.max(0, ...Object.values(revealDelays)), [revealDelays]);
+  useEffect(() => {
+    if (reduceMotion) {
+      setEdgesVisible(true);
+      return;
+    }
+    setEdgesVisible(false);
+    const t = window.setTimeout(() => setEdgesVisible(true), revealSpan * 500 + 150);
+    return () => window.clearTimeout(t);
+  }, [reduceMotion, revealSpan]);
+
+  const rfNodes: FlowRFNode[] = useMemo(
+    () =>
+      nodes.map((n) => ({
+        id: n.id,
+        type: "flow",
+        position: { x: positions[n.id]?.x ?? 0, y: positions[n.id]?.y ?? 0 },
+        data: {
+          label: n.label,
+          sublabel: n.sublabel ?? null,
+          kind: n.kind,
+          status: statuses[n.id] ?? "default",
+          revealDelay: revealDelays[n.id] ?? 0,
+          reduceMotion,
+        },
+        draggable: false,
+        selectable: false,
+        connectable: false,
+      })),
+    [nodes, positions, statuses, revealDelays, reduceMotion]
+  );
+
+  const rfEdges: Edge[] = useMemo(
+    () =>
+      safeEdges.map((e, i) => {
+        const kind = e.kind ?? "default";
+        const handles = edgeHandles[edgeKey(e.from, e.to)];
+        return {
+          id: `e${i}-${e.from}-${e.to}`,
+          source: e.from,
+          target: e.to,
+          sourceHandle: handles?.sourceHandle,
+          targetHandle: handles?.targetHandle,
+          label: e.label ?? undefined,
+          type: "smoothstep",
+          animated: kind !== "default" && !reduceMotion,
+          style: {
+            stroke: edgeStroke[kind],
+            strokeWidth: 1.5,
+            strokeDasharray: kind === "retry" ? "4 4" : undefined,
+            opacity: edgesVisible ? 1 : 0,
+            transition: reduceMotion ? undefined : "opacity 300ms ease",
+          },
+          labelStyle: { fill: "#a3a3a3", fontSize: 11, fontFamily: "monospace" },
+          labelBgStyle: { fill: "#171717" },
+          labelBgPadding: [4, 2] as [number, number],
+        };
+      }),
+    [safeEdges, edgeHandles, edgesVisible, reduceMotion]
+  );
+
+  const height = useMemo(() => {
+    const bottoms = nodes.map((n) => (positions[n.id]?.y ?? 0) + (positions[n.id]?.height ?? 48));
+    const maxY = Math.max(0, ...bottoms);
+    return Math.min(480, Math.max(180, maxY + 24));
+  }, [nodes, positions]);
+
+  return (
+    <motion.div
+      initial={reduceMotion ? false : { opacity: 0, y: 14, filter: "blur(6px)" }}
+      animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+      transition={reduceMotion ? { duration: 0 } : { duration: 0.4, ease: easings.outExpo }}
+      className="overflow-hidden rounded-xl border bg-card shadow-sm"
+    >
+      <div className="flex items-center justify-between gap-2 border-b bg-muted/40 px-4 py-3">
+        <span className="font-sans text-sm font-medium text-foreground">{title}</span>
+      </div>
+      <div style={{ height }} className="bg-card">
+        <ReactFlow
+          nodes={rfNodes}
+          edges={rfEdges}
+          nodeTypes={nodeTypes}
+          fitView
+          // Less margin + a legibility floor (minZoom) so a wide graph isn't
+          // shrunk to mush; it overflows and the reader pans/zooms to explore.
+          fitViewOptions={{ padding: 0.12, maxZoom: 1 }}
+          proOptions={{ hideAttribution: true }}
+          nodesDraggable={false}
+          nodesConnectable={false}
+          elementsSelectable={false}
+          // Explorable but scroll-safe: drag-pan + pinch/double-click zoom, but
+          // the wheel is left to the page (zoomOnScroll/panOnScroll off), so
+          // scrolling over the card never gets trapped.
+          panOnDrag
+          zoomOnScroll={false}
+          zoomOnPinch
+          zoomOnDoubleClick
+          panOnScroll={false}
+          preventScrolling={false}
+          minZoom={0.5}
+          maxZoom={1.75}
+        >
+          <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#262626" />
+          <Controls
+            showInteractive={false}
+            position="bottom-right"
+            className="!shadow-none [&_button]:!border-border [&_button]:!bg-card [&_button:hover]:!bg-accent [&_button_svg]:!fill-muted-foreground [&_button:hover_svg]:!fill-foreground"
+          />
+        </ReactFlow>
+      </div>
+    </motion.div>
+  );
+}
