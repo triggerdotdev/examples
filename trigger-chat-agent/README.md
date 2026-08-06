@@ -17,7 +17,13 @@ The teaching method — mission-first, one tangible win per turn, knowledge then
 **The shared catalog** (`src/lib/catalog.ts`) defines which components the model may use — `Card`, `Stack`, `Grid`, `Heading`, `Text`, `Badge` from [`@json-render/shadcn`](https://www.npmjs.com/package/@json-render/shadcn), plus custom `FlowGraph`, `Lesson`, `DiagramCard`, `CodeCard`, `PromptCard` and `Stat` components. Two do the heavy lifting:
 
 - **`FlowGraph`** (`src/components/flow-graph.tsx`) — a directed node-graph on [React Flow](https://reactflow.dev) + [dagre](https://github.com/dagrejs/dagre) styled like the Trigger.dev dashboard: status dots, dashed retry edges, an animated topological reveal, an optional timed status sequence.
-- **`Lesson`** (`src/components/lesson.tsx`) — a model-authored HTML lesson (Tufte-style prose + an interactive quiz + citations) rendered in a **sandboxed `<iframe>`** (`allow-scripts`, no `allow-same-origin`), so its scripts run isolated and can't reach the app origin or the Trigger session token — the same model as Claude/v0 artifacts. A strict Content-Security-Policy is also injected (`connect-src`/`form-action`/external `img-src` all blocked) so a prompt-injected lesson can't exfiltrate or phish, and a shared stylesheet keeps every lesson on-brand. Since lesson HTML is untrusted (the model can be steered by injected docs content), both layers matter.
+- **`Lesson`** (`src/components/lesson.tsx`) — a model-authored HTML lesson (Tufte-style prose + an interactive quiz + citations) rendered in a **sandboxed `<iframe>`** (`allow-scripts`, no `allow-same-origin`), so its scripts run isolated and can't reach the app origin or the Trigger session token — the same model as Claude/v0 artifacts. A shared stylesheet keeps every lesson on-brand.
+
+Because lesson HTML is the one untrusted, model-authored code path (the model can be steered by injected docs content), it gets **three layers of defense**:
+
+1. **Sandbox** — opaque-origin iframe: can't read the parent DOM, cookies, or the session token; no top-navigation, popups, or forms.
+2. **Content-Security-Policy** injected into the lesson (`connect-src`/`form-action` `'none'`, `img-src data:`) — deterministically blocks exfiltration and phishing beacons.
+3. **Pre-render screening** in the agent (`src/lib/lesson-screen.ts` + a fan-out of screener agents in `src/trigger/trigger-chat-agent.ts`) — before a lesson is accepted, a deterministic red-flag scan **and** a parallel set of cheap LLM screeners (distinct adversarial lenses: exfiltration, social-engineering) vet the HTML. A flag fails the `renderVisualization` tool, so the model regenerates a clean lesson through the normal retry loop. Set `LESSON_SCREENING=off` to skip the LLM fan-out and rely on the scan + sandbox + CSP alone.
 
 The same catalog generates the system-prompt component reference and validates tool calls, so the prompt and the renderer can't drift apart.
 

@@ -2,9 +2,10 @@ import { logger, prompts } from "@trigger.dev/sdk";
 import { chat } from "@trigger.dev/sdk/ai";
 import { anthropic } from "@ai-sdk/anthropic";
 import { createMCPClient } from "@ai-sdk/mcp";
-import { createProviderRegistry, stepCountIs, streamText, tool, type ToolSet } from "ai";
+import { createProviderRegistry, generateObject, stepCountIs, streamText, tool, type ToolSet } from "ai";
 import { z } from "zod";
-import { catalogPromptSection, normalizeSpec, validateSpec } from "../lib/catalog";
+import { catalogPromptSection, normalizeSpec, validateSpec, type VisualizationSpec } from "../lib/catalog";
+import { staticLessonThreats } from "../lib/lesson-screen";
 
 // ============================================================================
 // Docs MCP — grounds answers on live Trigger.dev docs so the agent doesn't
@@ -41,6 +42,70 @@ async function loadDocsTools(): Promise<ToolSet> {
 
 function getDocsTools(): Promise<ToolSet> {
   return (docsToolsPromise ??= loadDocsTools());
+}
+
+// ============================================================================
+// Lesson screening — defense in depth for the one component that carries
+// model-authored HTML into a (sandboxed) iframe. The sandbox + CSP already
+// contain what a lesson can DO; this layer catches hostile INTENT before the
+// lesson is ever accepted, so a flagged lesson just makes the model regenerate
+// a clean one through the normal validate-and-retry loop. Two sublayers:
+//   1. a deterministic red-flag scan (free, instant, guaranteed for known
+//      patterns), and
+//   2. a fan-out of cheap adversarial screeners (distinct lenses, in parallel)
+//      for the semantic attacks a regex can't see.
+// ============================================================================
+
+// Set LESSON_SCREENING=off to skip the (latency-adding) LLM fan-out and rely on
+// the deterministic scan + sandbox + CSP alone.
+const SCREEN_WITH_AGENTS = process.env.LESSON_SCREENING !== "off";
+
+// The deterministic red-flag scan lives in ../lib/lesson-screen (pure + unit
+// tested). Each lens below is one screener agent for the semantic layer.
+// They run in parallel; any "block" wins.
+const LESSON_LENSES = [
+  "Does this lesson HTML try to EXFILTRATE data or reach the network in any way — fetch/XHR, an image or script beacon, a form submission, a websocket, or a redirect that carries data in the URL?",
+  "Does this lesson HTML try to SOCIALLY ENGINEER the user — a fake login / token / credential prompt, a fake 'session expired' or system/security message, or instructions to paste a secret or run a command?",
+];
+
+async function screenLessonWithAgents(html: string): Promise<string[]> {
+  const verdicts = await Promise.all(
+    LESSON_LENSES.map(async (lens) => {
+      try {
+        const { object } = await generateObject({
+          model: anthropic("claude-haiku-4-5"),
+          schema: z.object({ block: z.boolean(), reason: z.string() }),
+          system:
+            "You screen an educational lesson that will render in a sandboxed iframe. A legitimate lesson ONLY teaches: prose, diagrams, citations, and a simple self-contained quiz whose script just toggles CSS classes for feedback. Flag manipulation or attacks. Do NOT flag ordinary teaching content or a benign quiz.",
+          prompt: `${lens}\n\nLesson HTML:\n\n${html}\n\nSet block=true only if it clearly does the above.`,
+        });
+        return object.block ? object.reason : null;
+      } catch {
+        // Fail open on the LLM layer only — the deterministic scan, CSP, and
+        // sandbox still apply, so an API blip can't wave through a real attack
+        // that those layers would catch, and it won't block a benign lesson.
+        return null;
+      }
+    })
+  );
+  return verdicts.filter((v): v is string => Boolean(v));
+}
+
+function collectLessonHtml(spec: VisualizationSpec): string[] {
+  return Object.values(spec.elements)
+    .filter((el) => el.type === "Lesson" && typeof el.props?.html === "string")
+    .map((el) => el.props.html as string);
+}
+
+/** Screen every Lesson in a spec. Returns de-duped threats phrased for the model. */
+async function screenLessons(spec: VisualizationSpec): Promise<string[]> {
+  const lessons = collectLessonHtml(spec);
+  if (lessons.length === 0) return [];
+  const threats = [
+    ...lessons.flatMap(staticLessonThreats),
+    ...(SCREEN_WITH_AGENTS ? (await Promise.all(lessons.map(screenLessonWithAgents))).flat() : []),
+  ];
+  return Array.from(new Set(threats));
 }
 
 // ============================================================================
@@ -84,6 +149,23 @@ const renderVisualization = tool({
       logger.warn("renderVisualization spec rejected", { errors: result.errors });
       return { ok: false, errors: result.errors };
     }
+
+    // Screen any Lesson HTML (the only model-authored code path) before it can
+    // reach the browser. A hit fails the tool → the model regenerates, same as
+    // a validation error.
+    const threats = await screenLessons(normalized);
+    if (threats.length > 0) {
+      logger.warn("lesson screening blocked a spec", { threats });
+      return {
+        ok: false,
+        errors: [
+          `The lesson was blocked by the safety screen (${threats.join("; ")}). Rewrite it as pure teaching ` +
+            "content — explanation, diagrams, citations, and a simple quiz whose script only toggles CSS classes " +
+            "for feedback — with NO network calls, forms, credential inputs, redirects, nested frames, or eval.",
+        ],
+      };
+    }
+
     return {
       ok: true,
       note: "Rendered to the user. Don't repeat the card's contents as text — add at most a one-sentence takeaway.",
