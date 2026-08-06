@@ -68,16 +68,15 @@ export type FlowGraphProps = {
   sequence?: FlowSeqStep[] | null;
 };
 
-// Tailwind classes for node chrome — these read from the shadcn theme tokens so
-// they track light/dark. `warning` uses amber and `success` emerald (the
-// neutral shadcn palette has no semantic warning/success token).
+// Node chrome classes, from the Launch Week palette: charcoal panels, apple for
+// running/success, amber for warning, rose for error.
 const statusClasses: Record<FlowNodeStatus, { border: string; dot: string; text: string }> = {
-  default: { border: "border-border", dot: "bg-muted-foreground/50", text: "text-foreground" },
-  running: { border: "border-primary/40", dot: "bg-primary", text: "text-foreground" },
-  error: { border: "border-destructive/40", dot: "bg-destructive", text: "text-destructive" },
-  warning: { border: "border-amber-500/40", dot: "bg-amber-500", text: "text-amber-500" },
-  success: { border: "border-emerald-500/40", dot: "bg-emerald-500", text: "text-emerald-500" },
-  paused: { border: "border-amber-500/30", dot: "bg-amber-500/60", text: "text-muted-foreground" },
+  default: { border: "border-grid-bright", dot: "bg-dimmed", text: "text-bright" },
+  running: { border: "border-apple-500/40", dot: "bg-apple-500", text: "text-bright" },
+  error: { border: "border-error/30", dot: "bg-error", text: "text-error" },
+  warning: { border: "border-warning/30", dot: "bg-warning", text: "text-warning" },
+  success: { border: "border-success/30", dot: "bg-success", text: "text-success" },
+  paused: { border: "border-warning/30", dot: "bg-warning/70", text: "text-dimmed" },
 };
 
 const kindLabels: Record<FlowNodeKind, string> = {
@@ -90,13 +89,14 @@ const kindLabels: Record<FlowNodeKind, string> = {
   decision: "decision",
 };
 
-// Raw CSS colors for the React Flow SVG edge layer (Tailwind classes can't
-// reach `.react-flow__edge-path`). Tuned for the app's dark surface — neutral
-// greys for structure, amber for a retry, a brighter grey for a stream.
+// Colors for the React Flow SVG edge layer (Tailwind classes can't reach
+// `.react-flow__edge-path`). Read straight from the brand CSS variables so they
+// stay in sync with the palette: charcoal for structure, apple for a stream,
+// amber for a retry.
 const edgeStroke: Record<"default" | "retry" | "stream", string> = {
-  default: "#525252", // neutral-600
-  retry: "#f59e0b", // amber-500
-  stream: "#a3a3a3", // neutral-400
+  default: "var(--color-charcoal-500)",
+  retry: "var(--color-warning)",
+  stream: "var(--color-apple-500)",
 };
 
 // Labels are terse (1-2 words) and detail lives in `sublabel`, so nodes are
@@ -319,7 +319,7 @@ function StatusDot({ status, reduceMotion }: { status: FlowNodeStatus; reduceMot
     <span className="relative flex h-2 w-2 shrink-0">
       {status === "running" && !reduceMotion && (
         <motion.span
-          className="absolute inset-0 rounded-full bg-primary"
+          className="absolute inset-0 rounded-full bg-apple-500"
           initial={{ opacity: 0.6, scale: 1 }}
           animate={{ opacity: 0, scale: 2.4 }}
           transition={{ duration: 1.1, repeat: Infinity, ease: easings.outExpo }}
@@ -342,7 +342,7 @@ function FlowNodeCard({ data }: NodeProps<FlowRFNode>) {
         data.reduceMotion ? { duration: 0 } : { delay: data.revealDelay, duration: 0.35, ease: easings.outExpo }
       }
       className={cn(
-        "relative flex min-w-[128px] flex-col gap-1 rounded-xl border bg-background px-3 py-2 shadow-sm",
+        "relative flex min-w-[128px] flex-col gap-1 rounded-xl border bg-charcoal-800 px-3 py-2 shadow-[0_10px_15px_-3px_rgba(0,0,0,0.1),0_4px_6px_-4px_rgba(0,0,0,0.1)]",
         s.border
       )}
     >
@@ -354,11 +354,11 @@ function FlowNodeCard({ data }: NodeProps<FlowRFNode>) {
       <div className="flex items-center gap-2">
         <StatusDot status={data.status} reduceMotion={data.reduceMotion} />
         <span className={cn("font-sans text-sm font-medium leading-none", s.text)}>{data.label}</span>
-        <span className="ml-auto font-mono text-[10px] uppercase tracking-wider text-muted-foreground/60">
+        <span className="ml-auto font-mono text-2xs uppercase tracking-wider text-dimmed/60">
           {kindLabels[data.kind]}
         </span>
       </div>
-      {data.sublabel && <span className="pl-4 font-mono text-xs text-muted-foreground">{data.sublabel}</span>}
+      {data.sublabel && <span className="pl-4 font-mono text-xs text-dimmed">{data.sublabel}</span>}
       <Handle id={HANDLE.sourceBottom} type="source" position={Position.Bottom} isConnectable={false} className="!h-1.5 !w-1.5 !border-0 !bg-transparent" />
       <Handle id={HANDLE.sourceLeft} type="source" position={Position.Left} isConnectable={false} className="!h-1.5 !w-1.5 !border-0 !bg-transparent" />
       <Handle id={HANDLE.sourceRight} type="source" position={Position.Right} isConnectable={false} className="!h-1.5 !w-1.5 !border-0 !bg-transparent" />
@@ -470,8 +470,8 @@ export function FlowGraph({ title, nodes, edges, sequence }: FlowGraphProps) {
             opacity: edgesVisible ? 1 : 0,
             transition: reduceMotion ? undefined : "opacity 300ms ease",
           },
-          labelStyle: { fill: "#a3a3a3", fontSize: 11, fontFamily: "monospace" },
-          labelBgStyle: { fill: "#171717" },
+          labelStyle: { fill: "var(--color-dimmed)", fontSize: 11, fontFamily: "monospace" },
+          labelBgStyle: { fill: "var(--color-charcoal-850)" },
           labelBgPadding: [4, 2] as [number, number],
         };
       }),
@@ -489,12 +489,12 @@ export function FlowGraph({ title, nodes, edges, sequence }: FlowGraphProps) {
       initial={reduceMotion ? false : { opacity: 0, y: 14, filter: "blur(6px)" }}
       animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
       transition={reduceMotion ? { duration: 0 } : { duration: 0.4, ease: easings.outExpo }}
-      className="overflow-hidden rounded-xl border bg-card shadow-sm"
+      className="overflow-hidden rounded-[20px] border border-grid-dimmed bg-charcoal-850 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.1),0_2px_4px_-2px_rgba(0,0,0,0.1)]"
     >
-      <div className="flex items-center justify-between gap-2 border-b bg-muted/40 px-4 py-3">
-        <span className="font-sans text-sm font-medium text-foreground">{title}</span>
+      <div className="flex items-center justify-between gap-2 border-b border-grid-bright bg-charcoal-800 px-4 py-3">
+        <span className="font-title text-sm font-medium text-bright/80">{title}</span>
       </div>
-      <div style={{ height }} className="bg-card">
+      <div style={{ height }} className="bg-charcoal-850">
         <ReactFlow
           nodes={rfNodes}
           edges={rfEdges}
@@ -519,11 +519,11 @@ export function FlowGraph({ title, nodes, edges, sequence }: FlowGraphProps) {
           minZoom={0.5}
           maxZoom={1.75}
         >
-          <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#262626" />
+          <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="var(--color-charcoal-700)" />
           <Controls
             showInteractive={false}
             position="bottom-right"
-            className="!shadow-none [&_button]:!border-border [&_button]:!bg-card [&_button:hover]:!bg-accent [&_button_svg]:!fill-muted-foreground [&_button:hover_svg]:!fill-foreground"
+            className="!shadow-none [&_button]:!border-charcoal-700 [&_button]:!bg-charcoal-800/90 [&_button:hover]:!bg-charcoal-700 [&_button_svg]:!fill-dimmed [&_button:hover_svg]:!fill-bright"
           />
         </ReactFlow>
       </div>

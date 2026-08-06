@@ -44,8 +44,8 @@ export function Chat() {
   return (
     <div className="mx-auto flex h-dvh w-full max-w-3xl flex-col">
       <header className="flex items-center gap-2 border-b px-4 py-3">
-        <Zap className="size-4 text-muted-foreground" />
-        <h1 className="text-sm font-semibold">Trigger.dev chat agent</h1>
+        <Zap className="size-4 fill-apple-500 text-apple-500" />
+        <h1 className="font-title text-sm font-semibold">Trigger.dev chat agent</h1>
         <span className="ml-auto text-xs text-muted-foreground">Diagrams, not walls of text</span>
       </header>
 

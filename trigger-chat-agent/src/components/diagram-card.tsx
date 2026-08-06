@@ -23,10 +23,10 @@ import { easings, reducedVariants, revealBlur, staggerContainer } from "@/lib/mo
 type StepStatus = "default" | "error" | "warning" | "success";
 
 const statusClasses: Record<StepStatus, { border: string; dot: string; text: string }> = {
-  default: { border: "border-border", dot: "bg-muted-foreground/50", text: "text-foreground" },
-  error: { border: "border-destructive/40", dot: "bg-destructive", text: "text-destructive" },
-  warning: { border: "border-amber-500/40", dot: "bg-amber-500", text: "text-amber-500" },
-  success: { border: "border-emerald-500/40", dot: "bg-emerald-500", text: "text-emerald-500" },
+  default: { border: "border-grid-bright", dot: "bg-dimmed", text: "text-bright" },
+  error: { border: "border-error/30", dot: "bg-error", text: "text-error" },
+  warning: { border: "border-warning/30", dot: "bg-warning", text: "text-warning" },
+  success: { border: "border-success/30", dot: "bg-success", text: "text-success" },
 };
 
 /**
@@ -67,10 +67,10 @@ export function DiagramCard({
       initial="hidden"
       animate={isInView ? "show" : "hidden"}
       variants={container}
-      className="flex flex-col overflow-hidden rounded-xl border bg-card shadow-sm"
+      className="flex flex-col overflow-hidden rounded-[20px] border border-grid-dimmed bg-charcoal-850 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.1),0_2px_4px_-2px_rgba(0,0,0,0.1)]"
     >
-      <motion.div variants={item} className="flex items-center gap-2 border-b bg-muted/40 px-4 py-3">
-        <span className="font-sans text-sm font-medium text-foreground">{title}</span>
+      <motion.div variants={item} className="flex items-center gap-2 border-b border-grid-bright bg-charcoal-800 px-4 py-3">
+        <span className="font-title text-sm font-medium text-bright/80">{title}</span>
       </motion.div>
 
       <motion.div variants={item} className="relative">
@@ -91,13 +91,13 @@ export function DiagramCard({
                       reduceMotion ? { duration: 0 } : { delay: delays[i], duration: 0.35, ease: easings.outExpo }
                     }
                     className={cn(
-                      "relative flex items-center gap-2 whitespace-nowrap rounded-full border bg-background px-4 py-2.5 shadow-sm",
+                      "relative flex items-center gap-2 whitespace-nowrap rounded-full border bg-charcoal-800 px-4 py-2.5 shadow-[0_10px_15px_-3px_rgba(0,0,0,0.1),0_4px_6px_-4px_rgba(0,0,0,0.1)]",
                       status.border
                     )}
                   >
                     {step.status === "error" && !reduceMotion && (
                       <motion.span
-                        className="absolute inset-0 rounded-full bg-destructive/30"
+                        className="absolute inset-0 rounded-full bg-error/40"
                         initial={{ opacity: 0.6, scale: 1 }}
                         animate={playDiagram ? { opacity: 0, scale: 1.5 } : {}}
                         transition={{ delay: delays[i], duration: 0.7, ease: easings.outExpo }}
@@ -114,7 +114,7 @@ export function DiagramCard({
         {/* right-edge fade — cues horizontal scroll when the flow overflows */}
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-y-0 right-0 w-12 bg-gradient-to-l from-card to-transparent"
+          className="pointer-events-none absolute inset-y-0 right-0 w-12 bg-gradient-to-l from-charcoal-850 to-transparent"
         />
       </motion.div>
     </motion.div>
@@ -128,7 +128,7 @@ function Connector({ delay, active, reduceMotion }: { delay: number; active: boo
       initial={reduceMotion ? false : { scaleX: 0, opacity: 0.4 }}
       animate={active ? { scaleX: 1, opacity: 1 } : {}}
       transition={reduceMotion ? { duration: 0 } : { delay, duration: 0.3, ease: easings.outExpo }}
-      className="mx-1 h-0.5 w-6 shrink-0 border-t-2 border-dashed border-border sm:w-8"
+      className="mx-1 h-0.5 w-6 shrink-0 border-t-2 border-dashed border-grid-bright sm:w-8"
     />
   );
 }
