@@ -32,6 +32,32 @@ const CHIP_KINDS: Record<string, { icon: typeof ArrowRight; className: string }>
   topic: { icon: Sparkles, className: "border-charcoal-700 text-dimmed hover:bg-charcoal-800" },
 };
 
+type NextChip = { label: string; kind: string };
+
+/**
+ * The chips from the most recent assistant turn's `suggestNext` call. Read from
+ * the message stream, but captured into sticky state (below) because the trailing
+ * tool call is dropped when the turn finalizes — so we grab the chips while they
+ * stream and keep them until the next user message.
+ */
+function latestSuggestNextChips(messages: UIMessage[]): NextChip[] {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i];
+    if (m.role !== "assistant") continue;
+    for (const part of m.parts) {
+      const isSuggest =
+        part.type === "tool-suggestNext" ||
+        (part.type === "dynamic-tool" && (part as { toolName?: string }).toolName === "suggestNext");
+      if (!isSuggest) continue;
+      const input = (part as { input?: { chips?: NextChip[] } }).input;
+      const chips = input?.chips?.filter((c) => c?.label) ?? [];
+      if (chips.length) return chips;
+    }
+    return []; // reached the latest assistant turn; no chips (yet)
+  }
+  return [];
+}
+
 export function Chat() {
   const transport = useTriggerChatTransport<typeof triggerChatAgent>({
     task: "trigger-chat-agent",
@@ -42,6 +68,7 @@ export function Chat() {
 
   const { messages, sendMessage, stop, status } = useChat({ transport });
   const [input, setInput] = useState("");
+  const [chips, setChips] = useState<NextChip[]>([]);
   const reduce = useReducedMotion();
   const busy = status === "submitted" || status === "streaming";
 
@@ -56,9 +83,17 @@ export function Chat() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages.length]);
 
+  // Capture the latest turn's next-step chips while they stream (they're dropped
+  // when the turn finalizes). Only update on a non-empty set; cleared on send.
+  useEffect(() => {
+    const latest = latestSuggestNextChips(messages);
+    if (latest.length) setChips(latest);
+  }, [messages]);
+
   function submit(text: string) {
     const trimmed = text.trim();
     if (!trimmed || busy) return;
+    setChips([]);
     sendMessage({ text: trimmed });
     setInput("");
   }
@@ -101,14 +136,33 @@ export function Chat() {
         {status === "submitted" && <Thinking />}
       </div>
 
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          submit(input);
-        }}
-        className="py-4"
-      >
-        <div className="relative [&:focus-within]:[--lw3-glow-focus:1]">
+      <div className="py-4">
+        {chips.length > 0 && !busy && (
+          <div className="mb-3 flex flex-wrap gap-2">
+            {chips.map((chip, i) => {
+              const kind = CHIP_KINDS[chip.kind] ?? CHIP_KINDS.topic;
+              const Icon = kind.icon;
+              return (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => submit(chip.label)}
+                  className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${kind.className}`}
+                >
+                  <Icon className="size-3" /> {chip.label}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            submit(input);
+          }}
+        >
+          <div className="relative [&:focus-within]:[--lw3-glow-focus:1]">
           <FocusGlow radiusClassName="rounded-full" />
           <div className="relative z-10 flex items-center gap-2 rounded-full border border-charcoal-700 bg-charcoal-900 py-1.5 pl-5 pr-1.5 transition-colors focus-within:border-charcoal-500">
             <input
@@ -138,10 +192,11 @@ export function Chat() {
             )}
           </div>
         </div>
-        <p className="mt-2.5 text-center text-2xs text-charcoal-600">
-          A Trigger.dev chat.agent. It can be wrong — check the linked docs.
-        </p>
-      </form>
+          <p className="mt-2.5 text-center text-2xs text-charcoal-600">
+            A Trigger.dev chat.agent. It can be wrong — check the linked docs.
+          </p>
+        </form>
+      </div>
     </div>
   );
 }
@@ -236,29 +291,11 @@ function MessagePart({
     return <Visualization spec={spec} />;
   }
 
-  if (part.type === "tool-suggestNext") {
-    const input = part.input as { chips?: { label: string; kind: string }[] } | undefined;
-    const chips = input?.chips?.filter((c) => c?.label) ?? [];
-    if (chips.length === 0) return null;
-    return (
-      <div className="mt-1 flex flex-wrap gap-2">
-        {chips.map((chip, i) => {
-          const kind = CHIP_KINDS[chip.kind] ?? CHIP_KINDS.topic;
-          const Icon = kind.icon;
-          return (
-            <button
-              key={i}
-              type="button"
-              disabled={busy}
-              onClick={() => onPick(chip.label)}
-              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-40 ${kind.className}`}
-            >
-              <Icon className="size-3" /> {chip.label}
-            </button>
-          );
-        })}
-      </div>
-    );
+  // suggestNext chips render docked above the composer (they don't survive the
+  // turn's finalization inline), so nothing is drawn here — and this guard keeps
+  // the docs-tool fallthrough below from catching them.
+  if (part.type === "tool-suggestNext" || (part.type === "dynamic-tool" && (part as { toolName?: string }).toolName === "suggestNext")) {
+    return null;
   }
 
   if (part.type.startsWith("tool-") || part.type === "dynamic-tool") {
