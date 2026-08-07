@@ -39,7 +39,7 @@ export function StatCard({
       initial="hidden"
       animate={isInView ? "show" : "hidden"}
       variants={container}
-      className="flex h-full flex-col justify-between rounded-2xl border border-grid-dimmed bg-charcoal-850 p-6 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.1),0_2px_4px_-2px_rgba(0,0,0,0.1)]"
+      className="flex min-h-64 flex-col justify-between rounded-2xl border border-grid-dimmed bg-charcoal-850 p-6"
     >
       <motion.div variants={item} className="flex items-center justify-between pb-4">
         <span className="font-mono text-2xs font-medium uppercase tracking-widest text-dimmed">{label}</span>

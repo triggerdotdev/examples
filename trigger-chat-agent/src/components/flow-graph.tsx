@@ -365,7 +365,7 @@ function FlowNodeCard({ data }: NodeProps<FlowRFNode>) {
       }
       style={{ width: data.width }}
       className={cn(
-        "relative flex flex-col gap-1 rounded-xl border bg-charcoal-800 px-3 py-2 shadow-[0_10px_15px_-3px_rgba(0,0,0,0.1),0_4px_6px_-4px_rgba(0,0,0,0.1)]",
+        "relative flex flex-col gap-1 rounded-xl border bg-charcoal-800 px-3 py-2",
         s.border
       )}
     >
@@ -377,7 +377,7 @@ function FlowNodeCard({ data }: NodeProps<FlowRFNode>) {
       <div className="flex items-center gap-2">
         <StatusDot status={data.status} reduceMotion={data.reduceMotion} />
         <span className={cn("truncate font-sans text-sm font-medium leading-none", s.text)}>{data.label}</span>
-        <span className="ml-auto shrink-0 font-mono text-2xs uppercase tracking-wider text-dimmed/60">
+        <span className="ml-auto shrink-0 font-mono text-2xs uppercase tracking-wider text-dimmed">
           {kindLabels[data.kind]}
         </span>
       </div>
@@ -514,9 +514,9 @@ export function FlowGraph({ title, nodes, edges, sequence }: FlowGraphProps) {
       initial={reduceMotion ? false : { opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={reduceMotion ? { duration: 0 } : { duration: 0.4, ease: easings.outExpo }}
-      className="overflow-hidden rounded-[20px] border border-grid-dimmed bg-charcoal-850 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.1),0_2px_4px_-2px_rgba(0,0,0,0.1)]"
+      className="overflow-hidden rounded-2xl border border-grid-dimmed bg-charcoal-850"
     >
-      <div className="flex items-center justify-between gap-2 border-b border-grid-bright bg-charcoal-800 px-4 py-3">
+      <div className="flex min-h-12 items-center justify-between gap-2 border-b border-grid-bright bg-charcoal-800 px-5 py-3">
         <span className="font-title text-sm font-medium text-bright/80">{title}</span>
       </div>
       <div style={{ height }} className="bg-charcoal-850">
@@ -548,7 +548,7 @@ export function FlowGraph({ title, nodes, edges, sequence }: FlowGraphProps) {
           <Controls
             showInteractive={false}
             position="bottom-right"
-            className="!shadow-none [&_button]:!border-charcoal-700 [&_button]:!bg-charcoal-800/90 [&_button:hover]:!bg-charcoal-700 [&_button_svg]:!fill-dimmed [&_button:hover_svg]:!fill-bright"
+            className="!shadow-none [&_button]:!size-10 [&_button]:!border-charcoal-700 [&_button]:!bg-charcoal-800/90 [&_button:hover]:!bg-charcoal-700 [&_button_svg]:!fill-dimmed [&_button:hover_svg]:!fill-bright"
           />
         </ReactFlow>
       </div>

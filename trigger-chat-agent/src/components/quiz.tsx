@@ -29,7 +29,7 @@ export function Quiz({
       variants={reduce ? reducedVariants : revealBlur}
       initial="hidden"
       animate="show"
-      className="rounded-[20px] border border-grid-dimmed bg-charcoal-850 p-6 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.1),0_2px_4px_-2px_rgba(0,0,0,0.1)]"
+      className="rounded-2xl border border-grid-dimmed bg-charcoal-850 p-5 sm:p-6"
     >
       <div className="mb-1 font-mono text-2xs uppercase tracking-widest text-dimmed/70">Quiz</div>
       <p className="mb-4 font-title text-lg font-medium text-bright">{question}</p>
@@ -44,7 +44,7 @@ export function Quiz({
               disabled={answered}
               onClick={() => setPicked(i)}
               className={cn(
-                "flex w-full items-center gap-2 rounded-lg border px-4 py-2.5 text-left text-sm transition-colors",
+                "flex min-h-11 w-full items-center gap-3 rounded-xl border px-4 py-2.5 text-left text-sm leading-5 transition-colors duration-150",
                 !reveal && "border-charcoal-700 bg-charcoal-800 text-bright enabled:hover:bg-charcoal-700",
                 reveal && isCorrect && "border-apple-500/60 bg-apple-500/10 text-apple-200",
                 reveal && !isCorrect && "border-error/60 bg-error/10 text-error"

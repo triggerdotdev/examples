@@ -59,7 +59,7 @@ export function ErrorNotice({
         <button
           type="button"
           onClick={onRetry}
-          className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-charcoal-700 px-3 py-1 text-xs font-medium text-bright transition-colors hover:bg-charcoal-800"
+          className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-lg border border-charcoal-700 px-3 text-xs font-medium text-bright transition-colors duration-150 hover:bg-charcoal-800"
         >
           <RotateCw className="size-3" /> Try again
         </button>
@@ -68,7 +68,7 @@ export function ErrorNotice({
         type="button"
         onClick={onDismiss}
         aria-label="Dismiss"
-        className="shrink-0 rounded p-1 text-dimmed transition-colors hover:text-bright"
+        className="flex size-10 shrink-0 items-center justify-center rounded-lg text-dimmed transition-colors duration-150 hover:bg-charcoal-800 hover:text-bright"
       >
         <X className="size-3.5" />
       </button>

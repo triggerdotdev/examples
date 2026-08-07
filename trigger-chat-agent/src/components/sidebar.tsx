@@ -57,7 +57,7 @@ export function Sidebar({ chats }: { chats: ChatListItem[] }) {
         )}
         {groups.map((group) => (
           <div key={group.label} className="space-y-1">
-            <div className="px-2 font-mono text-2xs uppercase tracking-widest text-dimmed/60">{group.label}</div>
+            <div className="px-2 font-mono text-2xs uppercase tracking-widest text-dimmed">{group.label}</div>
             {group.items.map((c) => {
               const active = pathname === `/chat/${c.id}`;
               return (
@@ -84,7 +84,7 @@ export function Sidebar({ chats }: { chats: ChatListItem[] }) {
                         if (active) router.push("/");
                       })
                     }
-                    className="shrink-0 rounded p-1.5 text-dimmed opacity-0 transition-opacity hover:text-error group-hover:opacity-100"
+                    className="flex size-8 shrink-0 items-center justify-center rounded-lg text-dimmed opacity-0 transition-[color,opacity] duration-150 hover:text-error focus-visible:opacity-100 group-hover:opacity-100"
                   >
                     <Trash2 className="size-3" />
                   </button>

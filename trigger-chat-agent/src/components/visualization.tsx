@@ -29,7 +29,7 @@ class VisualizationErrorBoundary extends Component<{ children: ReactNode }, { fa
 
 export function Visualization({ spec }: { spec: VisualizationSpec }) {
   return (
-    <div className="my-3">
+    <div>
       <VisualizationErrorBoundary>
         <JSONUIProvider registry={registry}>
           <Renderer spec={spec} registry={registry} />

@@ -67,9 +67,9 @@ export function DiagramCard({
       initial="hidden"
       animate={isInView ? "show" : "hidden"}
       variants={container}
-      className="flex flex-col overflow-hidden rounded-[20px] border border-grid-dimmed bg-charcoal-850 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.1),0_2px_4px_-2px_rgba(0,0,0,0.1)]"
+      className="flex flex-col overflow-hidden rounded-2xl border border-grid-dimmed bg-charcoal-850"
     >
-      <motion.div variants={item} className="flex items-center gap-2 border-b border-grid-bright bg-charcoal-800 px-4 py-3">
+      <motion.div variants={item} className="flex min-h-12 items-center gap-2 border-b border-grid-bright bg-charcoal-800 px-5 py-3">
         <span className="font-title text-sm font-medium text-bright/80">{title}</span>
       </motion.div>
 
@@ -91,7 +91,7 @@ export function DiagramCard({
                       reduceMotion ? { duration: 0 } : { delay: delays[i], duration: 0.35, ease: easings.outExpo }
                     }
                     className={cn(
-                      "relative flex items-center gap-2 whitespace-nowrap rounded-full border bg-charcoal-800 px-4 py-2.5 shadow-[0_10px_15px_-3px_rgba(0,0,0,0.1),0_4px_6px_-4px_rgba(0,0,0,0.1)]",
+                      "relative flex items-center gap-2 whitespace-nowrap rounded-xl border bg-charcoal-800 px-4 py-2.5",
                       status.border
                     )}
                   >

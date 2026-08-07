@@ -44,15 +44,15 @@ export function PromptCard({
       initial="hidden"
       animate="show"
       variants={container}
-      className="overflow-hidden rounded-[20px] border border-grid-dimmed bg-charcoal-850 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.1),0_2px_4px_-2px_rgba(0,0,0,0.1)]"
+      className="overflow-hidden rounded-2xl border border-grid-dimmed bg-charcoal-850"
     >
-      <motion.div variants={item} className="flex items-center justify-between gap-3 border-b border-grid-bright bg-charcoal-800 px-4 py-3">
+      <motion.div variants={item} className="flex min-h-12 items-center justify-between gap-3 border-b border-grid-bright bg-charcoal-800 px-5 py-3">
         <span className="font-title text-sm font-medium text-bright/80">{title}</span>
         <button
           type="button"
           onClick={onCopy}
           className={cn(
-            "shrink-0 rounded-full px-3 py-1.5 font-sans text-xs font-medium transition-colors",
+            "min-h-11 shrink-0 rounded-lg px-3 font-sans text-xs font-medium transition-colors duration-150",
             copied
               ? "bg-apple-500/15 text-apple-500"
               : "bg-apple-500 text-charcoal-900 hover:bg-apple-400"
@@ -64,7 +64,7 @@ export function PromptCard({
 
       <motion.pre
         variants={item}
-        className="max-h-[24rem] overflow-auto whitespace-pre-wrap break-words px-5 py-4 font-mono text-sm leading-relaxed text-bright/90 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-secondary"
+        className="max-h-[24rem] overflow-auto whitespace-pre-wrap break-words p-5 font-mono text-sm leading-6 text-bright scrollbar-thin scrollbar-track-transparent scrollbar-thumb-charcoal-700"
       >
         {prompt}
       </motion.pre>

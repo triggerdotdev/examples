@@ -64,18 +64,18 @@ export function HeroCard({
       initial="hidden"
       animate="show"
       variants={container}
-      className="overflow-hidden rounded-[20px] border border-grid-dimmed bg-charcoal-850 p-8 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.1),0_2px_4px_-2px_rgba(0,0,0,0.1)]"
+      className="min-h-56 overflow-hidden rounded-2xl border border-grid-dimmed bg-charcoal-850 p-6 sm:p-8"
     >
       {icon && (
         <motion.div
           variants={item}
-          className="mb-4 flex size-10 items-center justify-center rounded-xl border border-grid-bright bg-charcoal-800 text-apple-500"
+          className="mb-6 flex size-10 items-center justify-center rounded-xl border border-grid-bright bg-charcoal-800 text-apple-500"
         >
           <Icon className="size-5" />
         </motion.div>
       )}
       {kicker && (
-        <motion.div variants={item} className="mb-2 font-mono text-xs font-medium uppercase tracking-wider text-apple-500">
+        <motion.div variants={item} className="mb-3 font-mono text-xs font-medium uppercase tracking-wider text-apple-500">
           {kicker}
         </motion.div>
       )}
@@ -83,12 +83,12 @@ export function HeroCard({
         variants={item}
         className={cn(
           "mb-2 font-title font-semibold tracking-tight text-bright [text-wrap:balance]",
-          featured ? "text-3xl leading-[1.1]" : "text-2xl"
+          featured ? "text-3xl leading-[1.1]" : "text-2xl leading-[1.2]"
         )}
       >
         {title}
       </motion.h3>
-      <motion.p variants={item} className="max-w-[60ch] font-sans text-base leading-relaxed text-dimmed">
+      <motion.p variants={item} className="max-w-[55ch] font-sans text-base leading-7 text-dimmed [text-wrap:pretty]">
         {description}
       </motion.p>
     </motion.div>

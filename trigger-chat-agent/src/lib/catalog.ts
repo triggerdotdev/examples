@@ -124,7 +124,7 @@ export const cardComponentDefinitions = {
       language: z.string().nullable().describe("Syntax highlighting language, defaults to 'typescript'"),
       code: z.string().describe("The code to display"),
     }),
-    description: "A code snippet in a terminal-style window with macOS traffic-light dots. For code the user reads.",
+    description: "A syntax-highlighted code panel for code the user reads.",
   },
   PromptCard: {
     props: z.object({
