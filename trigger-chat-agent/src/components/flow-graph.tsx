@@ -99,9 +99,26 @@ const edgeStroke: Record<"default" | "retry" | "stream", string> = {
   stream: "var(--color-apple-500)",
 };
 
-// Labels are terse (1-2 words) and detail lives in `sublabel`, so nodes are
-// narrow. A compact width lets 2-3 sit across the ~360-560px chat column.
-const NODE_WIDTH = 128;
+// Node width is MEASURED from the content, not fixed, and the same number is
+// used for the dagre layout and the rendered node — if those disagree, dagre
+// reserves too little room and siblings on a rank visibly overlap.
+const NODE_MIN_WIDTH = 132;
+const NODE_MAX_WIDTH = 300;
+
+// Rough advance widths for the fonts in use. They only need to be close: any
+// error is absorbed by the layout gaps, and the rendered node is pinned to the
+// same computed width, so text truncates rather than overflowing.
+const LABEL_CHAR = 7.8; // 14px sans, medium
+const KIND_CHAR = 6.7; // 10px mono, uppercase + tracking
+const SUB_CHAR = 7.2; // 12px mono
+
+function nodeWidth(n: FlowNode): number {
+  // px-3 padding + status dot + gaps + the kind tag on the right
+  const labelRow = 24 + 8 + 8 + n.label.length * LABEL_CHAR + 8 + kindLabels[n.kind].length * KIND_CHAR;
+  const subRow = n.sublabel ? 24 + 16 + n.sublabel.length * SUB_CHAR : 0;
+  return Math.round(Math.min(NODE_MAX_WIDTH, Math.max(NODE_MIN_WIDTH, labelRow, subRow)));
+}
+
 const nodeHeight = (n: FlowNode) => (n.sublabel ? 64 : 48);
 
 // Layout tuning. Dagre runs top-to-bottom (`TB`) so branching scenes fan out
@@ -140,6 +157,7 @@ type FlowNodeData = {
   status: FlowNodeStatus;
   revealDelay: number; // seconds
   reduceMotion: boolean;
+  width: number; // the width dagre laid out with — the node must match it
 };
 type FlowRFNode = Node<FlowNodeData, "flow">;
 
@@ -182,7 +200,7 @@ function dagreLayout(nodes: FlowNode[], edges: FlowEdge[]): GraphLayout {
     marginy: 8,
   });
   g.setDefaultEdgeLabel(() => ({}));
-  for (const n of nodes) g.setNode(n.id, { width: NODE_WIDTH, height: nodeHeight(n) });
+  for (const n of nodes) g.setNode(n.id, { width: nodeWidth(n), height: nodeHeight(n) });
   for (const e of edges) g.setEdge(e.from, e.to);
   dagre.layout(g);
 
@@ -191,7 +209,7 @@ function dagreLayout(nodes: FlowNode[], edges: FlowEdge[]): GraphLayout {
     const dn = g.node(n.id);
     positions[n.id] = dn
       ? { x: dn.x - dn.width / 2, y: dn.y - dn.height / 2, width: dn.width, height: dn.height }
-      : { x: 0, y: 0, width: NODE_WIDTH, height: nodeHeight(n) };
+      : { x: 0, y: 0, width: nodeWidth(n), height: nodeHeight(n) };
   }
   const handles: Record<string, EdgeHandles> = {};
   for (const e of edges) {
@@ -210,7 +228,10 @@ function dagreLayout(nodes: FlowNode[], edges: FlowEdge[]): GraphLayout {
 function serpentineLayout(nodes: FlowNode[], edges: FlowEdge[]): GraphLayout {
   const order = orderedIds(nodes, edges);
   const byId = new Map(nodes.map((n) => [n.id, n]));
-  const colWidth = NODE_WIDTH + SERPENTINE_COL_GAP;
+  // One column pitch for the whole grid, sized to the widest node, so a long
+  // label in one cell can't overlap its neighbour.
+  const widest = Math.max(...nodes.map(nodeWidth));
+  const colWidth = widest + SERPENTINE_COL_GAP;
   const rowHeight = 64 + SERPENTINE_ROW_GAP; // tallest node (with sublabel) + gap
 
   const positions: Record<string, Pos> = {};
@@ -222,9 +243,10 @@ function serpentineLayout(nodes: FlowNode[], edges: FlowEdge[]): GraphLayout {
     grid.set(id, { row, col });
     const node = byId.get(id);
     positions[id] = {
-      x: 8 + col * colWidth,
+      // Centre each node in its column so edges meet the middle of the box.
+      x: 8 + col * colWidth + (widest - (node ? nodeWidth(node) : widest)) / 2,
       y: 8 + row * rowHeight,
-      width: NODE_WIDTH,
+      width: node ? nodeWidth(node) : widest,
       height: node ? nodeHeight(node) : 48,
     };
   });
@@ -341,8 +363,9 @@ function FlowNodeCard({ data }: NodeProps<FlowRFNode>) {
       transition={
         data.reduceMotion ? { duration: 0 } : { delay: data.revealDelay, duration: 0.35, ease: easings.outExpo }
       }
+      style={{ width: data.width }}
       className={cn(
-        "relative flex min-w-[128px] flex-col gap-1 rounded-xl border bg-charcoal-800 px-3 py-2 shadow-[0_10px_15px_-3px_rgba(0,0,0,0.1),0_4px_6px_-4px_rgba(0,0,0,0.1)]",
+        "relative flex flex-col gap-1 rounded-xl border bg-charcoal-800 px-3 py-2 shadow-[0_10px_15px_-3px_rgba(0,0,0,0.1),0_4px_6px_-4px_rgba(0,0,0,0.1)]",
         s.border
       )}
     >
@@ -353,12 +376,12 @@ function FlowNodeCard({ data }: NodeProps<FlowRFNode>) {
       <Handle id={HANDLE.targetRight} type="target" position={Position.Right} isConnectable={false} className="!h-1.5 !w-1.5 !border-0 !bg-transparent" />
       <div className="flex items-center gap-2">
         <StatusDot status={data.status} reduceMotion={data.reduceMotion} />
-        <span className={cn("font-sans text-sm font-medium leading-none", s.text)}>{data.label}</span>
-        <span className="ml-auto font-mono text-2xs uppercase tracking-wider text-dimmed/60">
+        <span className={cn("truncate font-sans text-sm font-medium leading-none", s.text)}>{data.label}</span>
+        <span className="ml-auto shrink-0 font-mono text-2xs uppercase tracking-wider text-dimmed/60">
           {kindLabels[data.kind]}
         </span>
       </div>
-      {data.sublabel && <span className="pl-4 font-mono text-xs text-dimmed">{data.sublabel}</span>}
+      {data.sublabel && <span className="truncate pl-4 font-mono text-xs text-dimmed">{data.sublabel}</span>}
       <Handle id={HANDLE.sourceBottom} type="source" position={Position.Bottom} isConnectable={false} className="!h-1.5 !w-1.5 !border-0 !bg-transparent" />
       <Handle id={HANDLE.sourceLeft} type="source" position={Position.Left} isConnectable={false} className="!h-1.5 !w-1.5 !border-0 !bg-transparent" />
       <Handle id={HANDLE.sourceRight} type="source" position={Position.Right} isConnectable={false} className="!h-1.5 !w-1.5 !border-0 !bg-transparent" />
@@ -441,6 +464,8 @@ export function FlowGraph({ title, nodes, edges, sequence }: FlowGraphProps) {
           status: statuses[n.id] ?? "default",
           revealDelay: revealDelays[n.id] ?? 0,
           reduceMotion,
+          // Same value the layout used, so the box can't outgrow its slot.
+          width: positions[n.id]?.width ?? nodeWidth(n),
         },
         draggable: false,
         selectable: false,

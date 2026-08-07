@@ -27,8 +27,15 @@ const stepStatus = z.enum(["default", "error", "warning", "success"]);
 // not array items — `.nullish()` lets the model omit the key entirely.
 const flowNode = z.object({
   id: z.string(),
-  label: z.string().describe("Short node label, e.g. 'triage', 'Attempt 1'"),
-  sublabel: z.string().nullish().describe("Optional second line, e.g. 'Haiku' or '1.4s'"),
+  label: z
+    .string()
+    .max(22)
+    .describe("Node label — 1-3 words, max 22 chars, e.g. 'triage', 'Attempt 1'. Longer labels get truncated."),
+  sublabel: z
+    .string()
+    .max(24)
+    .nullish()
+    .describe("Optional second line, max 24 chars, e.g. 'Haiku' or '1.4s'. Put detail here, not in the label."),
   kind: flowNodeKind,
   status: flowNodeStatus.nullish().describe("Visual state, defaults to 'default'"),
 });
@@ -83,7 +90,12 @@ export const cardComponentDefinitions = {
     props: z.object({
       title: z.string().describe("Card title, e.g. 'Fan-out with retries', 'This conversation'"),
       nodes: z.array(flowNode).describe("Graph nodes"),
-      edges: z.array(flowEdge).describe("Directed edges between node ids"),
+      edges: z
+    .array(flowEdge)
+    .describe(
+      "Directed edges between node ids. Keep the graph readable: at most ~10 nodes, and at most 3 " +
+        "branches from any one node — wide fan-outs get cramped in a chat column."
+    ),
       sequence: z
         .array(flowSeqStep)
         .nullable()
