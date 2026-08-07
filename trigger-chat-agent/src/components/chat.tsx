@@ -10,6 +10,7 @@ import { mintChatAccessToken, startChatSession } from "@/app/actions";
 import { normalizeSpec } from "@/lib/catalog";
 import { bubbleIn, easings } from "@/lib/motion";
 import { AssistantText } from "@/components/streaming-text";
+import { ErrorNotice } from "@/components/error-notice";
 import { AgentWordmark } from "@/components/wordmark";
 import { FocusGlow } from "@/components/composer-glow";
 import { Visualization } from "@/components/visualization";
@@ -18,6 +19,7 @@ import type { triggerChatAgent } from "@/trigger/trigger-chat-agent";
 // The empty-state seed. The altitude of the chip picked calibrates the session.
 const START_HERE = ["What is Trigger.dev, and how does it work?", "What's a task, and how do I run one?"];
 const GO_DEEPER = [
+  "Explain how this app is built",
   "How does a fan-out with retries work?",
   "How does a run survive a redeploy?",
   "Queues vs concurrency — how do they interact?",
@@ -81,7 +83,7 @@ export function Chat({
     sessions: initialSessions,
   });
 
-  const { messages, sendMessage, stop, status } = useChat({
+  const { messages, sendMessage, stop, status, error, regenerate, clearError } = useChat({
     id: chatId,
     messages: initialMessages,
     transport,
@@ -160,6 +162,17 @@ export function Chat({
         )}
 
         {status === "submitted" && <Thinking />}
+
+        {error && (
+          <ErrorNotice
+            error={error}
+            onRetry={() => {
+              clearError();
+              regenerate();
+            }}
+            onDismiss={clearError}
+          />
+        )}
       </div>
 
       <div className="py-4">
