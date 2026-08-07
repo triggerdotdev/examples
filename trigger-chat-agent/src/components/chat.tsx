@@ -58,15 +58,35 @@ function latestSuggestNextChips(messages: UIMessage[]): NextChip[] {
   return [];
 }
 
-export function Chat() {
+export function Chat({
+  chatId,
+  userId,
+  initialMessages = [],
+  initialSessions,
+}: {
+  chatId: string;
+  userId: string;
+  initialMessages?: UIMessage[];
+  initialSessions?: Record<string, { publicAccessToken: string; lastEventId?: string }>;
+}) {
   const transport = useTriggerChatTransport<typeof triggerChatAgent>({
     task: "trigger-chat-agent",
     baseURL: process.env.NEXT_PUBLIC_TRIGGER_API_URL,
     accessToken: ({ chatId }) => mintChatAccessToken(chatId),
     startSession: ({ chatId, clientData }) => startChatSession({ chatId, clientData }),
+    // Owns the chat rows the agent writes in its lifecycle hooks.
+    clientData: { userId },
+    // Persisted token + SSE cursor, so a reload picks the stream back up
+    // instead of replaying from the start.
+    sessions: initialSessions,
   });
 
-  const { messages, sendMessage, stop, status } = useChat({ transport });
+  const { messages, sendMessage, stop, status } = useChat({
+    id: chatId,
+    messages: initialMessages,
+    transport,
+    resume: initialMessages.length > 0,
+  });
   const [input, setInput] = useState("");
   const [chips, setChips] = useState<NextChip[]>([]);
   const reduce = useReducedMotion();
@@ -94,6 +114,12 @@ export function Chat() {
     const trimmed = text.trim();
     if (!trimmed || busy) return;
     setChips([]);
+    // Put the chat in the URL on the first message, via the History API rather
+    // than the router: a Next navigation would remount this component and kill
+    // the in-flight stream. The agent creates the row server-side with this id.
+    if (messages.length === 0) {
+      window.history.replaceState({}, "", `/chat/${chatId}`);
+    }
     sendMessage({ text: trimmed });
     setInput("");
   }
