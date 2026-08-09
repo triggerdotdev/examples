@@ -39,6 +39,8 @@ test("parses word timestamps and renders speaker-labelled SRT and VTT", () => {
 
 test("joins punctuation without introducing spaces", () => {
   assert.equal(joinTokens(["Bom", "dia", ",", "mundo", "!"]), "Bom dia, mundo!");
+  assert.equal(joinTokens(["¿", "Cómo", "estás", "?"]), "¿Cómo estás?");
+  assert.equal(joinTokens(["¡", "Hola", ",", "mundo", "!"]), "¡Hola, mundo!");
 });
 
 test("reconstructs text when the API text field is blank", () => {
