@@ -106,7 +106,7 @@ export function joinTokens(tokens: string[]): string {
     if (
       !result ||
       /^[,.;:!?%…\)\]\}]/u.test(token) ||
-      /[\(\[\{]$/u.test(result)
+      /[\(\[\{¿¡]$/u.test(result)
     ) {
       result += token;
     } else {

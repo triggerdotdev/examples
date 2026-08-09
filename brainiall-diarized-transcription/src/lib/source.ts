@@ -119,6 +119,16 @@ function safeFilename(url: URL): string {
   return sanitized || "audio.bin";
 }
 
+async function safeCancel(
+  target: { cancel: () => Promise<unknown> } | null | undefined,
+): Promise<void> {
+  try {
+    await target?.cancel();
+  } catch {
+    // Ignore cancellation failures to preserve primary errors and prevent credential leakage
+  }
+}
+
 async function readWithLimit(response: Response): Promise<Uint8Array> {
   if (!response.body) {
     throw new Error("Audio source returned an empty response.");
@@ -128,13 +138,21 @@ async function readWithLimit(response: Response): Promise<Uint8Array> {
   const chunks: Uint8Array[] = [];
   let total = 0;
   while (true) {
-    const { value, done } = await reader.read();
+    let readResult: ReadableStreamReadResult<Uint8Array>;
+    try {
+      readResult = await reader.read();
+    } catch {
+      await safeCancel(reader);
+      throw new Error("Could not download audio from the configured source.");
+    }
+
+    const { value, done } = readResult;
     if (done) {
       break;
     }
     total += value.byteLength;
     if (total > MAX_AUDIO_BYTES) {
-      await reader.cancel();
+      await safeCancel(reader);
       throw new Error("Audio exceeds the 25 MB example limit.");
     }
     chunks.push(value);
@@ -176,10 +194,10 @@ export async function downloadAllowedAudio(
     if (response.status >= 300 && response.status < 400) {
       const location = response.headers.get("location");
       if (!location || redirectCount === MAX_REDIRECTS) {
-        await response.body?.cancel();
+        await safeCancel(response.body);
         throw new Error("Audio source redirect could not be followed safely.");
       }
-      await response.body?.cancel();
+      await safeCancel(response.body);
       currentUrl = validateAudioSourceUrl(
         new URL(location, currentUrl).toString(),
         allowedHosts,
@@ -188,7 +206,7 @@ export async function downloadAllowedAudio(
     }
 
     if (!response.ok) {
-      await response.body?.cancel();
+      await safeCancel(response.body);
       throw new Error(`Audio source returned HTTP ${response.status}.`);
     }
 
@@ -198,11 +216,11 @@ export async function downloadAllowedAudio(
       contentLength !== undefined &&
       (!Number.isFinite(contentLength) || contentLength < 0)
     ) {
-      await response.body?.cancel();
+      await safeCancel(response.body);
       throw new Error("Audio source returned an invalid content length.");
     }
     if (contentLength !== undefined && contentLength > MAX_AUDIO_BYTES) {
-      await response.body?.cancel();
+      await safeCancel(response.body);
       throw new Error("Audio exceeds the 25 MB example limit.");
     }
 
@@ -214,15 +232,28 @@ export async function downloadAllowedAudio(
       !ALLOWED_CONTENT_TYPES.has(contentType) ||
       (contentType === "application/octet-stream" && !ALLOWED_EXTENSIONS.has(extension))
     ) {
-      await response.body?.cancel();
+      await safeCancel(response.body);
       throw new Error("Audio source returned an unsupported media type.");
     }
 
-    return {
-      bytes: await readWithLimit(response),
-      contentType,
-      filename: safeFilename(currentUrl),
-    };
+    try {
+      return {
+        bytes: await readWithLimit(response),
+        contentType,
+        filename: safeFilename(currentUrl),
+      };
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        (error.message === "Audio exceeds the 25 MB example limit." ||
+          error.message === "Audio source returned an empty response." ||
+          error.message === "Audio source returned an empty file." ||
+          error.message === "Could not download audio from the configured source.")
+      ) {
+        throw error;
+      }
+      throw new Error("Could not download audio from the configured source.");
+    }
   }
 
   throw new Error("Audio source redirect could not be followed safely.");

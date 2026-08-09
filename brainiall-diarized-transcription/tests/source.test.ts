@@ -72,6 +72,67 @@ test("redacts source URLs from network errors", async () => {
   );
 });
 
+test("redacts source URLs from response body read errors", async () => {
+  const hosts = parseAllowedSourceHosts("media.example.com");
+  const body = new ReadableStream<Uint8Array>({
+    pull(controller) {
+      controller.error(
+        new Error("stream read error at https://media.example.com/file.wav?sig=SUPERSECRET"),
+      );
+    },
+  });
+  const fetcher: FetchLike = async () =>
+    new Response(body, {
+      status: 200,
+      headers: { "content-type": "audio/wav" },
+    });
+
+  await assert.rejects(
+    downloadAllowedAudio(
+      "https://media.example.com/file.wav?sig=SUPERSECRET",
+      hosts,
+      fetcher,
+    ),
+    (error: Error) => {
+      assert.equal(error.message, "Could not download audio from the configured source.");
+      assert.equal(error.message.includes("SUPERSECRET"), false);
+      return true;
+    },
+  );
+});
+
+test("redacts source URLs from reader cancellation errors", async () => {
+  const hosts = parseAllowedSourceHosts("media.example.com");
+  const body = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(new Uint8Array(MAX_AUDIO_BYTES + 1));
+    },
+    cancel() {
+      throw new Error(
+        "cancellation error at https://media.example.com/file.wav?sig=SUPERSECRET",
+      );
+    },
+  });
+  const fetcher: FetchLike = async () =>
+    new Response(body, {
+      status: 200,
+      headers: { "content-type": "audio/wav" },
+    });
+
+  await assert.rejects(
+    downloadAllowedAudio(
+      "https://media.example.com/file.wav?sig=SUPERSECRET",
+      hosts,
+      fetcher,
+    ),
+    (error: Error) => {
+      assert.equal(error.message, "Audio exceeds the 25 MB example limit.");
+      assert.equal(error.message.includes("SUPERSECRET"), false);
+      return true;
+    },
+  );
+});
+
 test("revalidates every redirect against the hostname allowlist", async () => {
   const hosts = parseAllowedSourceHosts("media.example.com,cdn.example.com");
   const seen: string[] = [];
