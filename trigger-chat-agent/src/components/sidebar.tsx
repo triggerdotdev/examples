@@ -8,10 +8,12 @@ import { deleteChat } from "@/app/actions";
 import { AgentWordmark } from "@/components/wordmark";
 import { cn } from "@/lib/utils";
 
-export type ChatListItem = { id: string; title: string; updatedAt: Date | string };
+import type { ChatSummary } from "@/lib/chats";
+
+export type ChatListItem = ChatSummary;
 
 /** Today / Yesterday / Last 7 days / Older — a flat list reads as undated mush. */
-function groupByDate(chats: ChatListItem[]) {
+function groupByDate(chats: ChatSummary[]) {
   const now = Date.now();
   const day = 86_400_000;
   const groups: { label: string; items: ChatListItem[] }[] = [
@@ -28,7 +30,7 @@ function groupByDate(chats: ChatListItem[]) {
   return groups.filter((g) => g.items.length > 0);
 }
 
-export function Sidebar({ chats }: { chats: ChatListItem[] }) {
+export function Sidebar({ chats }: { chats: ChatSummary[] }) {
   const pathname = usePathname();
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -59,17 +61,17 @@ export function Sidebar({ chats }: { chats: ChatListItem[] }) {
           <div key={group.label} className="space-y-1">
             <div className="px-2 font-mono text-2xs uppercase tracking-widest text-dimmed">{group.label}</div>
             {group.items.map((c) => {
-              const active = pathname === `/chat/${c.id}`;
+              const active = pathname === `/chat/${c.chatId}`;
               return (
                 <div
-                  key={c.id}
+                  key={c.chatId}
                   className={cn(
                     "group flex items-center gap-1 rounded-lg pr-1 transition-colors",
                     active ? "bg-charcoal-800" : "hover:bg-charcoal-850"
                   )}
                 >
                   <Link
-                    href={`/chat/${c.id}`}
+                    href={`/chat/${c.chatId}`}
                     className="flex min-w-0 flex-1 items-center gap-2 px-2 py-2 text-xs text-bright/90"
                   >
                     <MessageSquare className="size-3 shrink-0 text-dimmed" />
@@ -80,7 +82,7 @@ export function Sidebar({ chats }: { chats: ChatListItem[] }) {
                     aria-label={`Delete ${c.title}`}
                     onClick={() =>
                       startTransition(async () => {
-                        await deleteChat(c.id);
+                        await deleteChat(c.chatId);
                         if (active) router.push("/");
                       })
                     }

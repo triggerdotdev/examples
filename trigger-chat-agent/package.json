@@ -7,9 +7,7 @@
     "build": "next build",
     "start": "next start",
     "dev:trigger": "trigger dev",
-    "deploy:trigger": "trigger deploy",
-    "db:generate": "drizzle-kit generate",
-    "db:push": "drizzle-kit push"
+    "deploy:trigger": "trigger deploy"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.0",
@@ -23,11 +21,9 @@
     "@xyflow/react": "^12.11.2",
     "ai": "^6.0.0",
     "clsx": "^2.1.1",
-    "drizzle-orm": "^0.45.2",
     "lucide-react": "^0.564.0",
     "motion": "^12.0.0",
     "next": "16.1.1",
-    "pg": "^8.22.0",
     "prism-react-renderer": "^2.4.1",
     "react": "19.2.3",
     "react-dom": "19.2.3",
@@ -39,10 +35,8 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^22",
-    "@types/pg": "^8.20.4",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "drizzle-kit": "^0.31.10",
     "tailwind-scrollbar": "^4.0.2",
     "tailwindcss": "^4",
     "trigger.dev": "^4.5.1",

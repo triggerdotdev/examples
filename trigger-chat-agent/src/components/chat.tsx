@@ -3,7 +3,7 @@
 import { useChat } from "@ai-sdk/react";
 import { useTriggerChatTransport } from "@trigger.dev/sdk/chat/react";
 import type { UIMessage } from "ai";
-import { ArrowRight, ArrowUp, BookOpen, GraduationCap, Shuffle, Sparkles, Square } from "lucide-react";
+import { ArrowRight, ArrowUp, BookOpen, Check, ChevronDown, Globe2, GraduationCap, Shuffle, Sparkles, Square } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { mintChatAccessToken, startChatSession } from "@/app/actions";
@@ -34,6 +34,44 @@ const CHIP_KINDS: Record<string, { icon: typeof ArrowRight; className: string }>
 };
 
 type NextChip = { label: string; kind: string };
+type MessagePartValue = UIMessage["parts"][number];
+type MessagePartGroup =
+  | { kind: "docs"; parts: MessagePartValue[] }
+  | { kind: "part"; part: MessagePartValue };
+
+function isDocsToolPart(part: MessagePartValue): boolean {
+  if (part.type === "tool-renderVisualization" || part.type === "tool-suggestNext") return false;
+  if (part.type === "dynamic-tool") {
+    return (part as { toolName?: string }).toolName !== "suggestNext";
+  }
+  return part.type.startsWith("tool-");
+}
+
+/** Consecutive documentation lookups read as one connected provenance trail. */
+function groupMessageParts(parts: MessagePartValue[]): MessagePartGroup[] {
+  const groups: MessagePartGroup[] = [];
+  for (const part of parts) {
+    if (isDocsToolPart(part)) {
+      const last = groups[groups.length - 1];
+      if (last?.kind === "docs") last.parts.push(part);
+      else groups.push({ kind: "docs", parts: [part] });
+      continue;
+    }
+
+    // The AI SDK inserts structural parts between model steps. MessagePart
+    // intentionally draws none of them; skipping them here also lets lookups
+    // from successive steps stay on one connected spine.
+    const visible =
+      part.type === "text" ||
+      part.type === "tool-renderVisualization" ||
+      part.type === "tool-suggestNext" ||
+      (part.type === "dynamic-tool" && (part as { toolName?: string }).toolName === "suggestNext");
+    if (visible) {
+      groups.push({ kind: "part", part });
+    }
+  }
+  return groups;
+}
 
 /**
  * The chips from the most recent assistant turn's `suggestNext` call. Read from
@@ -62,31 +100,30 @@ function latestSuggestNextChips(messages: UIMessage[]): NextChip[] {
 export function Chat({
   chatId,
   userId,
-  initialMessages = [],
-  initialSessions,
+  resumed = false,
 }: {
   chatId: string;
   userId: string;
-  initialMessages?: UIMessage[];
-  initialSessions?: Record<string, { publicAccessToken: string; lastEventId?: string }>;
+  /** Opened from the sidebar: the agent has the history, this browser doesn't. */
+  resumed?: boolean;
 }) {
+  // Holds the question being sent so `startSession` can name the conversation.
+  const pendingTitleRef = useRef<string | undefined>(undefined);
   const transport = useTriggerChatTransport<typeof triggerChatAgent>({
     task: "trigger-chat-agent",
     baseURL: process.env.NEXT_PUBLIC_TRIGGER_API_URL,
     accessToken: ({ chatId }) => mintChatAccessToken(chatId),
-    startSession: ({ chatId, clientData }) => startChatSession({ chatId, clientData }),
+    // The session is created on the first send, and metadata can only be set
+    // then — so pass the question along as the conversation's title.
+    startSession: ({ chatId, clientData }) =>
+      startChatSession({ chatId, clientData, title: pendingTitleRef.current }),
     // Owns the chat rows the agent writes in its lifecycle hooks.
     clientData: { userId },
-    // Persisted token + SSE cursor, so a reload picks the stream back up
-    // instead of replaying from the start.
-    sessions: initialSessions,
   });
 
   const { messages, sendMessage, stop, status, error, regenerate, clearError } = useChat({
     id: chatId,
-    messages: initialMessages,
     transport,
-    resume: initialMessages.length > 0,
   });
   const [input, setInput] = useState("");
   const [chips, setChips] = useState<NextChip[]>([]);
@@ -149,6 +186,7 @@ export function Chat({
     const trimmed = text.trim();
     if (!trimmed || busy) return;
     setChips([]);
+    if (messages.length === 0) pendingTitleRef.current = trimmed;
     // Put the chat in the URL on the first message, via the History API rather
     // than the router: a Next navigation would remount this component and kill
     // the in-flight stream. The agent creates the row server-side with this id.
@@ -169,16 +207,26 @@ export function Chat({
         <span className="font-mono text-2xs uppercase tracking-widest text-charcoal-500">interactive guide</span>
       </header>
 
-      {/* The thread runs the full height and passes under the composer: the
-          bottom padding clears the dock, and the mask dissolves the last inch
-          into the background so nothing hard-cuts behind the input. */}
+      {/* The thread runs the full height and passes under the composer. Bottom
+          padding clears the dock; the dock owns the fade and chips own blur. */}
       <div
         ref={scrollerRef}
-        className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-44 pt-6 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-charcoal-700 [mask-image:linear-gradient(to_bottom,#000_calc(100%-7rem),transparent)] sm:pt-8"
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-44 pt-6 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-charcoal-700 sm:pt-8"
       >
         {/* Single child: what the ResizeObserver measures to follow the stream. */}
         <div className="space-y-8">
-        {messages.length === 0 ? (
+        {messages.length === 0 && resumed ? (
+          <div className="flex min-h-full items-center justify-center">
+            <div className="max-w-md text-center">
+              <p className="font-title text-lg font-medium text-bright">Picking up where you left off</p>
+              <p className="mt-2 text-sm leading-6 text-dimmed [text-wrap:pretty]">
+                The agent still has this conversation in full — Trigger.dev keeps it with the session. Your browser
+                doesn&apos;t have a copy of the earlier messages, so they aren&apos;t shown here. Ask something and
+                it&apos;ll carry on as if nothing happened.
+              </p>
+            </div>
+          </div>
+        ) : messages.length === 0 ? (
           <div className="flex min-h-full items-center justify-center py-8 sm:py-12">
             <div className="w-full">
               <div className="mb-10 max-w-2xl sm:mb-12">
@@ -230,15 +278,14 @@ export function Chat({
         </div>
       </div>
 
-      {/* Floats over the thread. Only the controls take pointer events, so the
-          transparent gutter above them doesn't block scrolling. */}
-      <footer className="pointer-events-none absolute inset-x-0 bottom-0 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 sm:px-6">
+      {/* Floats over the thread. A raised dark gradient separates the controls
+          without blurring the whole footer; only chip surfaces blur. */}
+      <footer className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-background from-50% via-background/90 via-80% to-transparent px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-10 sm:px-6">
         {chips.length > 0 && !busy && (
-          <div className="pointer-events-auto mb-3 flex items-center gap-3">
-            <span className="shrink-0 font-mono text-2xs uppercase tracking-widest text-charcoal-500">Next</span>
-            {/* Fades the last chip out at the right edge, so the overflow reads
-                as "more this way" instead of a hard crop. */}
-            <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto pb-1 [mask-image:linear-gradient(to_right,#000_calc(100%-2.5rem),transparent)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="pointer-events-auto -mx-4 mb-3 overflow-hidden sm:-mx-6">
+            {/* The rail reaches the column rules, so overflow hard-clips at the
+                established borders. Left padding keeps its first chip aligned. */}
+            <div className="flex gap-2 overflow-x-auto pb-1 pl-4 [scrollbar-width:none] sm:pl-6 [&::-webkit-scrollbar]:hidden">
               {chips.map((chip, i) => {
                 const kind = CHIP_KINDS[chip.kind] ?? CHIP_KINDS.topic;
                 const Icon = kind.icon;
@@ -247,7 +294,7 @@ export function Chat({
                     key={i}
                     type="button"
                     onClick={() => submit(chip.label)}
-                    className={`inline-flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-xl border px-3 py-2 text-left text-xs font-medium leading-4 transition-colors duration-150 ${kind.className}`}
+                    className={`inline-flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-xl border bg-charcoal-950/70 px-3 py-2 text-left text-xs font-medium leading-4 backdrop-blur-md transition-colors duration-150 ${kind.className}`}
                   >
                     <Icon className="size-3.5 shrink-0" /> {chip.label}
                   </button>
@@ -368,11 +415,87 @@ function Message({
     );
   }
 
+  const groupedParts = groupMessageParts(message.parts);
+
   return (
     <div className="space-y-4 sm:space-y-5">
-      {message.parts.map((part, i) => (
-        <MessagePart key={i} part={part} onPick={onPick} busy={busy} reduce={reduce} />
-      ))}
+      {groupedParts.map((group, i) =>
+        group.kind === "docs" ? (
+          <DocsToolChain key={i} parts={group.parts} />
+        ) : (
+          <MessagePart key={i} part={group.part} onPick={onPick} busy={busy} reduce={reduce} />
+        )
+      )}
+    </div>
+  );
+}
+
+function docsToolLabel(part: MessagePartValue): string {
+  const toolName =
+    part.type === "dynamic-tool"
+      ? ((part as { toolName?: string }).toolName ?? "documentation")
+      : part.type.replace(/^tool-/, "");
+  const input = (part as { input?: Record<string, unknown> }).input;
+  const query = typeof input?.query === "string" ? input.query : null;
+  const library = typeof input?.libraryName === "string" ? input.libraryName : null;
+
+  if (/resolve.*library|library.*resolve/i.test(toolName)) {
+    return library ? `Find the ${library} documentation` : "Find the Trigger.dev documentation";
+  }
+  if (query) return query;
+  return toolName
+    .replace(/[-_]+/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function DocsToolChain({ parts }: { parts: MessagePartValue[] }) {
+  const [expanded, setExpanded] = useState(false);
+  const complete = parts.every((part) => (part as { state?: string }).state === "output-available");
+
+  return (
+    <div className="rounded-2xl border border-grid-dimmed bg-charcoal-950/60 px-4 py-3" aria-label="Documentation lookups">
+      <button
+        type="button"
+        aria-expanded={expanded}
+        onClick={() => setExpanded((value) => !value)}
+        className="mb-1 flex min-h-10 w-full items-center gap-2 rounded-lg text-left"
+      >
+        <BookOpen className="size-3.5 text-apple-500" />
+        <span className="font-mono text-2xs uppercase tracking-widest text-dimmed">Grounding in the docs</span>
+        <span className="ml-auto font-mono text-2xs text-charcoal-500">
+          {complete ? "Complete" : "Searching"}
+        </span>
+        <ChevronDown
+          className={`size-3.5 shrink-0 text-charcoal-500 transition-transform duration-150 ${expanded ? "rotate-180" : ""}`}
+        />
+      </button>
+      <div className="relative space-y-3 before:absolute before:bottom-2 before:left-[0.4375rem] before:top-2 before:w-px before:bg-grid-bright">
+        {parts.map((part, i) => {
+          const done = (part as { state?: string }).state === "output-available";
+          const label = docsToolLabel(part);
+          return (
+            <div key={i} className="relative flex min-w-0 items-start gap-3">
+              <span className="relative z-10 mt-0.5 flex size-3.5 shrink-0 items-center justify-center rounded-full bg-charcoal-950 text-dimmed">
+                <Globe2 className="size-3.5" />
+              </span>
+              <span
+                className={`min-w-0 flex-1 text-sm text-dimmed ${expanded ? "break-words leading-5" : "truncate"}`}
+                title={label}
+              >
+                {label}
+              </span>
+              {done ? (
+                <Check className="mt-0.5 size-3.5 shrink-0 text-dimmed" aria-label="Complete" />
+              ) : (
+                <span className="relative mt-1 flex size-2 shrink-0" aria-label="Searching">
+                  <span className="absolute inset-0 animate-ping rounded-full bg-apple-500/60 motion-reduce:animate-none" />
+                  <span className="relative size-2 rounded-full bg-apple-500" />
+                </span>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

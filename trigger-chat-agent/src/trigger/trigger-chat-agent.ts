@@ -1,12 +1,11 @@
-import { logger, prompts } from "@trigger.dev/sdk";
 import { chat } from "@trigger.dev/sdk/ai";
 import { anthropic } from "@ai-sdk/anthropic";
 import { createMCPClient } from "@ai-sdk/mcp";
 import { createProviderRegistry, stepCountIs, streamText, tool, type ToolSet } from "ai";
 import { z } from "zod";
+import { logger, prompts } from "@trigger.dev/sdk";
 import { catalogPromptSection, normalizeSpec, validateSpec } from "../lib/catalog";
 import { quarantineDocs, renderToolText } from "../lib/quarantine";
-import { ensureChat, saveMessages, saveTurn, titleFromMessages } from "../lib/db/queries";
 
 // ============================================================================
 // Docs MCP — grounds answers on live Trigger.dev docs so the agent doesn't
@@ -259,12 +258,6 @@ export const triggerChatAgent = chat.agent({
     return { renderVisualization, suggestNext, ...docsTools };
   },
 
-  // Fires once per chat (never on continuation runs) — exactly the lifetime of
-  // the conversation row. No-ops when DATABASE_URL isn't set.
-  onChatStart: async ({ chatId, clientData }) => {
-    await ensureChat(chatId, clientData.userId);
-  },
-
   onTurnStart: async ({ chatId, uiMessages }) => {
     // Set the prompt here rather than onChatStart: onTurnStart fires on every
     // turn INCLUDING the first turn of a continuation run, so the system prompt
@@ -273,25 +266,12 @@ export const triggerChatAgent = chat.agent({
     // what links model-call spans to the prompt and makes LLM observability
     // (tokens, cost, latency) show up in the dashboard.
     chat.prompt.set(await getResolvedPrompt());
-
-    // Awaited, not chat.defer: the stream doesn't start until this resolves, so
-    // this is what makes the user's message durable before the model runs. With
-    // a fire-and-forget write, a refresh mid-stream loses the question.
-    await saveMessages(chatId, uiMessages);
   },
 
-  onTurnComplete: async ({ chatId, uiMessages, chatAccessToken, lastEventId }) => {
-    // One transaction: the next page load reads the messages and the resume
-    // cursor in parallel, so a refresh racing two separate writes could resume
-    // from a stale cursor and replay the turn on top of itself.
-    await saveTurn({
-      chatId,
-      messages: uiMessages,
-      publicAccessToken: chatAccessToken,
-      lastEventId,
-      title: titleFromMessages(uiMessages),
-    });
-  },
+  // No persistence hooks: Trigger.dev already holds the transcript with the
+  // Session, and the sidebar's title/owner are stamped into session metadata at
+  // creation time (see startChatSession) because sessions.update() is
+  // Unauthorized on SDK 4.5.9.
 
   run: async ({ messages, tools, signal }) => {
     return streamText({

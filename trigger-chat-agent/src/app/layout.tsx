@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Sidebar } from "@/components/sidebar";
-import { isPersistenceEnabled } from "@/lib/db";
-import { listChats } from "@/lib/db/queries";
+import { listChats } from "@/lib/chats";
 import { getUserId } from "@/lib/user";
 import "./globals.css";
 
@@ -16,9 +15,8 @@ export const metadata: Metadata = {
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  // With no DATABASE_URL there's no history to show, so the sidebar is simply
-  // absent and the app is a single-conversation demo.
-  const userId = isPersistenceEnabled ? await getUserId() : null;
+  // The chat list comes straight from Trigger.dev's Sessions — no database.
+  const userId = await getUserId();
   const chats = userId ? await listChats(userId) : [];
 
   return (
@@ -33,7 +31,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased`}>
         <div className="flex h-dvh">
-          {isPersistenceEnabled && <Sidebar chats={chats} />}
+          <Sidebar chats={chats} />
           <div className="min-w-0 flex-1">{children}</div>
         </div>
       </body>

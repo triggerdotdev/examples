@@ -110,7 +110,7 @@ const NODE_MAX_WIDTH = 300;
 // same computed width, so text truncates rather than overflowing.
 const LABEL_CHAR = 7.8; // 14px sans, medium
 const KIND_CHAR = 6.7; // 10px mono, uppercase + tracking
-const SUB_CHAR = 7.2; // 12px mono
+const SUB_CHAR = 7.8; // 12px mono + a little safety for tracking/font variance
 
 function nodeWidth(n: FlowNode): number {
   // px-3 padding + status dot + gaps + the kind tag on the right
@@ -353,8 +353,9 @@ function StatusDot({ status, reduceMotion }: { status: FlowNodeStatus; reduceMot
 }
 
 /** Custom React Flow node — a panel with a status dot + labels. */
-function FlowNodeCard({ data }: NodeProps<FlowRFNode>) {
+function FlowNodeCard({ data, id }: NodeProps<FlowRFNode>) {
   const s = statusClasses[data.status];
+  const tooltipId = `flow-node-${id}-details`;
   return (
     <motion.div
       // Rise + fade + settle, no overshoot (scale climbs 0.96 -> 1 and stops).
@@ -364,8 +365,11 @@ function FlowNodeCard({ data }: NodeProps<FlowRFNode>) {
         data.reduceMotion ? { duration: 0 } : { delay: data.revealDelay, duration: 0.35, ease: easings.outExpo }
       }
       style={{ width: data.width }}
+      tabIndex={0}
+      aria-describedby={data.sublabel ? tooltipId : undefined}
+      aria-label={`${data.label}, ${kindLabels[data.kind]}${data.sublabel ? `, ${data.sublabel}` : ""}`}
       className={cn(
-        "relative flex flex-col gap-1 rounded-xl border bg-charcoal-800 px-3 py-2",
+        "group relative flex flex-col gap-1 rounded-xl border bg-charcoal-800 px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-apple-400",
         s.border
       )}
     >
@@ -381,7 +385,23 @@ function FlowNodeCard({ data }: NodeProps<FlowRFNode>) {
           {kindLabels[data.kind]}
         </span>
       </div>
-      {data.sublabel && <span className="truncate pl-4 font-mono text-xs text-dimmed">{data.sublabel}</span>}
+      {data.sublabel && (
+        <>
+          <span className="truncate pl-4 font-mono text-xs text-dimmed" title={data.sublabel}>
+            {data.sublabel}
+          </span>
+          <span
+            id={tooltipId}
+            role="tooltip"
+            className="pointer-events-none absolute left-1/2 top-[calc(100%+0.5rem)] z-50 hidden w-max max-w-60 -translate-x-1/2 rounded-lg border border-grid-bright bg-popover/95 px-3 py-2 text-left shadow-xl backdrop-blur-md group-focus:flex group-hover:flex"
+          >
+            <span className="flex flex-col gap-1">
+              <span className="text-sm font-medium text-bright">{data.label}</span>
+              <span className="whitespace-normal font-mono text-xs leading-5 text-dimmed">{data.sublabel}</span>
+            </span>
+          </span>
+        </>
+      )}
       <Handle id={HANDLE.sourceBottom} type="source" position={Position.Bottom} isConnectable={false} className="!h-1.5 !w-1.5 !border-0 !bg-transparent" />
       <Handle id={HANDLE.sourceLeft} type="source" position={Position.Left} isConnectable={false} className="!h-1.5 !w-1.5 !border-0 !bg-transparent" />
       <Handle id={HANDLE.sourceRight} type="source" position={Position.Right} isConnectable={false} className="!h-1.5 !w-1.5 !border-0 !bg-transparent" />
