@@ -3,7 +3,18 @@
 import { useChat } from "@ai-sdk/react";
 import { useTriggerChatTransport } from "@trigger.dev/sdk/chat/react";
 import type { UIMessage } from "ai";
-import { ArrowRight, ArrowUp, BookOpen, Check, ChevronDown, Globe2, GraduationCap, Shuffle, Sparkles, Square } from "lucide-react";
+import {
+  ArrowRight,
+  ArrowUp,
+  BookOpen,
+  Check,
+  ChevronDown,
+  Globe2,
+  GraduationCap,
+  Shuffle,
+  Sparkles,
+  Square,
+} from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { mintChatAccessToken, startChatSession } from "@/app/actions";
@@ -16,7 +27,10 @@ import { Visualization } from "@/components/visualization";
 import type { triggerChatAgent } from "@/trigger/trigger-chat-agent";
 
 // The empty-state seed. The altitude of the chip picked calibrates the session.
-const START_HERE = ["What is Trigger.dev, and how does it work?", "What's a task, and how do I run one?"];
+const START_HERE = [
+  "What is Trigger.dev, and how does it work?",
+  "What's a task, and how do I run one?",
+];
 const GO_DEEPER = [
   "How is this app built?",
   "How do fan-out retries work?",
@@ -24,13 +38,30 @@ const GO_DEEPER = [
   "How do queues control concurrency?",
   "How do waitpoints work?",
 ];
-const MORE_TOPICS = "Suggest more Trigger.dev topics I could learn — mix beginner and advanced.";
+const MORE_TOPICS =
+  "Suggest more Trigger.dev topics I could learn — mix beginner and advanced.";
 
-const CHIP_KINDS: Record<string, { icon: typeof ArrowRight; className: string }> = {
-  deeper: { icon: ArrowRight, className: "border-apple-500/40 text-bright hover:bg-apple-500/10 [&_svg]:text-apple-500" },
-  sideways: { icon: Shuffle, className: "border-charcoal-700 text-dimmed hover:bg-charcoal-800" },
-  practice: { icon: GraduationCap, className: "border-charcoal-700 text-bright hover:bg-charcoal-800" },
-  topic: { icon: Sparkles, className: "border-charcoal-700 text-dimmed hover:bg-charcoal-800" },
+const CHIP_KINDS: Record<
+  string,
+  { icon: typeof ArrowRight; className: string }
+> = {
+  deeper: {
+    icon: ArrowRight,
+    className:
+      "border-apple-500/40 text-bright hover:bg-apple-500/10 [&_svg]:text-apple-500",
+  },
+  sideways: {
+    icon: Shuffle,
+    className: "border-charcoal-700 text-dimmed hover:bg-charcoal-800",
+  },
+  practice: {
+    icon: GraduationCap,
+    className: "border-charcoal-700 text-bright hover:bg-charcoal-800",
+  },
+  topic: {
+    icon: Sparkles,
+    className: "border-charcoal-700 text-dimmed hover:bg-charcoal-800",
+  },
 };
 
 type NextChip = { label: string; kind: string };
@@ -40,7 +71,11 @@ type MessagePartGroup =
   | { kind: "part"; part: MessagePartValue };
 
 function isDocsToolPart(part: MessagePartValue): boolean {
-  if (part.type === "tool-renderVisualization" || part.type === "tool-suggestNext") return false;
+  if (
+    part.type === "tool-renderVisualization" ||
+    part.type === "tool-suggestNext"
+  )
+    return false;
   if (part.type === "dynamic-tool") {
     return (part as { toolName?: string }).toolName !== "suggestNext";
   }
@@ -65,7 +100,8 @@ function groupMessageParts(parts: MessagePartValue[]): MessagePartGroup[] {
       part.type === "text" ||
       part.type === "tool-renderVisualization" ||
       part.type === "tool-suggestNext" ||
-      (part.type === "dynamic-tool" && (part as { toolName?: string }).toolName === "suggestNext");
+      (part.type === "dynamic-tool" &&
+        (part as { toolName?: string }).toolName === "suggestNext");
     if (visible) {
       groups.push({ kind: "part", part });
     }
@@ -86,7 +122,8 @@ function latestSuggestNextChips(messages: UIMessage[]): NextChip[] {
     for (const part of m.parts) {
       const isSuggest =
         part.type === "tool-suggestNext" ||
-        (part.type === "dynamic-tool" && (part as { toolName?: string }).toolName === "suggestNext");
+        (part.type === "dynamic-tool" &&
+          (part as { toolName?: string }).toolName === "suggestNext");
       if (!isSuggest) continue;
       const input = (part as { input?: { chips?: NextChip[] } }).input;
       const chips = input?.chips?.filter((c) => c?.label) ?? [];
@@ -97,34 +134,20 @@ function latestSuggestNextChips(messages: UIMessage[]): NextChip[] {
   return [];
 }
 
-export function Chat({
-  chatId,
-  userId,
-  resumed = false,
-}: {
-  chatId: string;
-  userId: string;
-  /** Opened from the sidebar: the agent has the history, this browser doesn't. */
-  resumed?: boolean;
-}) {
-  // Holds the question being sent so `startSession` can name the conversation.
-  const pendingTitleRef = useRef<string | undefined>(undefined);
+export function Chat() {
   const transport = useTriggerChatTransport<typeof triggerChatAgent>({
     task: "trigger-chat-agent",
+    // Only needed when the agent runs somewhere other than cloud.trigger.dev
+    // (e.g. self-hosted) — the server-side TRIGGER_API_URL isn't visible in the
+    // browser, so the SSE endpoints get their base URL from this.
     baseURL: process.env.NEXT_PUBLIC_TRIGGER_API_URL,
     accessToken: ({ chatId }) => mintChatAccessToken(chatId),
-    // The session is created on the first send, and metadata can only be set
-    // then — so pass the question along as the conversation's title.
     startSession: ({ chatId, clientData }) =>
-      startChatSession({ chatId, clientData, title: pendingTitleRef.current }),
-    // Owns the chat rows the agent writes in its lifecycle hooks.
-    clientData: { userId },
+      startChatSession({ chatId, clientData }),
   });
 
-  const { messages, sendMessage, stop, status, error, regenerate, clearError } = useChat({
-    id: chatId,
-    transport,
-  });
+  const { messages, sendMessage, stop, status, error, regenerate, clearError } =
+    useChat({ transport });
   const [input, setInput] = useState("");
   const [chips, setChips] = useState<NextChip[]>([]);
   const reduce = useReducedMotion();
@@ -141,7 +164,10 @@ export function Chat({
   useEffect(() => {
     if (messages[messages.length - 1]?.role === "user") {
       followRef.current = true;
-      lastRowRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
+      lastRowRef.current?.scrollIntoView({
+        block: "start",
+        behavior: "smooth",
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages.length]);
@@ -154,7 +180,8 @@ export function Chat({
     const content = scroller?.firstElementChild;
     if (!scroller || !content) return;
 
-    const atBottom = () => scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 80;
+    const atBottom = () =>
+      scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 80;
     const onUserScroll = () => {
       followRef.current = atBottom();
     };
@@ -186,13 +213,6 @@ export function Chat({
     const trimmed = text.trim();
     if (!trimmed || busy) return;
     setChips([]);
-    if (messages.length === 0) pendingTitleRef.current = trimmed;
-    // Put the chat in the URL on the first message, via the History API rather
-    // than the router: a Next navigation would remount this component and kill
-    // the in-flight stream. The agent creates the row server-side with this id.
-    if (messages.length === 0) {
-      window.history.replaceState({}, "", `/chat/${chatId}`);
-    }
     sendMessage({ text: trimmed });
     setInput("");
   }
@@ -204,7 +224,9 @@ export function Chat({
     <main className="relative mx-auto flex h-dvh w-full max-w-[52rem] flex-col border-x border-grid-dimmed px-4 sm:px-6">
       <header className="flex h-16 shrink-0 items-center justify-between gap-4 border-b border-grid-dimmed">
         <AgentWordmark className="text-lg" />
-        <span className="font-mono text-2xs uppercase tracking-widest text-charcoal-500">interactive guide</span>
+        <span className="font-mono text-2xs uppercase tracking-widest text-charcoal-500">
+          interactive guide
+        </span>
       </header>
 
       {/* The thread runs the full height and passes under the composer. Bottom
@@ -215,66 +237,76 @@ export function Chat({
       >
         {/* Single child: what the ResizeObserver measures to follow the stream. */}
         <div className="space-y-8">
-        {messages.length === 0 && resumed ? (
-          <div className="flex min-h-full items-center justify-center">
-            <div className="max-w-md text-center">
-              <p className="font-title text-lg font-medium text-bright">Picking up where you left off</p>
-              <p className="mt-2 text-sm leading-6 text-dimmed [text-wrap:pretty]">
-                The agent still has this conversation in full — Trigger.dev keeps it with the session. Your browser
-                doesn&apos;t have a copy of the earlier messages, so they aren&apos;t shown here. Ask something and
-                it&apos;ll carry on as if nothing happened.
-              </p>
-            </div>
-          </div>
-        ) : messages.length === 0 ? (
-          <div className="flex min-h-full items-center justify-center py-8 sm:py-12">
-            <div className="w-full">
-              <div className="mb-10 max-w-2xl sm:mb-12">
-                <div className="mb-3 font-mono text-xs uppercase tracking-wider text-apple-500">Learn by asking</div>
-                <h1 className="font-title text-[2.45rem] font-semibold leading-[1.08] tracking-tight text-bright [text-wrap:balance] sm:text-5xl">
-                  See how Trigger.dev works, not just what it does.
-                </h1>
-                <p className="mt-5 max-w-[60ch] text-base leading-7 text-dimmed [text-wrap:pretty]">
-                  Ask a question and get a visual lesson grounded in the live docs—with diagrams, code, and quick
-                  checks for understanding.
-                </p>
-              </div>
+          {messages.length === 0 ? (
+            <div className="flex min-h-full items-center justify-center py-8 sm:py-12">
+              <div className="w-full">
+                <div className="mb-10 max-w-2xl sm:mb-12">
+                  <div className="mb-3 font-mono text-xs uppercase tracking-wider text-apple-500">
+                    Learn by asking
+                  </div>
+                  <h1 className="font-title text-[2.45rem] font-semibold leading-[1.08] tracking-tight text-bright [text-wrap:balance] sm:text-5xl">
+                    See how Trigger.dev works, not just what it does.
+                  </h1>
+                  <p className="mt-5 max-w-[60ch] text-base leading-7 text-dimmed [text-wrap:pretty]">
+                    Ask a question and get a visual lesson grounded in the live
+                    docs, with diagrams, code, and quick checks for
+                    understanding.
+                  </p>
+                </div>
 
-              <ChipGroup label="Start here" items={START_HERE} onPick={submit} featured />
-              <div className="mt-8">
-                <ChipGroup label="Go deeper" items={GO_DEEPER} onPick={submit} />
-              </div>
-              <div className="mt-4">
-                <button
-                  type="button"
-                  onClick={() => submit(MORE_TOPICS)}
-                  className="inline-flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm font-medium text-apple-500 transition-colors duration-150 hover:bg-apple-500/10"
-                >
-                  <Sparkles className="size-4" /> Suggest more topics
-                </button>
+                <ChipGroup
+                  label="Start here"
+                  items={START_HERE}
+                  onPick={submit}
+                  featured
+                />
+                <div className="mt-8">
+                  <ChipGroup
+                    label="Go deeper"
+                    items={GO_DEEPER}
+                    onPick={submit}
+                  />
+                </div>
+                <div className="mt-4">
+                  <button
+                    type="button"
+                    onClick={() => submit(MORE_TOPICS)}
+                    className="inline-flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm font-medium text-apple-500 transition-colors duration-150 hover:bg-apple-500/10"
+                  >
+                    <Sparkles className="size-4" /> Suggest more topics
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        ) : (
-          messages.map((message, i) => (
-            <div key={message.id} ref={i === messages.length - 1 ? lastRowRef : undefined} className="scroll-mt-4">
-              <Message message={message} onPick={submit} busy={busy} reduce={!!reduce} />
-            </div>
-          ))
-        )}
+          ) : (
+            messages.map((message, i) => (
+              <div
+                key={message.id}
+                ref={i === messages.length - 1 ? lastRowRef : undefined}
+                className="scroll-mt-4"
+              >
+                <Message
+                  message={message}
+                  onPick={submit}
+                  busy={busy}
+                  reduce={!!reduce}
+                />
+              </div>
+            ))
+          )}
 
-        {status === "submitted" && <Thinking />}
+          {status === "submitted" && <Thinking />}
 
-        {error && (
-          <ErrorNotice
-            error={error}
-            onRetry={() => {
-              clearError();
-              regenerate();
-            }}
-            onDismiss={clearError}
-          />
-        )}
+          {error && (
+            <ErrorNotice
+              error={error}
+              onRetry={() => {
+                clearError();
+                regenerate();
+              }}
+              onDismiss={clearError}
+            />
+          )}
         </div>
       </div>
 
@@ -340,7 +372,7 @@ export function Chat({
             )}
           </div>
           <p className="mt-2 text-center text-2xs leading-4 text-charcoal-500">
-            A Trigger.dev chat.agent. It can be wrong — check the linked docs.
+            AI can make mistakes.
           </p>
         </form>
       </footer>
@@ -361,7 +393,9 @@ function ChipGroup({
 }) {
   return (
     <section aria-label={label}>
-      <div className="mb-3 font-mono text-2xs uppercase tracking-widest text-charcoal-500">{label}</div>
+      <div className="mb-3 font-mono text-2xs uppercase tracking-widest text-charcoal-500">
+        {label}
+      </div>
       <div
         className={
           featured
@@ -409,7 +443,9 @@ function Message({
           animate="show"
           className="max-w-[85%] origin-bottom-right rounded-2xl rounded-br-sm bg-lavender-500 px-4 py-3 text-sm leading-6 text-charcoal-100 sm:max-w-[72%]"
         >
-          {message.parts.map((part, i) => (part.type === "text" ? <span key={i}>{part.text}</span> : null))}
+          {message.parts.map((part, i) =>
+            part.type === "text" ? <span key={i}>{part.text}</span> : null,
+          )}
         </motion.div>
       </div>
     );
@@ -423,8 +459,14 @@ function Message({
         group.kind === "docs" ? (
           <DocsToolChain key={i} parts={group.parts} />
         ) : (
-          <MessagePart key={i} part={group.part} onPick={onPick} busy={busy} reduce={reduce} />
-        )
+          <MessagePart
+            key={i}
+            part={group.part}
+            onPick={onPick}
+            busy={busy}
+            reduce={reduce}
+          />
+        ),
       )}
     </div>
   );
@@ -437,10 +479,13 @@ function docsToolLabel(part: MessagePartValue): string {
       : part.type.replace(/^tool-/, "");
   const input = (part as { input?: Record<string, unknown> }).input;
   const query = typeof input?.query === "string" ? input.query : null;
-  const library = typeof input?.libraryName === "string" ? input.libraryName : null;
+  const library =
+    typeof input?.libraryName === "string" ? input.libraryName : null;
 
   if (/resolve.*library|library.*resolve/i.test(toolName)) {
-    return library ? `Find the ${library} documentation` : "Find the Trigger.dev documentation";
+    return library
+      ? `Find the ${library} documentation`
+      : "Find the Trigger.dev documentation";
   }
   if (query) return query;
   return toolName
@@ -450,10 +495,15 @@ function docsToolLabel(part: MessagePartValue): string {
 
 function DocsToolChain({ parts }: { parts: MessagePartValue[] }) {
   const [expanded, setExpanded] = useState(false);
-  const complete = parts.every((part) => (part as { state?: string }).state === "output-available");
+  const complete = parts.every(
+    (part) => (part as { state?: string }).state === "output-available",
+  );
 
   return (
-    <div className="rounded-2xl border border-grid-dimmed bg-charcoal-950/60 px-4 py-3" aria-label="Documentation lookups">
+    <div
+      className="rounded-2xl border border-grid-dimmed bg-charcoal-950/60 px-4 py-3"
+      aria-label="Documentation lookups"
+    >
       <button
         type="button"
         aria-expanded={expanded}
@@ -461,7 +511,9 @@ function DocsToolChain({ parts }: { parts: MessagePartValue[] }) {
         className="mb-1 flex min-h-10 w-full items-center gap-2 rounded-lg text-left"
       >
         <BookOpen className="size-3.5 text-apple-500" />
-        <span className="font-mono text-2xs uppercase tracking-widest text-dimmed">Grounding in the docs</span>
+        <span className="font-mono text-2xs uppercase tracking-widest text-dimmed">
+          Grounding in the docs
+        </span>
         <span className="ml-auto font-mono text-2xs text-charcoal-500">
           {complete ? "Complete" : "Searching"}
         </span>
@@ -471,7 +523,8 @@ function DocsToolChain({ parts }: { parts: MessagePartValue[] }) {
       </button>
       <div className="relative space-y-3 before:absolute before:bottom-2 before:left-[0.4375rem] before:top-2 before:w-px before:bg-grid-bright">
         {parts.map((part, i) => {
-          const done = (part as { state?: string }).state === "output-available";
+          const done =
+            (part as { state?: string }).state === "output-available";
           const label = docsToolLabel(part);
           return (
             <div key={i} className="relative flex min-w-0 items-start gap-3">
@@ -485,9 +538,15 @@ function DocsToolChain({ parts }: { parts: MessagePartValue[] }) {
                 {label}
               </span>
               {done ? (
-                <Check className="mt-0.5 size-3.5 shrink-0 text-dimmed" aria-label="Complete" />
+                <Check
+                  className="mt-0.5 size-3.5 shrink-0 text-dimmed"
+                  aria-label="Complete"
+                />
               ) : (
-                <span className="relative mt-1 flex size-2 shrink-0" aria-label="Searching">
+                <span
+                  className="relative mt-1 flex size-2 shrink-0"
+                  aria-label="Searching"
+                >
                   <span className="absolute inset-0 animate-ping rounded-full bg-apple-500/60 motion-reduce:animate-none" />
                   <span className="relative size-2 rounded-full bg-apple-500" />
                 </span>
@@ -529,22 +588,34 @@ function MessagePart({
   if (part.type === "tool-renderVisualization") {
     const input = part.input as { spec?: unknown } | undefined;
     const output = part.output as { ok?: boolean } | undefined;
-    const spec = part.state === "input-streaming" ? null : normalizeSpec(input?.spec);
+    const spec =
+      part.state === "input-streaming" ? null : normalizeSpec(input?.spec);
     if (!spec) return <ToolStatus label="Drawing…" spinning />;
-    if (output && output.ok === false) return <ToolStatus label="Refining…" spinning />;
+    if (output && output.ok === false)
+      return <ToolStatus label="Refining…" spinning />;
     return <Visualization spec={spec} />;
   }
 
   // suggestNext chips render docked above the composer (they don't survive the
   // turn's finalization inline), so nothing is drawn here — and this guard keeps
   // the docs-tool fallthrough below from catching them.
-  if (part.type === "tool-suggestNext" || (part.type === "dynamic-tool" && (part as { toolName?: string }).toolName === "suggestNext")) {
+  if (
+    part.type === "tool-suggestNext" ||
+    (part.type === "dynamic-tool" &&
+      (part as { toolName?: string }).toolName === "suggestNext")
+  ) {
     return null;
   }
 
   if (part.type.startsWith("tool-") || part.type === "dynamic-tool") {
     const state = (part as { state?: string }).state;
-    return <ToolStatus label="Checking the Trigger.dev docs" spinning={state !== "output-available"} docs />;
+    return (
+      <ToolStatus
+        label="Checking the Trigger.dev docs"
+        spinning={state !== "output-available"}
+        docs
+      />
+    );
   }
 
   return null;
@@ -559,7 +630,11 @@ function Thinking() {
             className="absolute inset-0 rounded-full bg-apple-500"
             initial={{ opacity: 0.6, scale: 1 }}
             animate={{ opacity: 0, scale: 2.4 }}
-            transition={{ duration: 1.4, repeat: Infinity, ease: easings.outExpo }}
+            transition={{
+              duration: 1.4,
+              repeat: Infinity,
+              ease: easings.outExpo,
+            }}
           />
           <span className="size-2 rounded-full bg-apple-500" />
         </span>
@@ -569,11 +644,23 @@ function Thinking() {
   );
 }
 
-function ToolStatus({ label, spinning, docs }: { label: string; spinning?: boolean; docs?: boolean }) {
+function ToolStatus({
+  label,
+  spinning,
+  docs,
+}: {
+  label: string;
+  spinning?: boolean;
+  docs?: boolean;
+}) {
   return (
     <div className="my-1 flex items-center gap-1.5 text-xs text-dimmed">
-      <BookOpen className={`size-3 ${spinning ? "opacity-60" : ""} ${docs ? "" : "hidden"}`} />
-      <span className={`size-1.5 rounded-full bg-apple-500 ${spinning ? "animate-pulse" : ""} ${docs ? "hidden" : ""}`} />
+      <BookOpen
+        className={`size-3 ${spinning ? "opacity-60" : ""} ${docs ? "" : "hidden"}`}
+      />
+      <span
+        className={`size-1.5 rounded-full bg-apple-500 ${spinning ? "animate-pulse" : ""} ${docs ? "hidden" : ""}`}
+      />
       {label}
     </div>
   );

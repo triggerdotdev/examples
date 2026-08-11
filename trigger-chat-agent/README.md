@@ -22,18 +22,6 @@ The teaching method — mission-first, one tangible win per turn, knowledge then
 
 The same catalog generates the system-prompt component reference and validates tool calls, so the prompt and the renderer can't drift apart.
 
-**Chat history with no database.** Every `chat.agent` conversation is backed by a durable [Session](https://trigger.dev/docs/ai-chat/sessions) that outlives its runs, and Trigger.dev stores the transcript itself — so there's nothing here to persist:
-
-- The sidebar is **`sessions.list({ type: "chat.agent", tag })`** (`src/lib/chats.ts`). The agent tags each session with its owner in `onChatStart` and writes the conversation title into session metadata in `onTurnComplete`, both via `sessions.update()`. Deleting a chat closes its session.
-- **Context survives everything.** After an idle timeout, a crash, an OOM, or a redeploy, the next message boots a fresh run and `chat.agent` rebuilds the full history from a durable snapshot. The chat you had yesterday continues today, on the same `chatId`.
-- **`onTurnStart` sets the system prompt** rather than `onChatStart`, because it fires on continuation runs too — otherwise a chat resumed after an idle gap runs with no prompt at all.
-
-Resuming an interrupted stream also needs no extra infrastructure: the run is durable and the transport reconnects with `lastEventId`. Vercel's `ai-chatbot` template needs Redis, an extra package and a table for the same feature.
-
-Chats are owned by an anonymous id set in a cookie by `src/proxy.ts` — no login, but the session tag still scopes every read, so a chat id can't be guessed to open someone else's conversation.
-
-> **One limitation, deliberately left visible.** Opening an old chat resumes it and the agent remembers everything, but the *earlier messages aren't redrawn*: `session.out` is trimmed to about one turn, and there's no public API to read the stored transcript, so the browser has no copy of what it never received. The app says so instead of pretending the chat was empty. If you need past turns on screen, persist `uiMessages` yourself — see [Database persistence](https://trigger.dev/docs/ai-chat/patterns/database-persistence).
-
 **The frontend** (`src/app`, `src/components`) is a Next.js app using [`useChat`](https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-chat) with [`useTriggerChatTransport`](https://trigger.dev/docs/ai-chat/frontend) — the browser talks directly to Trigger.dev's durable streams, no API route needed. `renderVisualization` tool parts in the message stream are rendered with json-render's `<Renderer>` and the shadcn component registry (`src/lib/registry.tsx`).
 
 ## Setup
