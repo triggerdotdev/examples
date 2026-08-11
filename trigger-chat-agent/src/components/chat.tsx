@@ -372,7 +372,7 @@ export function Chat() {
             )}
           </div>
           <p className="mt-2 text-center text-2xs leading-4 text-charcoal-500">
-            AI can make mistakes.
+            Answers are grounded in the live Trigger.dev docs — follow the links to check.
           </p>
         </form>
       </footer>
