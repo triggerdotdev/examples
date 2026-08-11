@@ -14,18 +14,16 @@ import type { UIMessage } from "ai";
  */
 
 /**
- * The owner and title live in the Session's `metadata`, set when the session is
- * created (see `startChatSession` in `src/app/actions.ts`).
+ * A chat is owned by an `owner:<id>` tag on its Session, and named by a `title`
+ * in session metadata — both set when the session is created (see
+ * `startChatSession` in `src/app/actions.ts`), since `sessions.update()` needs a
+ * secret key the browser doesn't have.
  *
- * Tags would be the natural fit — `sessions.list` can filter on them server-side
- * — but on SDK 4.5.9 `triggerConfig.tags` is dropped at create time and
- * `sessions.update()` returns Unauthorized even with a secret key. So the owner
- * goes in metadata and we filter after listing. Metadata isn't a server-side
- * filter, so this reads a page of sessions and narrows in memory: fine at demo
- * scale, and it never leaves the server, so the browser only ever receives this
- * visitor's own chats.
+ * Note the tag goes in the top-level `tags` field, not `triggerConfig.tags`:
+ * the latter tags every *run* the session schedules, and `sessions.list({ tag })`
+ * filters on the session's own tags.
  */
-export type ChatMetadata = { userId?: unknown; title?: unknown };
+export const ownerTag = (userId: string) => `owner:${userId}`;
 
 export type ChatSummary = {
   chatId: string;
@@ -33,28 +31,30 @@ export type ChatSummary = {
   updatedAt: Date;
 };
 
-// Bounds the scan, since we can't filter by owner in the query itself.
-const MAX_SESSIONS_SCANNED = 200;
+const MAX_CHATS = 50;
 
-/** The visitor's conversations, newest first. */
+/** The visitor's conversations, newest first. Filtered by tag server-side. */
 export async function listChats(userId: string): Promise<ChatSummary[]> {
   const out: ChatSummary[] = [];
 
   try {
-    let scanned = 0;
-    for await (const session of sessions.list({ type: "chat.agent", limit: 50 })) {
-      if (++scanned > MAX_SESSIONS_SCANNED) break;
-      // A session with no externalId can't be routed to, so it isn't listable.
+    for await (const session of sessions.list({
+      type: "chat.agent",
+      tag: ownerTag(userId),
+      status: "ACTIVE",
+      limit: 50,
+    })) {
+      // A session with no externalId can't be routed to, so it isn't openable.
       if (!session.externalId) continue;
 
-      const metadata = (session.metadata ?? {}) as ChatMetadata;
-      if (metadata.userId !== userId) continue;
-
+      const metadata = (session.metadata ?? {}) as { title?: unknown };
       out.push({
         chatId: session.externalId,
         title: typeof metadata.title === "string" && metadata.title ? metadata.title : "New chat",
         updatedAt: new Date(session.updatedAt ?? session.createdAt),
       });
+
+      if (out.length >= MAX_CHATS) break;
     }
   } catch (error) {
     // History is a nice-to-have: a listing failure shouldn't take down the
@@ -70,7 +70,7 @@ export async function listChats(userId: string): Promise<ChatSummary[]> {
 export async function ownsChat(chatId: string, userId: string): Promise<boolean> {
   try {
     const session = await sessions.retrieve(chatId);
-    return ((session?.metadata ?? {}) as ChatMetadata).userId === userId;
+    return Boolean(session?.tags?.includes(ownerTag(userId)));
   } catch {
     return false;
   }

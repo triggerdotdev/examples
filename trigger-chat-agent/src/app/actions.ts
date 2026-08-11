@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { auth } from "@trigger.dev/sdk";
 import { chat } from "@trigger.dev/sdk/ai";
-import { closeChat } from "@/lib/chats";
+import { closeChat, ownerTag } from "@/lib/chats";
 import { getUserId } from "@/lib/user";
 
 const startSession = chat.createStartSessionAction("trigger-chat-agent");
@@ -12,11 +12,10 @@ const startSession = chat.createStartSessionAction("trigger-chat-agent");
  * Creates the Session + triggers the first run, returns the session PAT.
  * Idempotent on (env, chatId) so concurrent calls converge to the same session.
  *
- * The owner and title are stamped into session metadata here, at creation —
- * that's the only chance to set them, since `sessions.update()` is Unauthorized
- * on SDK 4.5.9. The owner is read from the cookie server-side rather than taken
- * from the client, so a caller can't claim someone else's id. `title` is the
- * question being asked, which the client passes through.
+ * Owner and title are set here, at creation — the only chance, since
+ * `sessions.update()` requires a secret key. The owner is read from the cookie
+ * server-side rather than taken from the client, so a caller can't claim someone
+ * else's chats. `title` is the question being asked, passed through by the client.
  */
 export async function startChatSession({
   chatId,
@@ -33,10 +32,11 @@ export async function startChatSession({
   return startSession({
     chatId,
     clientData: userId ? { userId } : clientData,
-    metadata: {
-      ...(userId ? { userId } : {}),
-      ...(trimmed ? { title: trimmed.length > 60 ? `${trimmed.slice(0, 60)}…` : trimmed } : {}),
-    },
+    // Session-row tags, which sessions.list() can filter on server-side.
+    ...(userId ? { tags: [ownerTag(userId)] } : {}),
+    ...(trimmed
+      ? { metadata: { title: trimmed.length > 60 ? `${trimmed.slice(0, 60)}…` : trimmed } }
+      : {}),
   });
 }
 
