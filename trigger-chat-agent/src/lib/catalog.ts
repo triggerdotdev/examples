@@ -235,7 +235,7 @@ export function catalogPromptSection(): string {
 - Every key referenced in "children" or "root" must exist in "elements".
 - Only Card, Stack, and Grid take children; other components are leaves (omit "children" or pass []).
 - Props marked nullable may be omitted or null.
-- Prefer FlowGraph for architecture/orchestration/branching, DiagramCard for a simple linear lifecycle, CodeCard for a snippet, Stat for a headline number, PromptCard to hand over a build prompt.
+- Prefer FlowGraph for architecture/orchestration/branching, DiagramCard for a simple linear lifecycle, CodeCard for a snippet, StatCard for a headline number, PromptCard to hand over a build prompt.
 
 Available components:
 
