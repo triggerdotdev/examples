@@ -14,12 +14,14 @@ import { quarantineDocs, renderToolText } from "../lib/quarantine";
 // the demo to a different domain).
 //
 // The client + its tool set are created lazily and cached at module scope, so
-// the HTTP handshake happens once per run process and every turn reuses the
-// same tools. If the server is unreachable the agent degrades gracefully to
-// renderVisualization-only rather than failing the turn.
+// a SUCCESSFUL handshake happens once per run process and every turn reuses the
+// same tools. A failure (or a stalled connection) is NOT cached: the turn
+// degrades to renderVisualization-only, and a later turn retries — a transient
+// blip must not disable doc grounding for the whole run.
 // ============================================================================
 
 const DOCS_MCP_URL = process.env.DOCS_MCP_URL ?? "https://mcp.context7.com/mcp";
+const DOCS_MCP_TIMEOUT_MS = 10_000;
 
 let docsToolsPromise: Promise<ToolSet> | undefined;
 
@@ -45,25 +47,51 @@ function quarantineDocsTools(tools: ToolSet): ToolSet {
   return wrapped;
 }
 
-async function loadDocsTools(): Promise<ToolSet> {
-  try {
-    const client = await createMCPClient({
-      transport: { type: "http", url: DOCS_MCP_URL },
-    });
-    // Kept open for the life of the run process — the returned tools close over
-    // the client to execute, so we never call client.close() here.
-    return quarantineDocsTools(await client.tools());
-  } catch (error) {
-    logger.warn("Docs MCP unavailable — continuing without doc grounding", {
-      url: DOCS_MCP_URL,
-      error: error instanceof Error ? error.message : String(error),
-    });
-    return {};
-  }
+// Bound a promise so a stalled MCP handshake or tools/list can't hang the turn
+// indefinitely — a slow server that never errors would otherwise block forever.
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      }
+    );
+  });
 }
 
+async function loadDocsTools(): Promise<ToolSet> {
+  const client = await withTimeout(
+    createMCPClient({ transport: { type: "http", url: DOCS_MCP_URL } }),
+    DOCS_MCP_TIMEOUT_MS,
+    "Docs MCP connection"
+  );
+  // Kept open for the life of the run process — the returned tools close over
+  // the client to execute, so we never call client.close() here.
+  return quarantineDocsTools(
+    await withTimeout(client.tools(), DOCS_MCP_TIMEOUT_MS, "Docs MCP tool discovery")
+  );
+}
+
+// Cache only a successful load. On failure (or timeout) clear the cached
+// promise so the next turn retries instead of being stuck tool-less.
 function getDocsTools(): Promise<ToolSet> {
-  return (docsToolsPromise ??= loadDocsTools());
+  if (!docsToolsPromise) {
+    docsToolsPromise = loadDocsTools().catch((error) => {
+      logger.warn("Docs MCP unavailable — continuing without doc grounding this turn", {
+        url: DOCS_MCP_URL,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      docsToolsPromise = undefined;
+      return {} as ToolSet;
+    });
+  }
+  return docsToolsPromise;
 }
 
 // ============================================================================
