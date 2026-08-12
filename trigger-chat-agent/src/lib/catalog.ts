@@ -261,10 +261,18 @@ export function normalizeSpec(input: unknown): VisualizationSpec | null {
   return null;
 }
 
+// Only these lay out children; every other component is a leaf. Kept in sync
+// with the prompt reference ("Only Card, Stack, and Grid take children").
+const CONTAINER_TYPES = new Set(["Card", "Stack", "Grid"]);
+
 /**
  * Validates a spec against the catalog: known component types, per-component
- * props (missing nullable props are treated as null), and resolvable children.
- * Returns errors phrased for the model to correct and retry.
+ * props (missing nullable props are treated as null, unknown props flagged),
+ * children only on containers, resolvable children, no cycles, and every
+ * element reachable from the root. Returns errors phrased for the model to
+ * correct and retry. Also guards element shape so the client renderer (which
+ * calls this without the tool's inputSchema in front of it) can't throw on a
+ * malformed element.
  */
 export function validateSpec(spec: VisualizationSpec): { ok: true } | { ok: false; errors: string[] } {
   const errors: string[] = [];
@@ -273,11 +281,22 @@ export function validateSpec(spec: VisualizationSpec): { ok: true } | { ok: fals
     { props: z.ZodObject<Record<string, z.ZodType>> }
   >;
 
+  if (!spec.elements || typeof spec.elements !== "object") {
+    return { ok: false, errors: ['spec.elements must be an object'] };
+  }
+
   if (!spec.elements[spec.root]) {
     errors.push(`root "${spec.root}" is not a key in elements`);
   }
 
   for (const [key, element] of Object.entries(spec.elements)) {
+    // Element shape guard: on the client path a null/array/string element must
+    // yield a clean error, not a TypeError on `element.type`.
+    if (!element || typeof element !== "object" || Array.isArray(element) || typeof element.type !== "string") {
+      errors.push(`elements.${key}: must be an object with a string "type"`);
+      continue;
+    }
+
     const definition = components[element.type];
     if (!definition) {
       errors.push(
@@ -301,9 +320,52 @@ export function validateSpec(spec: VisualizationSpec): { ok: true } | { ok: fals
       }
     }
 
+    // A misspelled/unknown prop is dropped silently by safeParse, so the model
+    // never learns to fix it — flag it as a correctable error instead.
+    const known = new Set(Object.keys(definition.props.shape));
+    for (const propName of Object.keys(element.props ?? {})) {
+      if (!known.has(propName)) {
+        errors.push(`elements.${key} (${element.type}) props.${propName}: unknown prop`);
+      }
+    }
+
+    // Children only render inside a container; a leaf silently drops them.
+    if ((element.children?.length ?? 0) > 0 && !CONTAINER_TYPES.has(element.type)) {
+      errors.push(`elements.${key}: "${element.type}" is a leaf and can't take children`);
+    }
+
     for (const child of element.children ?? []) {
       if (!spec.elements[child]) {
         errors.push(`elements.${key}: child "${child}" is not a key in elements`);
+      }
+    }
+  }
+
+  // Walk from the root: a cycle in `children` makes the client renderer recurse
+  // forever (the model produces these keys, so the input is untrusted); an
+  // unreachable element never renders (silent content loss).
+  if (spec.elements[spec.root]) {
+    const visiting = new Set<string>();
+    const reachable = new Set<string>();
+    const walk = (key: string) => {
+      if (reachable.has(key)) return;
+      if (visiting.has(key)) {
+        errors.push(`elements.${key}: children form a cycle`);
+        return;
+      }
+      const element = spec.elements[key];
+      if (!element || typeof element !== "object") return;
+      visiting.add(key);
+      for (const child of element.children ?? []) {
+        if (spec.elements[child]) walk(child);
+      }
+      visiting.delete(key);
+      reachable.add(key);
+    };
+    walk(spec.root);
+    for (const key of Object.keys(spec.elements)) {
+      if (!reachable.has(key)) {
+        errors.push(`elements.${key}: unreachable from root "${spec.root}"`);
       }
     }
   }
