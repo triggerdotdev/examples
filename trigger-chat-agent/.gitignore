@@ -1,5 +1,7 @@
 node_modules
 .env
+.env*
+!.env.example
 .trigger
 .next
 next-env.d.ts
