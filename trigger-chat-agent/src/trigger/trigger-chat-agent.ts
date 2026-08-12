@@ -254,6 +254,16 @@ export const triggerChatAgent = chat.agent({
   id: "trigger-chat-agent",
   idleTimeoutInSeconds: 300,
 
+  // Public-demo cost guardrail. The session endpoints are unauthenticated
+  // (see src/app/actions.ts), so cap how many chat sessions execute at once.
+  // NOTE: this THROTTLES throughput — a flood of requests queues and runs a few
+  // at a time rather than all in parallel — it does NOT hard-cap total spend.
+  // Set an org spend limit in the Trigger.dev dashboard (Billing) for the real
+  // ceiling. Per-turn model cost is already bounded by `stopWhen` below.
+  queue: {
+    concurrencyLimit: 10,
+  },
+
   uiMessageStreamOptions: {
     // Whatever this returns is what the browser sees, so keep internals out of
     // it and say something the user can act on. Covers tool failures as well as
