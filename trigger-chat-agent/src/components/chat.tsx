@@ -4,6 +4,7 @@ import { useChat } from "@ai-sdk/react";
 import { useTriggerChatTransport } from "@trigger.dev/sdk/chat/react";
 import type { UIMessage } from "ai";
 import {
+  AlertTriangle,
   ArrowRight,
   ArrowUp,
   BookOpen,
@@ -16,7 +17,7 @@ import {
   Square,
 } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { mintChatAccessToken, startChatSession } from "@/app/actions";
 import { normalizeSpec } from "@/lib/catalog";
 import { bubbleIn, easings } from "@/lib/motion";
@@ -70,15 +71,36 @@ type MessagePartGroup =
   | { kind: "docs"; parts: MessagePartValue[] }
   | { kind: "part"; part: MessagePartValue };
 
+// Message parts are a discriminated union on `type`. These helpers narrow to
+// the fields we read without structural `as` casts: tool and dynamic-tool parts
+// carry `state`/`input`/`output`, and dynamic-tool parts a `toolName`.
+const TERMINAL_TOOL_STATES = new Set(["output-available", "output-error"]);
+
+function partState(part: MessagePartValue): string | undefined {
+  return "state" in part && typeof part.state === "string" ? part.state : undefined;
+}
+function isSettled(part: MessagePartValue): boolean {
+  const state = partState(part);
+  return state !== undefined && TERMINAL_TOOL_STATES.has(state);
+}
+function partInput(part: MessagePartValue): Record<string, unknown> | undefined {
+  return "input" in part && part.input !== null && typeof part.input === "object"
+    ? (part.input as Record<string, unknown>)
+    : undefined;
+}
+function partOutput(part: MessagePartValue): Record<string, unknown> | undefined {
+  return "output" in part && part.output !== null && typeof part.output === "object"
+    ? (part.output as Record<string, unknown>)
+    : undefined;
+}
+function partToolName(part: MessagePartValue): string | undefined {
+  if (part.type === "dynamic-tool") return part.toolName;
+  return part.type.startsWith("tool-") ? part.type.slice("tool-".length) : undefined;
+}
+
 function isDocsToolPart(part: MessagePartValue): boolean {
-  if (
-    part.type === "tool-renderVisualization" ||
-    part.type === "tool-suggestNext"
-  )
-    return false;
-  if (part.type === "dynamic-tool") {
-    return (part as { toolName?: string }).toolName !== "suggestNext";
-  }
+  if (part.type === "tool-renderVisualization" || part.type === "tool-suggestNext") return false;
+  if (part.type === "dynamic-tool") return part.toolName !== "suggestNext";
   return part.type.startsWith("tool-");
 }
 
@@ -99,9 +121,7 @@ function groupMessageParts(parts: MessagePartValue[]): MessagePartGroup[] {
     const visible =
       part.type === "text" ||
       part.type === "tool-renderVisualization" ||
-      part.type === "tool-suggestNext" ||
-      (part.type === "dynamic-tool" &&
-        (part as { toolName?: string }).toolName === "suggestNext");
+      partToolName(part) === "suggestNext";
     if (visible) {
       groups.push({ kind: "part", part });
     }
@@ -109,27 +129,17 @@ function groupMessageParts(parts: MessagePartValue[]): MessagePartGroup[] {
   return groups;
 }
 
-/**
- * The chips from the most recent assistant turn's `suggestNext` call. Read from
- * the message stream, but captured into sticky state (below) because the trailing
- * tool call is dropped when the turn finalizes — so we grab the chips while they
- * stream and keep them until the next user message.
- */
-function latestSuggestNextChips(messages: UIMessage[]): NextChip[] {
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const m = messages[i];
-    if (m.role !== "assistant") continue;
-    for (const part of m.parts) {
-      const isSuggest =
-        part.type === "tool-suggestNext" ||
-        (part.type === "dynamic-tool" &&
-          (part as { toolName?: string }).toolName === "suggestNext");
-      if (!isSuggest) continue;
-      const input = (part as { input?: { chips?: NextChip[] } }).input;
-      const chips = input?.chips?.filter((c) => c?.label) ?? [];
-      if (chips.length) return chips;
-    }
-    return []; // reached the latest assistant turn; no chips (yet)
+/** The `suggestNext` chips carried by one assistant message, if any. */
+function chipsFromMessage(message: UIMessage): NextChip[] {
+  for (const part of message.parts) {
+    if (partToolName(part) !== "suggestNext") continue;
+    const rawChips = partInput(part)?.chips;
+    if (!Array.isArray(rawChips)) continue;
+    const chips = rawChips.filter(
+      (c): c is NextChip =>
+        !!c && typeof c === "object" && typeof (c as { label?: unknown }).label === "string"
+    );
+    if (chips.length) return chips;
   }
   return [];
 }
@@ -149,15 +159,39 @@ export function Chat() {
   const { messages, sendMessage, stop, status, error, regenerate, clearError } =
     useChat({ transport });
   const [input, setInput] = useState("");
-  const [chips, setChips] = useState<NextChip[]>([]);
   const reduce = useReducedMotion();
   const busy = status === "submitted" || status === "streaming";
+
+  // Next-step chips: derived from the current last assistant turn, but kept
+  // sticky because the trailing `suggestNext` tool part is dropped when the turn
+  // finalizes. Keying the sticky copy to the assistant message id means a
+  // finished turn keeps its chips, while a NEW turn shows none until its own
+  // suggestNext streams — so the previous turn's chips can't flash back.
+  const lastAssistant = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === "assistant") return messages[i];
+    }
+    return undefined;
+  }, [messages]);
+  const streamingChips = useMemo(
+    () => (lastAssistant ? chipsFromMessage(lastAssistant) : []),
+    [lastAssistant]
+  );
+  const [stickyChips, setStickyChips] = useState<{ id: string; chips: NextChip[] } | null>(null);
+  useEffect(() => {
+    if (lastAssistant && streamingChips.length) {
+      setStickyChips({ id: lastAssistant.id, chips: streamingChips });
+    }
+    // Fire only when the turn or the chip count changes, not on every token.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastAssistant?.id, streamingChips.length]);
+  const chips =
+    stickyChips && lastAssistant && stickyChips.id === lastAssistant.id ? stickyChips.chips : [];
 
   const scrollerRef = useRef<HTMLDivElement>(null);
   const lastRowRef = useRef<HTMLDivElement>(null);
   // Whether the view should stick to the bottom as the answer grows. Armed on
-  // send, dropped the moment the reader scrolls up to read something, re-armed
-  // when they come back to the bottom.
+  // send, dropped when the reader scrolls up to read, re-armed at the bottom.
   const followRef = useRef(true);
 
   // On send, bring the new turn into view.
@@ -172,22 +206,22 @@ export function Chat() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages.length]);
 
-  // Follow the answer as it streams. A ResizeObserver on the content is what
-  // actually tracks growth — message count doesn't change while text streams
-  // in, so a messages-keyed effect would never fire.
+  // Follow the answer as it streams. A ResizeObserver on the content tracks
+  // growth (message count doesn't change while text streams). Only genuine user
+  // gestures (wheel/touch) disarm the follow — we deliberately do NOT listen to
+  // `scroll`, because our own programmatic scrolls fire it too and would flip
+  // the pin off mid-animation.
   useEffect(() => {
     const scroller = scrollerRef.current;
     const content = scroller?.firstElementChild;
     if (!scroller || !content) return;
 
-    const atBottom = () =>
-      scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 80;
-    const onUserScroll = () => {
-      followRef.current = atBottom();
+    const syncFollow = () => {
+      followRef.current =
+        scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 80;
     };
-    scroller.addEventListener("wheel", onUserScroll, { passive: true });
-    scroller.addEventListener("touchmove", onUserScroll, { passive: true });
-    scroller.addEventListener("scroll", onUserScroll, { passive: true });
+    scroller.addEventListener("wheel", syncFollow, { passive: true });
+    scroller.addEventListener("touchmove", syncFollow, { passive: true });
 
     const observer = new ResizeObserver(() => {
       if (followRef.current) scroller.scrollTop = scroller.scrollHeight;
@@ -195,24 +229,15 @@ export function Chat() {
     observer.observe(content);
 
     return () => {
-      scroller.removeEventListener("wheel", onUserScroll);
-      scroller.removeEventListener("touchmove", onUserScroll);
-      scroller.removeEventListener("scroll", onUserScroll);
+      scroller.removeEventListener("wheel", syncFollow);
+      scroller.removeEventListener("touchmove", syncFollow);
       observer.disconnect();
     };
   }, []);
 
-  // Capture the latest turn's next-step chips while they stream (they're dropped
-  // when the turn finalizes). Only update on a non-empty set; cleared on send.
-  useEffect(() => {
-    const latest = latestSuggestNextChips(messages);
-    if (latest.length) setChips(latest);
-  }, [messages]);
-
   function submit(text: string) {
     const trimmed = text.trim();
     if (!trimmed || busy) return;
-    setChips([]);
     sendMessage({ text: trimmed });
     setInput("");
   }
@@ -473,11 +498,8 @@ function Message({
 }
 
 function docsToolLabel(part: MessagePartValue): string {
-  const toolName =
-    part.type === "dynamic-tool"
-      ? ((part as { toolName?: string }).toolName ?? "documentation")
-      : part.type.replace(/^tool-/, "");
-  const input = (part as { input?: Record<string, unknown> }).input;
+  const toolName = partToolName(part) ?? "documentation";
+  const input = partInput(part);
   const query = typeof input?.query === "string" ? input.query : null;
   const library =
     typeof input?.libraryName === "string" ? input.libraryName : null;
@@ -495,9 +517,9 @@ function docsToolLabel(part: MessagePartValue): string {
 
 function DocsToolChain({ parts }: { parts: MessagePartValue[] }) {
   const [expanded, setExpanded] = useState(false);
-  const complete = parts.every(
-    (part) => (part as { state?: string }).state === "output-available",
-  );
+  // "Settled" includes output-error — a failed remote lookup must not leave the
+  // header on "Searching" with a pinging dot forever.
+  const complete = parts.every(isSettled);
 
   return (
     <div
@@ -523,8 +545,9 @@ function DocsToolChain({ parts }: { parts: MessagePartValue[] }) {
       </button>
       <div className="relative space-y-3 before:absolute before:bottom-2 before:left-[0.4375rem] before:top-2 before:w-px before:bg-grid-bright">
         {parts.map((part, i) => {
-          const done =
-            (part as { state?: string }).state === "output-available";
+          const state = partState(part);
+          const done = state === "output-available";
+          const errored = state === "output-error";
           const label = docsToolLabel(part);
           return (
             <div key={i} className="relative flex min-w-0 items-start gap-3">
@@ -537,7 +560,12 @@ function DocsToolChain({ parts }: { parts: MessagePartValue[] }) {
               >
                 {label}
               </span>
-              {done ? (
+              {errored ? (
+                <AlertTriangle
+                  className="mt-0.5 size-3.5 shrink-0 text-warning"
+                  aria-label="Lookup failed"
+                />
+              ) : done ? (
                 <Check
                   className="mt-0.5 size-3.5 shrink-0 text-dimmed"
                   aria-label="Complete"
@@ -586,38 +614,21 @@ function MessagePart({
   }
 
   if (part.type === "tool-renderVisualization") {
-    const input = part.input as { spec?: unknown } | undefined;
-    const output = part.output as { ok?: boolean } | undefined;
-    const spec =
-      part.state === "input-streaming" ? null : normalizeSpec(input?.spec);
+    const state = partState(part);
+    const output = partOutput(part);
+    const failed = state === "output-error" || output?.ok === false;
+    const spec = state === "input-streaming" ? null : normalizeSpec(partInput(part)?.spec);
+    // A rejected/failed spec settles to a static notice instead of spinning
+    // forever; the model's retry arrives as its own later part with its own status.
+    if (failed) return <ToolStatus label="Couldn't draw that." />;
     if (!spec) return <ToolStatus label="Drawing…" spinning />;
-    if (output && output.ok === false)
-      return <ToolStatus label="Refining…" spinning />;
     return <Visualization spec={spec} />;
   }
 
   // suggestNext chips render docked above the composer (they don't survive the
-  // turn's finalization inline), so nothing is drawn here — and this guard keeps
-  // the docs-tool fallthrough below from catching them.
-  if (
-    part.type === "tool-suggestNext" ||
-    (part.type === "dynamic-tool" &&
-      (part as { toolName?: string }).toolName === "suggestNext")
-  ) {
-    return null;
-  }
-
-  if (part.type.startsWith("tool-") || part.type === "dynamic-tool") {
-    const state = (part as { state?: string }).state;
-    return (
-      <ToolStatus
-        label="Checking the Trigger.dev docs"
-        spinning={state !== "output-available"}
-        docs
-      />
-    );
-  }
-
+  // turn's finalization inline), so nothing is drawn here. Every other tool part
+  // is a docs lookup, which groupMessageParts routes into DocsToolChain — so it
+  // never reaches here, and there's nothing else to draw.
   return null;
 }
 
@@ -644,22 +655,11 @@ function Thinking() {
   );
 }
 
-function ToolStatus({
-  label,
-  spinning,
-  docs,
-}: {
-  label: string;
-  spinning?: boolean;
-  docs?: boolean;
-}) {
+function ToolStatus({ label, spinning }: { label: string; spinning?: boolean }) {
   return (
     <div className="my-1 flex items-center gap-1.5 text-xs text-dimmed">
-      <BookOpen
-        className={`size-3 ${spinning ? "opacity-60" : ""} ${docs ? "" : "hidden"}`}
-      />
       <span
-        className={`size-1.5 rounded-full bg-apple-500 ${spinning ? "animate-pulse" : ""} ${docs ? "hidden" : ""}`}
+        className={`size-1.5 rounded-full bg-apple-500 ${spinning ? "animate-pulse" : ""}`}
       />
       {label}
     </div>
