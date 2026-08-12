@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, useReducedMotion } from "motion/react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { reducedVariants, revealBlur, staggerContainer } from "@/lib/motion";
 
@@ -27,12 +27,20 @@ export function PromptCard({
   const item = reduceMotion ? reducedVariants : revealBlur;
   const container = reduceMotion ? staggerContainer(0, 0) : staggerContainer(0.05);
   const [copied, setCopied] = useState(false);
+  const resetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Clear a pending reset on unmount so it can't fire setState afterwards.
+  useEffect(() => () => {
+    if (resetTimer.current) clearTimeout(resetTimer.current);
+  }, []);
 
   const onCopy = async () => {
     try {
       await navigator.clipboard.writeText(prompt);
       setCopied(true);
-      window.setTimeout(() => setCopied(false), 1500);
+      // Restart the window on each click instead of stacking timers.
+      if (resetTimer.current) clearTimeout(resetTimer.current);
+      resetTimer.current = setTimeout(() => setCopied(false), 1500);
     } catch {
       // Clipboard unavailable (insecure context or denied permission) —
       // leave the button idle rather than showing a false "Copied".

@@ -33,7 +33,10 @@ export function Quiz({
     >
       <div className="mb-1 font-mono text-2xs uppercase tracking-widest text-dimmed/70">Quiz</div>
       <p className="mb-4 font-title text-lg font-medium text-bright">{question}</p>
-      <div className="space-y-2">
+      {/* aria-disabled (not the `disabled` attribute) keeps answered options in
+          the tab order, so a keyboard user can still move across and read the
+          revealed correct/incorrect states; a click guard blocks re-answering. */}
+      <div className="space-y-2" role="group" aria-label={question}>
         {options.map((o, i) => {
           const isCorrect = Boolean(o.correct);
           const reveal = answered && (i === picked || isCorrect);
@@ -41,11 +44,15 @@ export function Quiz({
             <button
               key={i}
               type="button"
-              disabled={answered}
-              onClick={() => setPicked(i)}
+              aria-disabled={answered}
+              onClick={() => {
+                if (!answered) setPicked(i);
+              }}
               className={cn(
                 "flex min-h-11 w-full items-center gap-3 rounded-xl border px-4 py-2.5 text-left text-sm leading-5 transition-colors duration-150",
-                !reveal && "border-charcoal-700 bg-charcoal-800 text-bright enabled:hover:bg-charcoal-700",
+                !reveal && "border-charcoal-700 bg-charcoal-800 text-bright",
+                !reveal && !answered && "cursor-pointer hover:bg-charcoal-700",
+                answered && "cursor-default",
                 reveal && isCorrect && "border-apple-500/60 bg-apple-500/10 text-apple-200",
                 reveal && !isCorrect && "border-error/60 bg-error/10 text-error"
               )}
@@ -57,9 +64,13 @@ export function Quiz({
           );
         })}
       </div>
-      {answered && explanation && (
-        <p className="mt-4 border-t border-grid-bright pt-3 text-sm leading-relaxed text-dimmed">{explanation}</p>
-      )}
+      {/* Live region present before the answer lands, so screen readers
+          announce the explanation when it appears. */}
+      <div aria-live="polite">
+        {answered && explanation && (
+          <p className="mt-4 border-t border-grid-bright pt-3 text-sm leading-relaxed text-dimmed">{explanation}</p>
+        )}
+      </div>
     </motion.div>
   );
 }

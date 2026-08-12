@@ -51,7 +51,10 @@ export function ErrorNotice({
   const { title, detail } = explain(error);
 
   return (
-    <div className="flex items-start gap-3 rounded-xl border border-error/40 bg-error/5 px-4 py-3">
+    <div
+      role="alert"
+      className="flex items-start gap-3 rounded-xl border border-error/40 bg-error/5 px-4 py-3"
+    >
       <AlertTriangle className="mt-0.5 size-4 shrink-0 text-error" />
       <div className="min-w-0 flex-1">
         <div className="text-sm font-medium text-error">{title}</div>

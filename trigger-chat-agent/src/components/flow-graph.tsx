@@ -416,6 +416,20 @@ const nodeTypes = { flow: FlowNodeCard };
 export function FlowGraph({ title, nodes, edges, sequence }: FlowGraphProps) {
   const reduceMotion = !!useReducedMotion();
 
+  // Stream re-renders hand us fresh array identities with identical content (the
+  // message part is re-cloned per streamed token). Key the expensive layout and
+  // the status timeline on the CONTENT, not the array reference, so dagre isn't
+  // re-run and an in-flight animation doesn't reset to t=0 on every token.
+  const nodesSig = nodes
+    .map((n) => `${n.id}|${n.label}|${n.sublabel ?? ""}|${n.kind}|${n.status ?? ""}`)
+    .join(";");
+  const edgesSig = edges
+    .map((e) => `${e.from}>${e.to}|${e.kind ?? ""}|${e.label ?? ""}`)
+    .join(";");
+  const sequenceSig = (sequence ?? [])
+    .map((s) => `${s.nodeId}|${s.status}|${s.atMs}`)
+    .join(";");
+
   // Robustness guard: a model can emit an edge whose `from`/`to` doesn't match
   // any node id (typo, stale reference, partial catalog data). React Flow
   // doesn't validate this itself — an edge pointing at a missing node id can
@@ -425,11 +439,13 @@ export function FlowGraph({ title, nodes, edges, sequence }: FlowGraphProps) {
   const safeEdges = useMemo(() => {
     const ids = new Set(nodes.map((n) => n.id));
     return edges.filter((e) => ids.has(e.from) && ids.has(e.to));
-  }, [nodes, edges]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nodesSig, edgesSig]);
 
   const { positions, handles: edgeHandles } = useMemo(
     () => computeLayout(nodes, safeEdges),
-    [nodes, safeEdges]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [nodesSig, safeEdges]
   );
 
   const revealDelays = useMemo(() => {
@@ -439,7 +455,8 @@ export function FlowGraph({ title, nodes, edges, sequence }: FlowGraphProps) {
     const out: Record<string, number> = {};
     for (const [id, o] of order) out[id] = 0.1 + o * step;
     return out;
-  }, [nodes, safeEdges]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nodesSig, safeEdges]);
 
   const [statuses, setStatuses] = useState<Record<string, FlowNodeStatus>>(() =>
     initialStatuses(nodes, sequence, reduceMotion)
@@ -456,7 +473,8 @@ export function FlowGraph({ title, nodes, edges, sequence }: FlowGraphProps) {
       }, Math.max(0, s.atMs))
     );
     return () => timers.forEach((t) => window.clearTimeout(t));
-  }, [nodes, sequence, reduceMotion]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nodesSig, sequenceSig, reduceMotion]);
 
   // Edges fade in mid-cascade so they don't dangle off still-hidden nodes.
   const [edgesVisible, setEdgesVisible] = useState(reduceMotion);
@@ -467,7 +485,9 @@ export function FlowGraph({ title, nodes, edges, sequence }: FlowGraphProps) {
       return;
     }
     setEdgesVisible(false);
-    const t = window.setTimeout(() => setEdgesVisible(true), revealSpan * 500 + 150);
+    // revealDelays are in SECONDS; the last node starts at ~revealSpan*1000ms,
+    // so wait until it's begun animating in before the edges appear.
+    const t = window.setTimeout(() => setEdgesVisible(true), revealSpan * 1000 + 150);
     return () => window.clearTimeout(t);
   }, [reduceMotion, revealSpan]);
 
@@ -491,7 +511,8 @@ export function FlowGraph({ title, nodes, edges, sequence }: FlowGraphProps) {
         selectable: false,
         connectable: false,
       })),
-    [nodes, positions, statuses, revealDelays, reduceMotion]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [nodesSig, positions, statuses, revealDelays, reduceMotion]
   );
 
   const rfEdges: Edge[] = useMemo(
@@ -527,7 +548,8 @@ export function FlowGraph({ title, nodes, edges, sequence }: FlowGraphProps) {
     const bottoms = nodes.map((n) => (positions[n.id]?.y ?? 0) + (positions[n.id]?.height ?? 48));
     const maxY = Math.max(0, ...bottoms);
     return Math.min(480, Math.max(180, maxY + 24));
-  }, [nodes, positions]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nodesSig, positions]);
 
   return (
     <motion.div

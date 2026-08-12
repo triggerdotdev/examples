@@ -82,11 +82,18 @@ function AnimatedValue({ value, active, reduceMotion }: { value: string; active:
     const [, prefix, numText, suffix] = match;
     const target = Number(numText.replace(/,/g, ""));
     const decimals = numText.includes(".") ? numText.split(".")[1].length : 0;
+    // Keep the authored digit grouping: "1,234" must animate to "1,234", not
+    // "1234". toFixed drops separators, so re-group when the source had them.
+    const grouped = numText.includes(",");
+    const format = (v: number) =>
+      grouped
+        ? v.toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
+        : v.toFixed(decimals);
     const controls = animate(0, target, {
       duration: 1,
       delay: 0.25,
       ease: easings.outExpo,
-      onUpdate: (v) => setDisplay(`${prefix}${v.toFixed(decimals)}${suffix}`),
+      onUpdate: (v) => setDisplay(`${prefix}${format(v)}${suffix}`),
     });
     return () => controls.stop();
     // eslint-disable-next-line react-hooks/exhaustive-deps
