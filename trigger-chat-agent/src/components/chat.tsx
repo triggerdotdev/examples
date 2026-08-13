@@ -20,6 +20,7 @@ import { motion, useReducedMotion } from "motion/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { mintChatAccessToken, startChatSession } from "@/app/actions";
 import { normalizeSpec } from "@/lib/catalog";
+import { saveMessages, setTitle } from "@/lib/chat-store";
 import { bubbleIn, easings } from "@/lib/motion";
 import { AssistantText } from "@/components/streaming-text";
 import { ErrorNotice } from "@/components/error-notice";
@@ -144,7 +145,19 @@ function chipsFromMessage(message: UIMessage): NextChip[] {
   return [];
 }
 
-export function Chat() {
+/** A short sidebar title from the first user message — ChatGPT/Claude-style. */
+function deriveTitle(text: string): string {
+  const clean = text.replace(/\s+/g, " ").trim();
+  return clean.length > 48 ? `${clean.slice(0, 47).trimEnd()}…` : clean;
+}
+
+export function Chat({
+  chatId,
+  initialMessages,
+}: {
+  chatId: string;
+  initialMessages: UIMessage[];
+}) {
   const transport = useTriggerChatTransport<typeof triggerChatAgent>({
     task: "trigger-chat-agent",
     // Only needed when the agent runs somewhere other than cloud.trigger.dev
@@ -157,10 +170,62 @@ export function Chat() {
   });
 
   const { messages, sendMessage, stop, status, error, regenerate, clearError } =
-    useChat({ transport });
+    useChat({
+      id: chatId,
+      messages: initialMessages,
+      resume: initialMessages.length > 0,
+      transport,
+    });
   const [input, setInput] = useState("");
   const reduce = useReducedMotion();
   const busy = status === "submitted" || status === "streaming";
+
+  // Persist the transcript to the device-local store when a turn settles (not
+  // per-token). No server DB — this is what lets a refresh re-render the thread.
+  useEffect(() => {
+    if (messages.length > 0 && !busy) saveMessages(chatId, messages);
+  }, [chatId, messages, busy]);
+
+  // ALSO flush the latest transcript when leaving this chat. Navigating to
+  // another chat mid-stream (before the turn settles) would otherwise never
+  // save it — there's no server-side read-back — so the conversation would be
+  // lost. A ref tracks the latest messages; the unmount cleanup writes them
+  // (saveMessages also creates the sidebar entry, so a half-finished chat still
+  // shows up rather than vanishing).
+  const latestMessagesRef = useRef(messages);
+  const leaveRef = useRef({ busy, stop });
+  useEffect(() => {
+    latestMessagesRef.current = messages;
+  }, [messages]);
+  useEffect(() => {
+    leaveRef.current = { busy, stop };
+  }, [busy, stop]);
+  useEffect(() => {
+    return () => {
+      if (latestMessagesRef.current.length > 0) {
+        saveMessages(chatId, latestMessagesRef.current);
+      }
+      // Abort an in-flight turn when leaving — we don't resume interrupted
+      // streams, so letting it finish server-side just burns tokens nobody
+      // sees. Covers navigate-away, New Chat, and deleting the active chat.
+      if (leaveRef.current.busy) leaveRef.current.stop();
+    };
+  }, [chatId]);
+
+  // Title the chat once, from its first user message, into the device-local
+  // index the sidebar reads. Once per mount (ref-guarded) so it never churns.
+  const titledRef = useRef(false);
+  useEffect(() => {
+    if (titledRef.current || messages.length === 0) return;
+    const firstUser = messages.find((message) => message.role === "user");
+    if (!firstUser) return;
+    let text = "";
+    for (const part of firstUser.parts) if (part.type === "text") text += part.text;
+    text = text.trim();
+    if (!text) return;
+    setTitle(chatId, deriveTitle(text));
+    titledRef.current = true;
+  }, [chatId, messages]);
 
   // Next-step chips: derived from the current last assistant turn, but kept
   // sticky because the trailing `suggestNext` tool part is dropped when the turn
@@ -397,7 +462,7 @@ export function Chat() {
             )}
           </div>
           <p className="mt-2 text-center text-2xs leading-4 text-charcoal-500">
-            Answers are grounded in the live Trigger.dev docs — follow the links to check.
+            Answers cite the live Trigger.dev docs where available — follow the links to check.
           </p>
         </form>
       </footer>
