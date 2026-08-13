@@ -99,13 +99,21 @@ export const cardComponentDefinitions = {
       sequence: z
         .array(flowSeqStep)
         .nullable()
-        .describe("Optional animation script: node status transitions over time. Omit for a static reveal."),
+        .describe(
+          "Animation script that makes the graph PLAY OUT like a real run — node statuses change over time. " +
+            "Provide this whenever you're teaching how something EXECUTES: retries (running -> error -> running -> success), " +
+            "waits/checkpoints (running -> paused -> running), or a fan-out completing (several nodes running -> success). " +
+            "Each step is { nodeId, status, atMs } where atMs is milliseconds from reveal start — stagger them (e.g. 500, 1100, 1800) " +
+            "so the run unfolds visibly. Omit ONLY for a purely structural diagram with no execution story."
+        ),
     }),
     description:
       "A directed node-graph (React Flow) styled like the Trigger.dev dashboard: rectangular " +
       "nodes with a status dot, orthogonal edges, animated reveal. Use for architecture, task " +
       "orchestration, fan-out, retries, waits, checkpoints, or queues — anything with branching " +
-      "or a real flow. Prefer this over DiagramCard for non-trivial diagrams.",
+      "or a real flow. When the topic is how something RUNS over time (retries, waits, a fan-out " +
+      "completing), ALSO pass a `sequence` so the graph animates through those states live — that " +
+      "moving diagram is the signature moment, not a static picture. Prefer this over DiagramCard for non-trivial diagrams.",
   },
   DiagramCard: {
     props: z.object({
