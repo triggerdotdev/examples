@@ -145,6 +145,24 @@ function chipsFromMessage(message: UIMessage): NextChip[] {
   return [];
 }
 
+/** Collapse duplicate-id messages. A resumed run (or a persisted turn read back
+ * on remount) can reappear with the same id; keep each id's first position but
+ * its latest content, so React keys stay unique and we never render or persist
+ * the same turn twice. */
+function dedupeById(messages: UIMessage[]): UIMessage[] {
+  const latest = new Map<string, UIMessage>();
+  for (const message of messages) latest.set(message.id, message);
+  const seen = new Set<string>();
+  const out: UIMessage[] = [];
+  for (const message of messages) {
+    if (seen.has(message.id)) continue;
+    seen.add(message.id);
+    const newest = latest.get(message.id);
+    if (newest) out.push(newest);
+  }
+  return out;
+}
+
 /** A short sidebar title from the first user message — ChatGPT/Claude-style. */
 function deriveTitle(text: string): string {
   const clean = text.replace(/\s+/g, " ").trim();
@@ -180,11 +198,16 @@ export function Chat({
   const reduce = useReducedMotion();
   const busy = status === "submitted" || status === "streaming";
 
+  // Everything below reads from the deduped list: a resumed/persisted turn can
+  // come back with a duplicate id, which collides React keys and would persist
+  // the same turn twice.
+  const items = useMemo(() => dedupeById(messages), [messages]);
+
   // Persist the transcript to the device-local store when a turn settles (not
   // per-token). No server DB — this is what lets a refresh re-render the thread.
   useEffect(() => {
-    if (messages.length > 0 && !busy) saveMessages(chatId, messages);
-  }, [chatId, messages, busy]);
+    if (items.length > 0 && !busy) saveMessages(chatId, items);
+  }, [chatId, items, busy]);
 
   // ALSO flush the latest transcript when leaving this chat. Navigating to
   // another chat mid-stream (before the turn settles) would otherwise never
@@ -192,11 +215,11 @@ export function Chat({
   // lost. A ref tracks the latest messages; the unmount cleanup writes them
   // (saveMessages also creates the sidebar entry, so a half-finished chat still
   // shows up rather than vanishing).
-  const latestMessagesRef = useRef(messages);
+  const latestMessagesRef = useRef(items);
   const leaveRef = useRef({ busy, stop });
   useEffect(() => {
-    latestMessagesRef.current = messages;
-  }, [messages]);
+    latestMessagesRef.current = items;
+  }, [items]);
   useEffect(() => {
     leaveRef.current = { busy, stop };
   }, [busy, stop]);
@@ -216,8 +239,8 @@ export function Chat({
   // index the sidebar reads. Once per mount (ref-guarded) so it never churns.
   const titledRef = useRef(false);
   useEffect(() => {
-    if (titledRef.current || messages.length === 0) return;
-    const firstUser = messages.find((message) => message.role === "user");
+    if (titledRef.current || items.length === 0) return;
+    const firstUser = items.find((message) => message.role === "user");
     if (!firstUser) return;
     let text = "";
     for (const part of firstUser.parts) if (part.type === "text") text += part.text;
@@ -225,7 +248,7 @@ export function Chat({
     if (!text) return;
     setTitle(chatId, deriveTitle(text));
     titledRef.current = true;
-  }, [chatId, messages]);
+  }, [chatId, items]);
 
   // Next-step chips: derived from the current last assistant turn, but kept
   // sticky because the trailing `suggestNext` tool part is dropped when the turn
@@ -233,11 +256,11 @@ export function Chat({
   // finished turn keeps its chips, while a NEW turn shows none until its own
   // suggestNext streams — so the previous turn's chips can't flash back.
   const lastAssistant = useMemo(() => {
-    for (let i = messages.length - 1; i >= 0; i--) {
-      if (messages[i].role === "assistant") return messages[i];
+    for (let i = items.length - 1; i >= 0; i--) {
+      if (items[i].role === "assistant") return items[i];
     }
     return undefined;
-  }, [messages]);
+  }, [items]);
   const streamingChips = useMemo(
     () => (lastAssistant ? chipsFromMessage(lastAssistant) : []),
     [lastAssistant]
@@ -261,7 +284,7 @@ export function Chat({
 
   // On send, bring the new turn into view.
   useEffect(() => {
-    if (messages[messages.length - 1]?.role === "user") {
+    if (items[items.length - 1]?.role === "user") {
       followRef.current = true;
       lastRowRef.current?.scrollIntoView({
         block: "start",
@@ -269,7 +292,7 @@ export function Chat({
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages.length]);
+  }, [items.length]);
 
   // Follow the answer as it streams. A ResizeObserver on the content tracks
   // growth (message count doesn't change while text streams). Only genuine user
@@ -327,7 +350,7 @@ export function Chat({
       >
         {/* Single child: what the ResizeObserver measures to follow the stream. */}
         <div className="space-y-8">
-          {messages.length === 0 ? (
+          {items.length === 0 ? (
             <div className="flex min-h-full items-center justify-center py-8 sm:py-12">
               <div className="w-full">
                 <div className="mb-10 max-w-2xl sm:mb-12">
@@ -369,10 +392,10 @@ export function Chat({
               </div>
             </div>
           ) : (
-            messages.map((message, i) => (
+            items.map((message, i) => (
               <div
                 key={message.id}
-                ref={i === messages.length - 1 ? lastRowRef : undefined}
+                ref={i === items.length - 1 ? lastRowRef : undefined}
                 className="scroll-mt-4"
               >
                 <Message
