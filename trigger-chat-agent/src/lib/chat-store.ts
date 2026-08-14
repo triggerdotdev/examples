@@ -12,7 +12,10 @@
 
 import type { UIMessage } from "ai";
 
-export type ChatMeta = { chatId: string; title: string | null; updatedAt: number };
+// `createdAt` fixes a chat's position in the sidebar (newest created on top, and
+// it never moves when you send another message); `updatedAt` drives the 48h
+// read-only expiry only.
+export type ChatMeta = { chatId: string; title: string | null; createdAt: number; updatedAt: number };
 
 const DB_NAME = "trigger-chat-agent";
 const DB_VERSION = 1;
@@ -68,20 +71,22 @@ function openDb(): Promise<IDBDatabase> {
 
 // --- narrowing --------------------------------------------------------------
 
-function isChatMeta(value: unknown): value is ChatMeta {
-  if (typeof value !== "object" || value === null) return false;
+// Validate a stored record and normalize it. `createdAt` was added later, so a
+// record written before this falls back to its `updatedAt` (best available).
+function toChatMeta(value: unknown): ChatMeta | null {
+  if (typeof value !== "object" || value === null) return null;
   const v = value as Record<string, unknown>;
-  return (
-    typeof v.chatId === "string" &&
-    (v.title === null || typeof v.title === "string") &&
-    typeof v.updatedAt === "number"
-  );
+  if (typeof v.chatId !== "string") return null;
+  if (!(v.title === null || typeof v.title === "string")) return null;
+  if (typeof v.updatedAt !== "number") return null;
+  const createdAt = typeof v.createdAt === "number" ? v.createdAt : v.updatedAt;
+  return { chatId: v.chatId, title: v.title, createdAt, updatedAt: v.updatedAt };
 }
 
 async function readMeta(db: IDBDatabase, chatId: string): Promise<ChatMeta | null> {
   const tx = db.transaction(CHATS_STORE, "readonly");
   const value = await requestToPromise<unknown>(tx.objectStore(CHATS_STORE).get(chatId));
-  return isChatMeta(value) ? value : null;
+  return toChatMeta(value);
 }
 
 // --- public read/write API --------------------------------------------------
@@ -103,6 +108,7 @@ export async function saveMessages(chatId: string, messages: UIMessage[]): Promi
   const meta: ChatMeta = {
     chatId,
     title: existing ? existing.title : null,
+    createdAt: existing ? existing.createdAt : Date.now(),
     updatedAt: Date.now(),
   };
   const tx = db.transaction([MESSAGES_STORE, CHATS_STORE], "readwrite");
@@ -117,8 +123,11 @@ export async function listChats(): Promise<ChatMeta[]> {
   const db = await openDb();
   const tx = db.transaction(CHATS_STORE, "readonly");
   const all = await requestToPromise<unknown[]>(tx.objectStore(CHATS_STORE).getAll());
-  const metas = Array.isArray(all) ? all.filter(isChatMeta) : [];
-  return metas.sort((a, b) => b.updatedAt - a.updatedAt);
+  const metas = Array.isArray(all)
+    ? all.map(toChatMeta).filter((m): m is ChatMeta => m !== null)
+    : [];
+  // Newest created first, and stable: sending a message doesn't reorder.
+  return metas.sort((a, b) => b.createdAt - a.createdAt);
 }
 
 export async function setTitle(chatId: string, title: string): Promise<void> {
@@ -128,6 +137,7 @@ export async function setTitle(chatId: string, title: string): Promise<void> {
   const meta: ChatMeta = {
     chatId,
     title,
+    createdAt: existing ? existing.createdAt : Date.now(),
     updatedAt: existing ? existing.updatedAt : Date.now(),
   };
   const tx = db.transaction(CHATS_STORE, "readwrite");

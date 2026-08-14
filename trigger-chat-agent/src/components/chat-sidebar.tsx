@@ -18,58 +18,6 @@ import { cn } from "@/lib/utils";
 // them — the conversation view enforces the read-only behaviour itself.
 const EXPIRY_MS = 48 * 60 * 60 * 1000;
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-// Newest-first order the group headers are rendered in. Empty buckets are
-// skipped at render time, so this is just the canonical sequence.
-const BUCKET_ORDER = [
-  "Today",
-  "Yesterday",
-  "Previous 7 Days",
-  "Previous 30 Days",
-  "Older",
-] as const;
-
-type BucketLabel = (typeof BUCKET_ORDER)[number];
-type ChatGroup = { label: BucketLabel; chats: ChatMeta[] };
-
-// Calendar-relative bucketing: "Today"/"Yesterday" use local midnight
-// boundaries (not rolling 24h windows) so a chat from this morning always reads
-// as Today, and the wider buckets fall back to rolling windows off midnight.
-function bucketFor(updatedAt: number, startOfToday: number): BucketLabel {
-  if (updatedAt >= startOfToday) return "Today";
-  if (updatedAt >= startOfToday - DAY_MS) return "Yesterday";
-  if (updatedAt >= startOfToday - 7 * DAY_MS) return "Previous 7 Days";
-  if (updatedAt >= startOfToday - 30 * DAY_MS) return "Previous 30 Days";
-  return "Older";
-}
-
-function startOfDay(now: number): number {
-  const date = new Date(now);
-  date.setHours(0, 0, 0, 0);
-  return date.getTime();
-}
-
-// Sort newest-first (defensively — the store already sorts) and split into the
-// non-empty date buckets in canonical order.
-function groupChats(chats: ChatMeta[], now: number): ChatGroup[] {
-  const startOfToday = startOfDay(now);
-  const sorted = [...chats].sort((a, b) => b.updatedAt - a.updatedAt);
-
-  const byLabel = new Map<BucketLabel, ChatMeta[]>();
-  for (const chat of sorted) {
-    const label = bucketFor(chat.updatedAt, startOfToday);
-    const existing = byLabel.get(label);
-    if (existing) existing.push(chat);
-    else byLabel.set(label, [chat]);
-  }
-
-  return BUCKET_ORDER.flatMap((label) => {
-    const bucket = byLabel.get(label);
-    return bucket && bucket.length > 0 ? [{ label, chats: bucket }] : [];
-  });
-}
-
 // The active chat id, parsed from a `/c/<id>` pathname. `null` anywhere else.
 function activeChatIdFrom(pathname: string | null): string | null {
   if (!pathname) return null;
@@ -87,9 +35,10 @@ export function ChatSidebar() {
   const pathname = usePathname();
 
   const activeChatId = activeChatIdFrom(pathname);
-  // `Date.now()` at render is fine here: the store notifies on every change and
-  // navigation re-renders, so the buckets/expiry stay in step with the list.
-  const groups = groupChats(chats, Date.now());
+  // The store hands the list back newest-created-first and never reorders it, so
+  // the sidebar just renders it in order — a chat holds its place when you send
+  // another message in it. `Date.now()` at render drives only the expiry badge.
+  const now = Date.now();
 
   function startNewChat() {
     router.push(`/c/${crypto.randomUUID()}`);
@@ -121,31 +70,22 @@ export function ChatSidebar() {
         aria-label="Past chats"
         className="min-h-0 flex-1 overflow-y-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-charcoal-700"
       >
-        {groups.length === 0 ? (
+        {chats.length === 0 ? (
           <p className="px-4 py-3 text-xs leading-5 text-charcoal-500">
             Your chats will appear here
           </p>
         ) : (
-          <div className="space-y-4 px-2 pb-4">
-            {groups.map((group) => (
-              <section key={group.label}>
-                <h2 className="px-2 pb-1.5 pt-1 font-mono text-2xs uppercase tracking-widest text-charcoal-500">
-                  {group.label}
-                </h2>
-                <ul className="space-y-0.5">
-                  {group.chats.map((chat) => (
-                    <ChatRow
-                      key={chat.chatId}
-                      chat={chat}
-                      active={chat.chatId === activeChatId}
-                      expired={Date.now() - chat.updatedAt > EXPIRY_MS}
-                      onDelete={handleDelete}
-                    />
-                  ))}
-                </ul>
-              </section>
+          <ul className="space-y-0.5 px-2 pb-4">
+            {chats.map((chat) => (
+              <ChatRow
+                key={chat.chatId}
+                chat={chat}
+                active={chat.chatId === activeChatId}
+                expired={now - chat.updatedAt > EXPIRY_MS}
+                onDelete={handleDelete}
+              />
             ))}
-          </div>
+          </ul>
         )}
       </nav>
     </div>
