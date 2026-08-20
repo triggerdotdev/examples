@@ -616,11 +616,11 @@ export function Chat({
               {showExplainSimply && (
                 <button
                   type="button"
-                  onClick={() => submit("Explain simply")}
+                  onClick={() => submit("Simplify")}
                   className="inline-flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-xl border border-apple-500/40 bg-charcoal-950/70 px-3 py-2 text-left text-xs font-medium leading-4 text-bright backdrop-blur-md transition-colors duration-150 hover:bg-apple-500/10"
                 >
                   <Sparkles className="size-3.5 shrink-0 text-apple-500" />
-                  Explain simply
+                  Simplify
                 </button>
               )}
               {chips.map((chip, i) => {

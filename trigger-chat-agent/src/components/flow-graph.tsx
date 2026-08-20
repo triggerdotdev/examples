@@ -38,7 +38,14 @@ import "@xyflow/react/dist/style.css";
 
 export type FlowNodeKind = "task" | "model" | "wait" | "trigger" | "stream" | "queue" | "decision";
 
-export type FlowNodeStatus = "default" | "running" | "error" | "warning" | "success" | "paused";
+export type FlowNodeStatus =
+  | "default"
+  | "queued"
+  | "running"
+  | "error"
+  | "warning"
+  | "success"
+  | "paused";
 
 export type FlowNode = {
   id: string;
@@ -72,6 +79,7 @@ export type FlowGraphProps = {
 // running/success, amber for warning, rose for error.
 const statusClasses: Record<FlowNodeStatus, { border: string; dot: string; text: string }> = {
   default: { border: "border-grid-bright", dot: "bg-dimmed", text: "text-bright" },
+  queued: { border: "border-grid-bright", dot: "bg-dimmed", text: "text-dimmed" },
   running: { border: "border-apple-500/40", dot: "bg-apple-500", text: "text-bright" },
   error: { border: "border-error/30", dot: "bg-error", text: "text-error" },
   warning: { border: "border-warning/30", dot: "bg-warning", text: "text-warning" },

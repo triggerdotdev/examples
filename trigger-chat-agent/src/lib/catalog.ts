@@ -16,10 +16,18 @@ import { z } from "zod";
 // ============================================================================
 
 // Node kinds + visual states for a `FlowGraph`. `status` extends the linear
-// DiagramCard set (`stepStatus`) with `running` (in-flight) and `paused`
-// (waiting / checkpointed).
+// DiagramCard set (`stepStatus`) with `queued` (waiting for capacity),
+// `running` (in-flight), and `paused` (waiting / checkpointed).
 const flowNodeKind = z.enum(["task", "model", "wait", "trigger", "stream", "queue", "decision"]);
-const flowNodeStatus = z.enum(["default", "running", "error", "warning", "success", "paused"]);
+const flowNodeStatus = z.enum([
+  "default",
+  "queued",
+  "running",
+  "error",
+  "warning",
+  "success",
+  "paused",
+]);
 const stepStatus = z.enum(["default", "error", "warning", "success"]);
 
 // Fields nested inside arrays use `.nullish()` (not `.nullable()`):
@@ -37,7 +45,12 @@ const flowNode = z.object({
     .nullish()
     .describe("Optional second line, max 24 chars, e.g. 'Haiku' or '1.4s'. Put detail here, not in the label."),
   kind: flowNodeKind,
-  status: flowNodeStatus.nullish().describe("Visual state, defaults to 'default'"),
+  status: flowNodeStatus
+    .nullish()
+    .describe(
+      "Visual state, defaults to 'default'. Use 'queued' for a run waiting to acquire concurrency, " +
+        "'running' only while it is actively executing, and 'paused' only for a checkpointed waitpoint.",
+    ),
 });
 
 const flowEdge = z.object({
@@ -107,7 +120,8 @@ export const cardComponentDefinitions = {
         .describe(
           "Animation script that makes the graph PLAY OUT like a real run — node statuses change over time. " +
             "Provide this whenever you're teaching how something EXECUTES: retries (running -> error -> running -> success), " +
-            "waits/checkpoints (running -> paused -> running), or a fan-out completing (several nodes running -> success). " +
+            "waits/checkpoints (running -> paused -> running), queue capacity (queued -> running -> success), " +
+            "or a fan-out completing (several nodes running -> success). " +
             "Each step is { nodeId, status, atMs } where atMs is milliseconds from reveal start — stagger them (e.g. 500, 1100, 1800) " +
             "so the run unfolds visibly. Omit ONLY for a purely structural diagram with no execution story."
         ),
@@ -284,6 +298,92 @@ export function normalizeSpec(input: unknown): VisualizationSpec | null {
 // with the prompt reference ("Only Card, Stack, and Grid take children").
 const CONTAINER_TYPES = new Set(["Card", "Stack", "Grid"]);
 
+type ValidatedFlowGraph = {
+  title: string;
+  nodes: Array<{
+    id: string;
+    label: string;
+    sublabel?: string | null;
+    kind: z.infer<typeof flowNodeKind>;
+    status?: z.infer<typeof flowNodeStatus> | null;
+  }>;
+  edges: Array<{ from: string; to: string }>;
+  sequence?: Array<{
+    nodeId: string;
+    status: z.infer<typeof flowNodeStatus>;
+    atMs: number;
+  }> | null;
+};
+
+/**
+ * Concurrency is a time/capacity constraint, not a fan-out relationship. Catch
+ * the misleading graph shape from the model before it reaches the learner.
+ */
+function validateConcurrencyGraph(key: string, graph: ValidatedFlowGraph): string[] {
+  const errors: string[] = [];
+  const queues = graph.nodes.filter((node) => node.kind === "queue");
+  const topic = [
+    graph.title,
+    ...queues.flatMap((node) => [node.label, node.sublabel ?? ""]),
+  ].join(" ");
+  if (!/concurren|\blimit\s*[:=]?\s*\d+/i.test(topic)) return errors;
+
+  if (!graph.sequence?.length) {
+    errors.push(
+      `elements.${key} (FlowGraph): concurrency diagrams need a sequence showing queued -> running -> success over time`,
+    );
+  }
+
+  for (const queue of queues) {
+    const outgoing = graph.edges.filter((edge) => edge.from === queue.id).length;
+    if (outgoing > 1) {
+      errors.push(
+        `elements.${key} (FlowGraph): don't fan queue "${queue.label}" directly into ${outgoing} runs; show one execution slot over time`,
+      );
+    }
+  }
+
+  const limitMatch = topic.match(/(?:concurrency\s*limit|concurrencyLimit|\blimit)\s*[:=]?\s*(\d+)/i);
+  const limit = limitMatch ? Number(limitMatch[1]) : null;
+  if (!limit || !graph.sequence?.length) return errors;
+
+  const statuses = new Map(
+    graph.nodes.map((node) => [node.id, node.status ?? "default"] as const),
+  );
+  const taskIds = new Set(
+    graph.nodes.filter((node) => node.kind === "task").map((node) => node.id),
+  );
+  const runningCount = () =>
+    Array.from(statuses).filter(
+      ([nodeId, status]) => taskIds.has(nodeId) && status === "running",
+    ).length;
+
+  if (runningCount() > limit) {
+    errors.push(
+      `elements.${key} (FlowGraph): initial state exceeds concurrency limit ${limit}`,
+    );
+  }
+
+  const stepsByTime = new Map<number, NonNullable<ValidatedFlowGraph["sequence"]>>();
+  for (const step of graph.sequence) {
+    const steps = stepsByTime.get(step.atMs) ?? [];
+    steps.push(step);
+    stepsByTime.set(step.atMs, steps);
+  }
+  for (const [atMs, steps] of [...stepsByTime].sort(([a], [b]) => a - b)) {
+    for (const step of steps) statuses.set(step.nodeId, step.status);
+    const running = runningCount();
+    if (running > limit) {
+      errors.push(
+        `elements.${key} (FlowGraph): ${running} runs are running at ${atMs}ms, exceeding concurrency limit ${limit}`,
+      );
+      break;
+    }
+  }
+
+  return errors;
+}
+
 /**
  * Validates a spec against the catalog: known component types, per-component
  * props (missing nullable props are treated as null, unknown props flagged),
@@ -337,6 +437,10 @@ export function validateSpec(spec: VisualizationSpec): { ok: true } | { ok: fals
       for (const issue of parsed.error.issues) {
         errors.push(`elements.${key} (${element.type}) props.${issue.path.join(".")}: ${issue.message}`);
       }
+    } else if (element.type === "FlowGraph") {
+      errors.push(
+        ...validateConcurrencyGraph(key, parsed.data as ValidatedFlowGraph),
+      );
     }
 
     // A misspelled/unknown prop is dropped silently by safeParse, so the model
