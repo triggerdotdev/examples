@@ -1,5 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="16" fill="#121317"/>
-  <circle cx="32" cy="32" r="8" fill="#A8FF53"/>
-  <circle cx="32" cy="32" r="15" fill="none" stroke="#A8FF53" stroke-opacity=".28" stroke-width="2"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+  <rect width="120" height="120" rx="28" fill="#121317"/>
+  <path fill-rule="evenodd" clip-rule="evenodd" d="M41.6889 52.2795 60.4195 20l46.4195 80H14l18.7305-32.2805 13.2496 7.6117-5.4798 9.4444h39.8384L60.4195 50.4478l-5.4799 9.4444-13.2507-7.6127Z" fill="url(#logo)"/>
+  <defs>
+    <linearGradient id="logo" x1="89.1675" y1="100" x2="88.3094" y2="43.5225" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#41FF54"/>
+      <stop offset="1" stop-color="#E7FF52"/>
+    </linearGradient>
+  </defs>
 </svg>

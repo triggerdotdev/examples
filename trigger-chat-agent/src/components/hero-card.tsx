@@ -18,6 +18,7 @@ import {
 import { motion, useReducedMotion } from "motion/react";
 import { cn } from "@/lib/utils";
 import { reducedVariants, revealBlur, staggerContainer } from "@/lib/motion";
+import { CodeAwareLabel } from "@/components/code-aware-label";
 
 /**
  * HeroCard — the intro card that opens a topic: an optional icon badge, a mono
@@ -75,8 +76,11 @@ export function HeroCard({
         </motion.div>
       )}
       {kicker && (
-        <motion.div variants={item} className="mb-3 font-mono text-xs font-medium uppercase tracking-wider text-apple-500">
-          {kicker}
+        <motion.div variants={item} className="mb-3">
+          <CodeAwareLabel
+            value={kicker}
+            className="font-mono text-xs font-medium tracking-wider text-apple-500"
+          />
         </motion.div>
       )}
       <motion.h3

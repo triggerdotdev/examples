@@ -2,6 +2,7 @@
 
 import { AlertTriangle, Info, Lightbulb, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { CodeAwareLabel } from "@/components/code-aware-label";
 
 /**
  * Small data-driven teaching components — Callout, Steps, Glossary, Compare.
@@ -89,7 +90,12 @@ export function Compare({
       <div className="grid grid-cols-1 divide-y divide-grid-bright sm:grid-cols-2 sm:divide-x sm:divide-y-0">
         {[a, b].map((col, ci) => (
           <div key={ci} className="p-5">
-            <div className="mb-3 font-mono text-xs uppercase tracking-wider text-apple-500">{col.label}</div>
+            <div className="mb-3">
+              <CodeAwareLabel
+                value={col.label}
+                className="font-mono text-xs tracking-wider text-apple-500"
+              />
+            </div>
             <ul className="space-y-2">
               {col.points.map((p, i) => (
                 <li key={i} className="flex gap-2 text-sm leading-6 text-dimmed">

@@ -4,6 +4,7 @@ import { animate, motion, useInView, useReducedMotion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { easings, reducedVariants, revealBlur, staggerContainer } from "@/lib/motion";
+import { CodeAwareLabel } from "@/components/code-aware-label";
 
 /**
  * StatCard — a single KPI: label, headline value, optional delta badge and mini
@@ -42,7 +43,10 @@ export function StatCard({
       className="flex min-h-64 flex-col justify-between rounded-2xl border border-grid-dimmed bg-charcoal-850 p-6"
     >
       <motion.div variants={item} className="flex items-center justify-between pb-4">
-        <span className="font-mono text-2xs font-medium uppercase tracking-widest text-dimmed">{label}</span>
+        <CodeAwareLabel
+          value={label}
+          className="font-mono text-2xs font-medium tracking-widest text-dimmed"
+        />
         {deltaLabel && (
           <span
             className={cn(

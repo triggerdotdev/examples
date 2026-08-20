@@ -2,9 +2,10 @@
 
 import { CheckCircle2, XCircle } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
-import { useState } from "react";
+import { useContext, useEffect, useId, useState } from "react";
 import { cn } from "@/lib/utils";
 import { reducedVariants, revealBlur } from "@/lib/motion";
+import { QuizGateContext } from "@/components/quiz-gate";
 
 /**
  * Quiz — a single multiple-choice retrieval-practice question with immediate
@@ -23,6 +24,13 @@ export function Quiz({
   const reduce = useReducedMotion();
   const [picked, setPicked] = useState<number | null>(null);
   const answered = picked !== null;
+  const quizId = useId();
+  const reportBlocking = useContext(QuizGateContext);
+
+  useEffect(() => {
+    reportBlocking(quizId, !answered);
+    return () => reportBlocking(quizId, false);
+  }, [answered, quizId, reportBlocking]);
 
   return (
     <motion.div
@@ -31,7 +39,7 @@ export function Quiz({
       animate="show"
       className="rounded-2xl border border-grid-dimmed bg-charcoal-850 p-5 sm:p-6"
     >
-      <div className="mb-1 font-mono text-2xs uppercase tracking-widest text-dimmed/70">Quiz</div>
+      <div className="mb-1 font-mono text-2xs uppercase tracking-widest text-apple-500">Quiz</div>
       <p className="mb-4 font-title text-lg font-medium text-bright">{question}</p>
       {/* aria-disabled (not the `disabled` attribute) keeps answered options in
           the tab order, so a keyboard user can still move across and read the

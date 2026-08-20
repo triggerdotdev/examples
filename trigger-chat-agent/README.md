@@ -1,6 +1,6 @@
-# Trigger.dev chat agent: a tutor that teaches by drawing
+# Ask Trigger
 
-A [Trigger.dev chat agent](https://trigger.dev/docs/ai-chat/overview) that **teaches you Trigger.dev** by *drawing*. Instead of dumping paragraphs, it composes interactive components. Ask "how does a fan-out with retries work?" and you get an **interactive node-graph** of the flow. Ask it to teach you retries and you get a short explainer, a **quiz**, and a gotcha **callout**. Every turn ends with next-step chips so the learning keeps flowing.
+Ask Trigger is a [Trigger.dev chat agent](https://trigger.dev/docs/ai-chat/overview) that **teaches you Trigger.dev** by *drawing*. Instead of dumping paragraphs, it composes interactive components. Ask "how does a fan-out with retries work?" and you get an **interactive node-graph** of the flow. Ask it to teach you retries and you get a short explainer, a **quiz**, and a gotcha **callout**. Every turn ends with next-step chips so the learning keeps flowing.
 
 The agent decides how best to teach. It writes a sentence or two, then calls a `renderVisualization` tool with a [json-render](https://json-render.dev) spec, and the Next.js chat UI renders it live with [React Flow](https://reactflow.dev) and a kit of [shadcn/ui](https://ui.shadcn.com)-based teaching components. The model supplies *data*, not markup, so a card is a handful of tokens and always looks right. Every fact it states is grounded on the live docs through a documentation [MCP server](https://modelcontextprotocol.io), so it doesn't invent API surface.
 

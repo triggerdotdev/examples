@@ -11,6 +11,7 @@
 // small typed Promise helpers so the rest of the file reads as async/await.
 
 import type { UIMessage } from "ai";
+import type { ChatSessionPersistedState } from "@trigger.dev/sdk/chat";
 
 // `createdAt` fixes a chat's position in the sidebar (newest created on top, and
 // it never moves when you send another message); `updatedAt` drives the 48h
@@ -18,9 +19,10 @@ import type { UIMessage } from "ai";
 export type ChatMeta = { chatId: string; title: string | null; createdAt: number; updatedAt: number };
 
 const DB_NAME = "trigger-chat-agent";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const MESSAGES_STORE = "messages";
 const CHATS_STORE = "chats";
+const SESSIONS_STORE = "sessions";
 
 // Stable empty array for SSR — a fresh `[]` each call would make
 // useSyncExternalStore think the snapshot changed and loop forever.
@@ -51,7 +53,7 @@ let dbPromise: Promise<IDBDatabase> | null = null;
 
 function openDb(): Promise<IDBDatabase> {
   if (dbPromise) return dbPromise;
-  dbPromise = new Promise((resolve, reject) => {
+  const opening = new Promise<IDBDatabase>((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
     request.onupgradeneeded = () => {
       const db = request.result;
@@ -62,11 +64,21 @@ function openDb(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains(CHATS_STORE)) {
         db.createObjectStore(CHATS_STORE, { keyPath: "chatId" });
       }
+      if (!db.objectStoreNames.contains(SESSIONS_STORE)) {
+        db.createObjectStore(SESSIONS_STORE);
+      }
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
+    request.onblocked = () =>
+      reject(new Error("IndexedDB upgrade blocked by another tab"));
+  }).catch((error) => {
+    // A blocked or failed open must be retryable later in the page lifetime.
+    dbPromise = null;
+    throw error;
   });
-  return dbPromise;
+  dbPromise = opening;
+  return opening;
 }
 
 // --- narrowing --------------------------------------------------------------
@@ -97,6 +109,46 @@ export async function loadMessages(chatId: string): Promise<UIMessage[]> {
   const tx = db.transaction(MESSAGES_STORE, "readonly");
   const value = await requestToPromise<unknown>(tx.objectStore(MESSAGES_STORE).get(chatId));
   return Array.isArray(value) ? (value as UIMessage[]) : [];
+}
+
+export async function loadSession(
+  chatId: string,
+): Promise<ChatSessionPersistedState | null> {
+  if (!isBrowser()) return null;
+  const db = await openDb();
+  const tx = db.transaction(SESSIONS_STORE, "readonly");
+  const value = await requestToPromise<unknown>(
+    tx.objectStore(SESSIONS_STORE).get(chatId),
+  );
+  if (typeof value !== "object" || value === null) return null;
+  const session = value as Record<string, unknown>;
+  if (typeof session.publicAccessToken !== "string") return null;
+  if (
+    session.lastEventId !== undefined &&
+    typeof session.lastEventId !== "string"
+  ) {
+    return null;
+  }
+  if (
+    session.isStreaming !== undefined &&
+    typeof session.isStreaming !== "boolean"
+  ) {
+    return null;
+  }
+  return session as ChatSessionPersistedState;
+}
+
+export async function saveSession(
+  chatId: string,
+  session: ChatSessionPersistedState | null,
+): Promise<void> {
+  if (!isBrowser()) return;
+  const db = await openDb();
+  const tx = db.transaction(SESSIONS_STORE, "readwrite");
+  const store = tx.objectStore(SESSIONS_STORE);
+  if (session) store.put(session, chatId);
+  else store.delete(chatId);
+  await transactionToPromise(tx);
 }
 
 export async function saveMessages(chatId: string, messages: UIMessage[]): Promise<void> {
@@ -149,9 +201,13 @@ export async function setTitle(chatId: string, title: string): Promise<void> {
 export async function removeChat(chatId: string): Promise<void> {
   if (!isBrowser()) return;
   const db = await openDb();
-  const tx = db.transaction([MESSAGES_STORE, CHATS_STORE], "readwrite");
+  const tx = db.transaction(
+    [MESSAGES_STORE, CHATS_STORE, SESSIONS_STORE],
+    "readwrite",
+  );
   tx.objectStore(MESSAGES_STORE).delete(chatId);
   tx.objectStore(CHATS_STORE).delete(chatId);
+  tx.objectStore(SESSIONS_STORE).delete(chatId);
   await transactionToPromise(tx);
   await refreshSnapshot();
 }
@@ -192,10 +248,16 @@ async function refreshSnapshot(): Promise<void> {
   }
 }
 
+function refreshSnapshotInBackground(): void {
+  void refreshSnapshot().catch((error) => {
+    console.error("Could not refresh the local chat list", error);
+  });
+}
+
 export function subscribeChats(callback: () => void): () => void {
   if (!isBrowser()) return () => {};
   listeners.add(callback);
-  void refreshSnapshot();
+  refreshSnapshotInBackground();
   return () => {
     listeners.delete(callback);
   };
@@ -206,7 +268,7 @@ export function getChatsSnapshot(): ChatMeta[] {
   // subscribers once real data lands. No render loop, no polling.
   if (!hydrated && isBrowser()) {
     hydrated = true;
-    void refreshSnapshot();
+    refreshSnapshotInBackground();
   }
   return cachedChats;
 }

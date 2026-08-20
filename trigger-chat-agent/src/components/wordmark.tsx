@@ -2,10 +2,10 @@ import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * The `chat.agent` wordmark — GeistMono with a green-phosphor glow and the dot
- * lit in apple. Ported from the Trigger.dev Launch Week chat lockup.
+ * The Ask Trigger wordmark. Dotted variants can still light their separator in
+ * apple, matching the original Trigger.dev Launch Week chat lockup.
  */
-export function AgentWordmark({ text = "chat.agent", className }: { text?: string; className?: string }) {
+export function AgentWordmark({ text = "Ask Trigger", className }: { text?: string; className?: string }) {
   const dot = text.indexOf(".");
   const inner: ReactNode =
     dot === -1 ? (

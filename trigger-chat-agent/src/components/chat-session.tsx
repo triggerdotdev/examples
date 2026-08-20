@@ -1,9 +1,16 @@
 "use client";
 
 import type { UIMessage } from "ai";
+import type { ChatSessionPersistedState } from "@trigger.dev/sdk/chat";
 import { useEffect, useState } from "react";
 import { Chat } from "@/components/chat";
-import { loadMessages } from "@/lib/chat-store";
+import { loadMessages, loadSession } from "@/lib/chat-store";
+
+type HydratedChat = {
+  chatId: string;
+  messages: UIMessage[];
+  session: ChatSessionPersistedState | null;
+};
 
 /**
  * Loads a chat's transcript from the device-local store (IndexedDB) before
@@ -13,21 +20,34 @@ import { loadMessages } from "@/lib/chat-store";
  * `key={chatId}` on <Chat> means switching chats remounts with fresh state.
  */
 export function ChatSession({ chatId }: { chatId: string }) {
-  const [initialMessages, setInitialMessages] = useState<UIMessage[] | null>(null);
+  const [hydrated, setHydrated] = useState<HydratedChat | null>(null);
 
   useEffect(() => {
     let active = true;
-    loadMessages(chatId).then((messages) => {
-      if (active) setInitialMessages(messages);
-    });
+    Promise.all([loadMessages(chatId), loadSession(chatId)]).then(
+      ([messages, session]) => {
+        if (active) setHydrated({ chatId, messages, session });
+      },
+      (error) => {
+        console.error("Could not load the local chat transcript", error);
+        if (active) setHydrated({ chatId, messages: [], session: null });
+      },
+    );
     return () => {
       active = false;
     };
   }, [chatId]);
 
-  // Brief: an IndexedDB read is sub-millisecond. Render nothing until it lands
-  // so we never flash an empty thread over a conversation that exists.
-  if (initialMessages === null) return null;
+  // The state may still contain the previous route's transcript for one render.
+  // Never mount it under the new chat id while that chat is being hydrated.
+  if (hydrated?.chatId !== chatId) return null;
 
-  return <Chat key={chatId} chatId={chatId} initialMessages={initialMessages} />;
+  return (
+    <Chat
+      key={chatId}
+      chatId={chatId}
+      initialMessages={hydrated.messages}
+      initialSession={hydrated.session}
+    />
+  );
 }

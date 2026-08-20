@@ -25,9 +25,13 @@ const PROSE = [
  * approach) — the text simply grows, no per-word reveal, so it reads snappy.
  */
 export function AssistantText({ text }: { text: string }) {
+  // Models occasionally escape both delimiters, which would expose literal
+  // backticks instead of rendering an identifier as inline code.
+  const markdown = text.replace(/\\`([^`\n]+)\\`/g, "`$1`");
+
   return (
     <div className={PROSE}>
-      <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
+      <ReactMarkdown remarkPlugins={[remarkGfm]}>{markdown}</ReactMarkdown>
     </div>
   );
 }

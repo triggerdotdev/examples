@@ -25,7 +25,7 @@ function activeChatIdFrom(pathname: string | null): string | null {
   return match ? match[1] : null;
 }
 
-export function ChatSidebar() {
+export function ChatSidebar({ onNavigate }: { onNavigate?: () => void }) {
   const chats = useSyncExternalStore(
     subscribeChats,
     getChatsSnapshot,
@@ -41,14 +41,21 @@ export function ChatSidebar() {
   const now = Date.now();
 
   function startNewChat() {
+    onNavigate?.();
     router.push(`/c/${crypto.randomUUID()}`);
   }
 
   async function handleDelete(chatId: string) {
-    await removeChat(chatId);
+    try {
+      await removeChat(chatId);
+    } catch (error) {
+      console.error("Could not delete the local chat", error);
+      return;
+    }
     // Deleting the chat you're viewing would strand you on a dead route — send
     // yourself to a fresh one instead.
     if (chatId === activeChatId) {
+      onNavigate?.();
       router.push(`/c/${crypto.randomUUID()}`);
     }
   }
@@ -83,6 +90,7 @@ export function ChatSidebar() {
                 active={chat.chatId === activeChatId}
                 expired={now - chat.updatedAt > EXPIRY_MS}
                 onDelete={handleDelete}
+                onNavigate={onNavigate}
               />
             ))}
           </ul>
@@ -97,11 +105,13 @@ function ChatRow({
   active,
   expired,
   onDelete,
+  onNavigate,
 }: {
   chat: ChatMeta;
   active: boolean;
   expired: boolean;
   onDelete: (chatId: string) => void;
+  onNavigate?: () => void;
 }) {
   const title = chat.title ?? "New chat";
 
@@ -112,6 +122,7 @@ function ChatRow({
     <li className="group relative">
       <Link
         href={`/c/${chat.chatId}`}
+        onClick={onNavigate}
         aria-current={active ? "page" : undefined}
         title={title}
         className={cn(

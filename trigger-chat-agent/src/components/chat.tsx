@@ -1,7 +1,10 @@
 "use client";
 
-import { useChat } from "@ai-sdk/react";
-import { useTriggerChatTransport } from "@trigger.dev/sdk/chat/react";
+import { Chat as AIChat, useChat } from "@ai-sdk/react";
+import {
+  TriggerChatTransport,
+  type ChatSessionPersistedState,
+} from "@trigger.dev/sdk/chat";
 import type { UIMessage } from "ai";
 import {
   AlertTriangle,
@@ -17,16 +20,17 @@ import {
   Square,
 } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { mintChatAccessToken, startChatSession } from "@/app/actions";
 import { normalizeSpec } from "@/lib/catalog";
-import { saveMessages, setTitle } from "@/lib/chat-store";
+import { saveMessages, saveSession, setTitle } from "@/lib/chat-store";
 import { bubbleIn, easings } from "@/lib/motion";
 import { AssistantText } from "@/components/streaming-text";
 import { ErrorNotice } from "@/components/error-notice";
+import { QuizGateContext } from "@/components/quiz-gate";
+import { TriggerLogo } from "@/components/trigger-logo";
 import { AgentWordmark } from "@/components/wordmark";
 import { Visualization } from "@/components/visualization";
-import type { triggerChatAgent } from "@/trigger/trigger-chat-agent";
 
 // The empty-state seed. The altitude of the chip picked calibrates the session.
 const START_HERE = [
@@ -105,10 +109,20 @@ function isDocsToolPart(part: MessagePartValue): boolean {
   return part.type.startsWith("tool-");
 }
 
+function containsQuiz(part: MessagePartValue): boolean {
+  if (part.type !== "tool-renderVisualization") return false;
+  const spec = normalizeSpec(partInput(part)?.spec);
+  return Boolean(
+    spec && Object.values(spec.elements).some((element) => element.type === "Quiz"),
+  );
+}
+
 /** Consecutive documentation lookups read as one connected provenance trail. */
 function groupMessageParts(parts: MessagePartValue[]): MessagePartGroup[] {
   const groups: MessagePartGroup[] = [];
+  let quizReached = false;
   for (const part of parts) {
+    if (quizReached) continue;
     if (isDocsToolPart(part)) {
       const last = groups[groups.length - 1];
       if (last?.kind === "docs") last.parts.push(part);
@@ -125,6 +139,7 @@ function groupMessageParts(parts: MessagePartValue[]): MessagePartGroup[] {
       partToolName(part) === "suggestNext";
     if (visible) {
       groups.push({ kind: "part", part });
+      if (containsQuiz(part)) quizReached = true;
     }
   }
   return groups;
@@ -169,34 +184,91 @@ function deriveTitle(text: string): string {
   return clean.length > 48 ? `${clean.slice(0, 47).trimEnd()}…` : clean;
 }
 
-export function Chat({
-  chatId,
-  initialMessages,
-}: {
-  chatId: string;
-  initialMessages: UIMessage[];
-}) {
-  const transport = useTriggerChatTransport<typeof triggerChatAgent>({
+type ChatRuntime = {
+  chat: AIChat<UIMessage>;
+  transport: TriggerChatTransport;
+};
+
+// Keep each active runtime alive across sidebar navigation. An in-flight turn
+// can then finish in the background and persist its answer instead of being
+// cancelled or discarded when its route component unmounts.
+const chatRuntimes = new Map<string, ChatRuntime>();
+
+function getChatRuntime(
+  chatId: string,
+  initialMessages: UIMessage[],
+  initialSession: ChatSessionPersistedState | null,
+): ChatRuntime {
+  const existing = chatRuntimes.get(chatId);
+  if (existing) return existing;
+
+  const transport = new TriggerChatTransport({
     task: "trigger-chat-agent",
-    // Only needed when the agent runs somewhere other than cloud.trigger.dev
-    // (e.g. self-hosted) — the server-side TRIGGER_API_URL isn't visible in the
-    // browser, so the SSE endpoints get their base URL from this.
     baseURL: process.env.NEXT_PUBLIC_TRIGGER_API_URL,
     accessToken: ({ chatId }) => mintChatAccessToken(chatId),
     startSession: ({ chatId, clientData }) =>
       startChatSession({ chatId, clientData }),
+    sessions: initialSession ? { [chatId]: initialSession } : undefined,
+    onSessionChange: (changedChatId, session) => {
+      void saveSession(changedChatId, session).catch((error) => {
+        console.error("Could not persist the local chat session", error);
+      });
+    },
   });
+  const chat = new AIChat<UIMessage>({
+    id: chatId,
+    messages: initialMessages,
+    transport,
+    onFinish: ({ messages }) => {
+      if (messages.length > 0) {
+        void saveMessages(chatId, dedupeById(messages)).catch((error) => {
+          console.error("Could not persist the completed chat", error);
+        });
+      }
+    },
+  });
+  const runtime = { chat, transport };
+  chatRuntimes.set(chatId, runtime);
+  return runtime;
+}
+
+export function Chat({
+  chatId,
+  initialMessages,
+  initialSession,
+}: {
+  chatId: string;
+  initialMessages: UIMessage[];
+  initialSession: ChatSessionPersistedState | null;
+}) {
+  const runtimeRef = useRef<ChatRuntime | null>(null);
+  if (runtimeRef.current === null) {
+    runtimeRef.current = getChatRuntime(chatId, initialMessages, initialSession);
+  }
+  const { chat } = runtimeRef.current;
 
   const { messages, sendMessage, stop, status, error, regenerate, clearError } =
     useChat({
-      id: chatId,
-      messages: initialMessages,
-      resume: initialMessages.length > 0,
-      transport,
+      chat,
+      resume: initialSession?.isStreaming === true,
     });
   const [input, setInput] = useState("");
+  const [blockingQuizIds, setBlockingQuizIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const reportQuizBlocking = useCallback((quizId: string, blocked: boolean) => {
+    setBlockingQuizIds((current) => {
+      const next = new Set(current);
+      if (blocked) next.add(quizId);
+      else next.delete(quizId);
+      return next.size === current.size && [...next].every((id) => current.has(id))
+        ? current
+        : next;
+    });
+  }, []);
   const reduce = useReducedMotion();
   const busy = status === "submitted" || status === "streaming";
+  const quizBlocked = blockingQuizIds.size > 0;
 
   // Everything below reads from the deduped list: a resumed/persisted turn can
   // come back with a duplicate id, which collides React keys and would persist
@@ -206,32 +278,26 @@ export function Chat({
   // Persist the transcript to the device-local store when a turn settles (not
   // per-token). No server DB — this is what lets a refresh re-render the thread.
   useEffect(() => {
-    if (items.length > 0 && !busy) saveMessages(chatId, items);
+    if (items.length > 0 && !busy) {
+      void saveMessages(chatId, items).catch((error) => {
+        console.error("Could not persist the local chat", error);
+      });
+    }
   }, [chatId, items, busy]);
 
-  // ALSO flush the latest transcript when leaving this chat. Navigating to
-  // another chat mid-stream (before the turn settles) would otherwise never
-  // save it — there's no server-side read-back — so the conversation would be
-  // lost. A ref tracks the latest messages; the unmount cleanup writes them
-  // (saveMessages also creates the sidebar entry, so a half-finished chat still
-  // shows up rather than vanishing).
+  // Flush the latest visible transcript when leaving. The cached runtime keeps
+  // an in-flight turn alive and its onFinish persists the completed answer.
   const latestMessagesRef = useRef(items);
-  const leaveRef = useRef({ busy, stop });
   useEffect(() => {
     latestMessagesRef.current = items;
   }, [items]);
   useEffect(() => {
-    leaveRef.current = { busy, stop };
-  }, [busy, stop]);
-  useEffect(() => {
     return () => {
       if (latestMessagesRef.current.length > 0) {
-        saveMessages(chatId, latestMessagesRef.current);
+        void saveMessages(chatId, latestMessagesRef.current).catch((error) => {
+          console.error("Could not persist the local chat on navigation", error);
+        });
       }
-      // Abort an in-flight turn when leaving — we don't resume interrupted
-      // streams, so letting it finish server-side just burns tokens nobody
-      // sees. Covers navigate-away, New Chat, and deleting the active chat.
-      if (leaveRef.current.busy) leaveRef.current.stop();
     };
   }, [chatId]);
 
@@ -246,7 +312,9 @@ export function Chat({
     for (const part of firstUser.parts) if (part.type === "text") text += part.text;
     text = text.trim();
     if (!text) return;
-    setTitle(chatId, deriveTitle(text));
+    void setTitle(chatId, deriveTitle(text)).catch((error) => {
+      console.error("Could not persist the local chat title", error);
+    });
     titledRef.current = true;
   }, [chatId, items]);
 
@@ -275,6 +343,7 @@ export function Chat({
   }, [lastAssistant?.id, streamingChips.length]);
   const chips =
     stickyChips && lastAssistant && stickyChips.id === lastAssistant.id ? stickyChips.chips : [];
+  const showExplainSimply = Boolean(lastAssistant) && !busy && !quizBlocked;
 
   const scrollerRef = useRef<HTMLDivElement>(null);
   const lastRowRef = useRef<HTMLDivElement>(null);
@@ -323,20 +392,57 @@ export function Chat({
     };
   }, []);
 
+  // The page shell itself is fixed, so capture every vertical wheel gesture
+  // outside the sidebar and apply it to the thread. Handling the thread itself
+  // here too avoids relying on browser scroll chaining over nested cards.
+  useEffect(() => {
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
+
+    const forwardWheel = (event: WheelEvent) => {
+      if (event.ctrlKey || event.deltaY === 0) return;
+      const target = event.target;
+      if (target instanceof Element && target.closest("[data-chat-sidebar]")) {
+        return;
+      }
+
+      const scale =
+        event.deltaMode === WheelEvent.DOM_DELTA_LINE
+          ? 16
+          : event.deltaMode === WheelEvent.DOM_DELTA_PAGE
+            ? scroller.clientHeight
+            : 1;
+      scroller.scrollTop += event.deltaY * scale;
+      followRef.current =
+        scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 80;
+      event.preventDefault();
+    };
+
+    document.addEventListener("wheel", forwardWheel, {
+      capture: true,
+      passive: false,
+    });
+    return () =>
+      document.removeEventListener("wheel", forwardWheel, { capture: true });
+  }, []);
+
   function submit(text: string) {
     const trimmed = text.trim();
-    if (!trimmed || busy) return;
+    if (!trimmed || busy || quizBlocked) return;
     sendMessage({ text: trimmed });
     setInput("");
   }
 
   return (
-    // Side rules define the reading column, so content that scrolls past the
-    // edge (the Next chips) reads as clipped by a boundary rather than cut off.
-    // `relative` anchors the floating composer the thread scrolls beneath.
-    <main className="relative mx-auto flex h-dvh w-full max-w-[52rem] flex-col border-x border-grid-dimmed px-4 sm:px-6">
+    <QuizGateContext.Provider value={reportQuizBlocking}>
+      {/* Side rules define the reading column, so overflowing content reads as
+          clipped by a boundary. `relative` anchors the floating composer. */}
+      <main className="relative mx-auto flex h-dvh w-full max-w-[52rem] flex-col border-x border-grid-dimmed px-4 sm:px-6">
       <header className="flex h-16 shrink-0 items-center justify-between gap-4 border-b border-grid-dimmed">
-        <AgentWordmark className="text-lg" />
+        <div className="ml-12 flex items-center gap-2.5 md:ml-0">
+          <TriggerLogo className="size-5" />
+          <AgentWordmark className="text-lg" />
+        </div>
         <span className="font-mono text-2xs uppercase tracking-widest text-charcoal-500">
           interactive guide
         </span>
@@ -346,10 +452,12 @@ export function Chat({
           padding clears the dock; the dock owns the fade and chips own blur. */}
       <div
         ref={scrollerRef}
-        className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-44 pt-6 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-charcoal-700 sm:pt-8"
+        className="-mx-4 min-h-0 flex-1 overflow-y-auto overscroll-contain pb-44 pt-6 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-charcoal-700 sm:-mx-6 sm:pt-8"
       >
-        {/* Single child: what the ResizeObserver measures to follow the stream. */}
-        <div className="space-y-8">
+        {/* Single child: what the ResizeObserver measures to follow the stream.
+            The scroller reaches the column rules so its bar does not cover the
+            content; restore the reading-column padding on this inner child. */}
+        <div className="space-y-8 px-4 sm:px-6">
           {items.length === 0 ? (
             <div className="flex min-h-full items-center justify-center py-8 sm:py-12">
               <div className="w-full">
@@ -426,11 +534,21 @@ export function Chat({
       {/* Floats over the thread. A raised dark gradient separates the controls
           without blurring the whole footer; only chip surfaces blur. */}
       <footer className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-background from-50% via-background/90 via-80% to-transparent px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-10 sm:px-6">
-        {chips.length > 0 && !busy && (
+        {(chips.length > 0 || showExplainSimply) && !busy && !quizBlocked && (
           <div className="pointer-events-auto -mx-4 mb-3 overflow-hidden sm:-mx-6">
             {/* The rail reaches the column rules, so overflow hard-clips at the
                 established borders. Left padding keeps its first chip aligned. */}
             <div className="flex gap-2 overflow-x-auto pb-1 pl-4 [scrollbar-width:none] sm:pl-6 [&::-webkit-scrollbar]:hidden">
+              {showExplainSimply && (
+                <button
+                  type="button"
+                  onClick={() => submit("Explain simply")}
+                  className="inline-flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-xl border border-apple-500/40 bg-charcoal-950/70 px-3 py-2 text-left text-xs font-medium leading-4 text-bright backdrop-blur-md transition-colors duration-150 hover:bg-apple-500/10"
+                >
+                  <Sparkles className="size-3.5 shrink-0 text-apple-500" />
+                  Explain simply
+                </button>
+              )}
               {chips.map((chip, i) => {
                 const kind = CHIP_KINDS[chip.kind] ?? CHIP_KINDS.topic;
                 const Icon = kind.icon;
@@ -460,7 +578,12 @@ export function Chat({
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask how Trigger.dev works…"
+              disabled={quizBlocked}
+              placeholder={
+                quizBlocked
+                  ? "Answer the quiz to continue…"
+                  : "Ask how Trigger.dev works…"
+              }
               aria-label="Message Trigger.dev guide"
               className="min-w-0 flex-1 border-0 bg-transparent px-0 py-2.5 text-base text-foreground caret-apple-500 outline-none ring-0 placeholder:text-charcoal-500 focus-visible:outline-none"
             />
@@ -476,7 +599,7 @@ export function Chat({
             ) : (
               <button
                 type="submit"
-                disabled={!input.trim()}
+                disabled={!input.trim() || quizBlocked}
                 className="group flex size-11 shrink-0 items-center justify-center rounded-xl bg-apple-500 text-charcoal-900 transition-colors duration-150 hover:bg-apple-400 disabled:bg-charcoal-800 disabled:text-charcoal-500"
                 aria-label="Send"
               >
@@ -489,7 +612,8 @@ export function Chat({
           </p>
         </form>
       </footer>
-    </main>
+      </main>
+    </QuizGateContext.Provider>
   );
 }
 

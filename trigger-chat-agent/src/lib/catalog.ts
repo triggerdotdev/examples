@@ -65,7 +65,10 @@ export const cardComponentDefinitions = {
         .enum(["bolt", "server", "cpu", "clock", "rocket", "command", "cog", "database", "chart", "shield", "signal", "check"])
         .nullable()
         .describe("Icon badge above the title, defaults to 'bolt'"),
-      kicker: z.string().nullable().describe("Small mono label above the title, e.g. 'Core concept'"),
+      kicker: z
+        .string()
+        .nullable()
+        .describe("Small label above the title. Use sentence case for prose; preserve exact casing for code identifiers, e.g. 'Core concept' or 'batchTriggerAndWait'"),
       title: z.string().describe("Short headline, e.g. 'The task lifecycle'"),
       description: z.string().describe("One or two sentence summary"),
       featured: z.boolean().nullable().describe("Larger type for the single lead card that opens an answer"),
@@ -75,7 +78,9 @@ export const cardComponentDefinitions = {
   },
   StatCard: {
     props: z.object({
-      label: z.string().describe("Small uppercase label, e.g. 'Cold start'"),
+      label: z
+        .string()
+        .describe("Short label in sentence case, or preserve the exact casing of a code identifier, e.g. 'Cold start' or 'batchTriggerAndWait'"),
       value: z.string().describe("Pre-formatted headline value, e.g. '300ms', '10k/min', '3x'"),
       deltaLabel: z.string().nullable().describe("Small badge next to the label, e.g. '+340%'"),
       deltaPositive: z.boolean().nullable().describe("Colors the delta apple (true) or red (false)"),
@@ -159,7 +164,7 @@ export const cardComponentDefinitions = {
       explanation: z.string().nullable().describe("Shown after answering — why the answer is right"),
     }),
     description:
-      "A single multiple-choice question with immediate feedback. Use to reinforce a concept with retrieval practice.",
+      "A blocking multiple-choice checkpoint with immediate feedback. It must be the final and only component in its renderVisualization call; put all post-answer feedback in `explanation`.",
   },
   Callout: {
     props: z.object({
@@ -185,8 +190,14 @@ export const cardComponentDefinitions = {
   Compare: {
     props: z.object({
       title: z.string().nullable(),
-      a: z.object({ label: z.string(), points: z.array(z.string()) }),
-      b: z.object({ label: z.string(), points: z.array(z.string()) }),
+      a: z.object({
+        label: z.string().describe("Sentence-case prose or an exact-cased code identifier"),
+        points: z.array(z.string()),
+      }),
+      b: z.object({
+        label: z.string().describe("Sentence-case prose or an exact-cased code identifier"),
+        points: z.array(z.string()),
+      }),
     }),
     description: "A two-column comparison, e.g. 'batchTrigger vs a loop'. Each column has a label and bullet points.",
   },
