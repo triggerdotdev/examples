@@ -8,9 +8,29 @@ import { FlowGraph } from "@/components/flow-graph";
 import { HeroCard } from "@/components/hero-card";
 import { PromptCard } from "@/components/prompt-card";
 import { Quiz } from "@/components/quiz";
+import { useVisualizationElementKey } from "@/components/visualization-element-key";
 import { StatCard } from "@/components/stat-card";
 import { Callout, Compare, Glossary, Steps } from "@/components/teaching-cards";
 import { catalog } from "./catalog";
+
+type QuizProps = {
+  question: string;
+  options: { text: string; correct?: boolean | null }[];
+  explanation?: string | null;
+};
+
+function QuizRenderer({ props }: { props: QuizProps }) {
+  const quizKey = useVisualizationElementKey(props);
+  const { question, options, explanation } = props;
+  return (
+    <Quiz
+      quizKey={quizKey}
+      question={question}
+      options={options}
+      explanation={explanation}
+    />
+  );
+}
 
 export const { registry } = defineRegistry(catalog, {
   components: {
@@ -33,7 +53,7 @@ export const { registry } = defineRegistry(catalog, {
     DiagramCard: ({ props }) => <DiagramCard title={props.title} steps={props.steps} />,
     CodeCard: ({ props }) => <CodeCard title={props.title} language={props.language} code={props.code} />,
     PromptCard: ({ props }) => <PromptCard title={props.title} prompt={props.prompt} caption={props.caption} />,
-    Quiz: ({ props }) => <Quiz question={props.question} options={props.options} explanation={props.explanation} />,
+    Quiz: QuizRenderer,
     Callout: ({ props }) => <Callout variant={props.variant} title={props.title} text={props.text} />,
     Steps: ({ props }) => <Steps steps={props.steps} />,
     Glossary: ({ props }) => <Glossary terms={props.terms} />,

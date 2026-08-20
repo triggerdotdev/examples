@@ -12,6 +12,7 @@ import {
   subscribeChats,
 } from "@/lib/chat-store";
 import { cn } from "@/lib/utils";
+import { discardChatRuntime } from "@/components/chat";
 
 // A chat goes read-only 48h after its last turn. The store keeps expired chats
 // in the index (nothing is deleted on the client), so the sidebar simply marks
@@ -47,6 +48,7 @@ export function ChatSidebar({ onNavigate }: { onNavigate?: () => void }) {
 
   async function handleDelete(chatId: string) {
     try {
+      await discardChatRuntime(chatId);
       await removeChat(chatId);
     } catch (error) {
       console.error("Could not delete the local chat", error);

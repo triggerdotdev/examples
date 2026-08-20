@@ -2,7 +2,8 @@
 
 import { CheckCircle2, XCircle } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
-import { useContext, useEffect, useId, useState } from "react";
+import { useContext, useEffect, useState } from "react";
+import { loadQuizAnswer, saveQuizAnswer } from "@/lib/chat-store";
 import { cn } from "@/lib/utils";
 import { reducedVariants, revealBlur } from "@/lib/motion";
 import { QuizGateContext } from "@/components/quiz-gate";
@@ -13,24 +14,54 @@ import { QuizGateContext } from "@/components/quiz-gate";
  * the component's, so the model spends a handful of tokens, not a page of HTML.
  */
 export function Quiz({
+  quizKey,
   question,
   options,
   explanation,
 }: {
+  quizKey: string;
   question: string;
   options: { text: string; correct?: boolean | null }[];
   explanation?: string | null;
 }) {
   const reduce = useReducedMotion();
-  const [picked, setPicked] = useState<number | null>(null);
-  const answered = picked !== null;
-  const quizId = useId();
-  const reportBlocking = useContext(QuizGateContext);
+  // `undefined` means IndexedDB is still loading. Keep the gate closed during
+  // that brief window so a completed quiz cannot flash as unanswered or allow
+  // a message through before its saved answer is restored.
+  const [picked, setPicked] = useState<number | null | undefined>(undefined);
+  const answered = typeof picked === "number";
+  const { chatId, reportBlocking } = useContext(QuizGateContext);
+  const blockingId = `${chatId ?? "unknown-chat"}:${quizKey}`;
 
   useEffect(() => {
-    reportBlocking(quizId, !answered);
-    return () => reportBlocking(quizId, false);
-  }, [answered, quizId, reportBlocking]);
+    let active = true;
+    setPicked(undefined);
+
+    if (!chatId) {
+      setPicked(null);
+      return () => {
+        active = false;
+      };
+    }
+
+    void loadQuizAnswer(chatId, quizKey)
+      .then((answer) => {
+        if (active) setPicked(answer);
+      })
+      .catch((error) => {
+        console.error("Could not restore the quiz answer", error);
+        if (active) setPicked(null);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [chatId, quizKey]);
+
+  useEffect(() => {
+    reportBlocking(blockingId, !answered);
+    return () => reportBlocking(blockingId, false);
+  }, [answered, blockingId, reportBlocking]);
 
   return (
     <motion.div
@@ -52,14 +83,21 @@ export function Quiz({
             <button
               key={i}
               type="button"
-              aria-disabled={answered}
+              aria-disabled={answered || picked === undefined}
               onClick={() => {
-                if (!answered) setPicked(i);
+                if (answered || picked === undefined) return;
+                setPicked(i);
+                if (chatId) {
+                  void saveQuizAnswer(chatId, quizKey, i).catch((error) => {
+                    console.error("Could not save the quiz answer", error);
+                  });
+                }
               }}
               className={cn(
                 "flex min-h-11 w-full items-center gap-3 rounded-xl border px-4 py-2.5 text-left text-sm leading-5 transition-colors duration-150",
                 !reveal && "border-charcoal-700 bg-charcoal-800 text-bright",
-                !reveal && !answered && "cursor-pointer hover:bg-charcoal-700",
+                !reveal && !answered && picked !== undefined && "cursor-pointer hover:bg-charcoal-700",
+                picked === undefined && "cursor-wait",
                 answered && "cursor-default",
                 reveal && isCorrect && "border-apple-500/60 bg-apple-500/10 text-apple-200",
                 reveal && !isCorrect && "border-error/60 bg-error/10 text-error"

@@ -19,10 +19,11 @@ import type { ChatSessionPersistedState } from "@trigger.dev/sdk/chat";
 export type ChatMeta = { chatId: string; title: string | null; createdAt: number; updatedAt: number };
 
 const DB_NAME = "trigger-chat-agent";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const MESSAGES_STORE = "messages";
 const CHATS_STORE = "chats";
 const SESSIONS_STORE = "sessions";
+const QUIZ_ANSWERS_STORE = "quiz-answers";
 
 // Stable empty array for SSR — a fresh `[]` each call would make
 // useSyncExternalStore think the snapshot changed and loop forever.
@@ -67,8 +68,18 @@ function openDb(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains(SESSIONS_STORE)) {
         db.createObjectStore(SESSIONS_STORE);
       }
+      if (!db.objectStoreNames.contains(QUIZ_ANSWERS_STORE)) {
+        db.createObjectStore(QUIZ_ANSWERS_STORE);
+      }
     };
-    request.onsuccess = () => resolve(request.result);
+    request.onsuccess = () => {
+      const db = request.result;
+      db.onversionchange = () => {
+        db.close();
+        dbPromise = null;
+      };
+      resolve(db);
+    };
     request.onerror = () => reject(request.error);
     request.onblocked = () =>
       reject(new Error("IndexedDB upgrade blocked by another tab"));
@@ -151,6 +162,31 @@ export async function saveSession(
   await transactionToPromise(tx);
 }
 
+export async function loadQuizAnswer(
+  chatId: string,
+  quizKey: string,
+): Promise<number | null> {
+  if (!isBrowser()) return null;
+  const db = await openDb();
+  const tx = db.transaction(QUIZ_ANSWERS_STORE, "readonly");
+  const value = await requestToPromise<unknown>(
+    tx.objectStore(QUIZ_ANSWERS_STORE).get([chatId, quizKey]),
+  );
+  return typeof value === "number" && Number.isInteger(value) ? value : null;
+}
+
+export async function saveQuizAnswer(
+  chatId: string,
+  quizKey: string,
+  picked: number,
+): Promise<void> {
+  if (!isBrowser()) return;
+  const db = await openDb();
+  const tx = db.transaction(QUIZ_ANSWERS_STORE, "readwrite");
+  tx.objectStore(QUIZ_ANSWERS_STORE).put(picked, [chatId, quizKey]);
+  await transactionToPromise(tx);
+}
+
 export async function saveMessages(chatId: string, messages: UIMessage[]): Promise<void> {
   if (!isBrowser()) return;
   const db = await openDb();
@@ -202,12 +238,20 @@ export async function removeChat(chatId: string): Promise<void> {
   if (!isBrowser()) return;
   const db = await openDb();
   const tx = db.transaction(
-    [MESSAGES_STORE, CHATS_STORE, SESSIONS_STORE],
+    [MESSAGES_STORE, CHATS_STORE, SESSIONS_STORE, QUIZ_ANSWERS_STORE],
     "readwrite",
   );
   tx.objectStore(MESSAGES_STORE).delete(chatId);
   tx.objectStore(CHATS_STORE).delete(chatId);
   tx.objectStore(SESSIONS_STORE).delete(chatId);
+  const quizStore = tx.objectStore(QUIZ_ANSWERS_STORE);
+  const quizRange = IDBKeyRange.bound([chatId, ""], [chatId, "\uffff"]);
+  quizStore.openKeyCursor(quizRange).onsuccess = (event) => {
+    const cursor = (event.target as IDBRequest<IDBCursor | null>).result;
+    if (!cursor) return;
+    quizStore.delete(cursor.primaryKey);
+    cursor.continue();
+  };
   await transactionToPromise(tx);
   await refreshSnapshot();
 }

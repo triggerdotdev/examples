@@ -9,6 +9,10 @@ export const metadata: Metadata = {
   title: "Ask Trigger",
   description:
     "A Trigger.dev chat agent that teaches you Trigger.dev by drawing — interactive diagrams and code cards, not walls of text.",
+  icons: {
+    icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
+    shortcut: "/icon.svg",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

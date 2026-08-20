@@ -74,7 +74,7 @@ type NextChip = { label: string; kind: string };
 type MessagePartValue = UIMessage["parts"][number];
 type MessagePartGroup =
   | { kind: "docs"; parts: MessagePartValue[] }
-  | { kind: "part"; part: MessagePartValue };
+  | { kind: "part"; part: MessagePartValue; partIndex: number };
 
 // Message parts are a discriminated union on `type`. These helpers narrow to
 // the fields we read without structural `as` casts: tool and dynamic-tool parts
@@ -117,11 +117,19 @@ function containsQuiz(part: MessagePartValue): boolean {
   );
 }
 
+function containsAcceptedQuiz(part: MessagePartValue): boolean {
+  return (
+    partState(part) === "output-available" &&
+    partOutput(part)?.ok === true &&
+    containsQuiz(part)
+  );
+}
+
 /** Consecutive documentation lookups read as one connected provenance trail. */
 function groupMessageParts(parts: MessagePartValue[]): MessagePartGroup[] {
   const groups: MessagePartGroup[] = [];
   let quizReached = false;
-  for (const part of parts) {
+  for (const [partIndex, part] of parts.entries()) {
     if (quizReached) continue;
     if (isDocsToolPart(part)) {
       const last = groups[groups.length - 1];
@@ -138,8 +146,8 @@ function groupMessageParts(parts: MessagePartValue[]): MessagePartGroup[] {
       part.type === "tool-renderVisualization" ||
       partToolName(part) === "suggestNext";
     if (visible) {
-      groups.push({ kind: "part", part });
-      if (containsQuiz(part)) quizReached = true;
+      groups.push({ kind: "part", part, partIndex });
+      if (containsAcceptedQuiz(part)) quizReached = true;
     }
   }
   return groups;
@@ -187,12 +195,49 @@ function deriveTitle(text: string): string {
 type ChatRuntime = {
   chat: AIChat<UIMessage>;
   transport: TriggerChatTransport;
+  invalidated: boolean;
+  lastUsedAt: number;
 };
 
 // Keep each active runtime alive across sidebar navigation. An in-flight turn
 // can then finish in the background and persist its answer instead of being
 // cancelled or discarded when its route component unmounts.
 const chatRuntimes = new Map<string, ChatRuntime>();
+const MAX_SETTLED_CHAT_RUNTIMES = 12;
+
+function runtimeIsActive(runtime: ChatRuntime): boolean {
+  return runtime.chat.status === "submitted" || runtime.chat.status === "streaming";
+}
+
+function evictSettledRuntimes(maxSize: number): void {
+  if (chatRuntimes.size <= maxSize) return;
+  const candidates = [...chatRuntimes.entries()]
+    .filter(([, runtime]) => !runtimeIsActive(runtime))
+    .sort(([, a], [, b]) => a.lastUsedAt - b.lastUsedAt);
+
+  for (const [id, runtime] of candidates) {
+    if (chatRuntimes.size <= maxSize) break;
+    runtime.transport.dispose();
+    chatRuntimes.delete(id);
+  }
+}
+
+/** Stop and invalidate a deleted chat before removing its persisted records. */
+export async function discardChatRuntime(chatId: string): Promise<void> {
+  const runtime = chatRuntimes.get(chatId);
+  if (!runtime) return;
+  runtime.invalidated = true;
+  chatRuntimes.delete(chatId);
+  try {
+    if (runtimeIsActive(runtime)) await runtime.chat.stop();
+  } catch (error) {
+    // Deletion should still remove local records if stopping a broken stream
+    // fails. Invalidation prevents every persistence path from recreating it.
+    console.error("Could not stop the deleted chat runtime", error);
+  } finally {
+    runtime.transport.dispose();
+  }
+}
 
 function getChatRuntime(
   chatId: string,
@@ -200,8 +245,16 @@ function getChatRuntime(
   initialSession: ChatSessionPersistedState | null,
 ): ChatRuntime {
   const existing = chatRuntimes.get(chatId);
-  if (existing) return existing;
+  if (existing) {
+    existing.lastUsedAt = Date.now();
+    return existing;
+  }
 
+  // Make room only by evicting settled conversations. Active background turns
+  // remain cached until their streams finish.
+  evictSettledRuntimes(MAX_SETTLED_CHAT_RUNTIMES - 1);
+
+  let runtime: ChatRuntime | undefined;
   const transport = new TriggerChatTransport({
     task: "trigger-chat-agent",
     baseURL: process.env.NEXT_PUBLIC_TRIGGER_API_URL,
@@ -210,6 +263,7 @@ function getChatRuntime(
       startChatSession({ chatId, clientData }),
     sessions: initialSession ? { [chatId]: initialSession } : undefined,
     onSessionChange: (changedChatId, session) => {
+      if (runtime?.invalidated) return;
       void saveSession(changedChatId, session).catch((error) => {
         console.error("Could not persist the local chat session", error);
       });
@@ -220,14 +274,20 @@ function getChatRuntime(
     messages: initialMessages,
     transport,
     onFinish: ({ messages }) => {
-      if (messages.length > 0) {
+      if (runtime && !runtime.invalidated && messages.length > 0) {
         void saveMessages(chatId, dedupeById(messages)).catch((error) => {
           console.error("Could not persist the completed chat", error);
         });
       }
+      queueMicrotask(() => evictSettledRuntimes(MAX_SETTLED_CHAT_RUNTIMES));
     },
   });
-  const runtime = { chat, transport };
+  runtime = {
+    chat,
+    transport,
+    invalidated: false,
+    lastUsedAt: Date.now(),
+  };
   chatRuntimes.set(chatId, runtime);
   return runtime;
 }
@@ -266,6 +326,10 @@ export function Chat({
         : next;
     });
   }, []);
+  const quizGateValue = useMemo(
+    () => ({ chatId, reportBlocking: reportQuizBlocking }),
+    [chatId, reportQuizBlocking],
+  );
   const reduce = useReducedMotion();
   const busy = status === "submitted" || status === "streaming";
   const quizBlocked = blockingQuizIds.size > 0;
@@ -278,7 +342,7 @@ export function Chat({
   // Persist the transcript to the device-local store when a turn settles (not
   // per-token). No server DB — this is what lets a refresh re-render the thread.
   useEffect(() => {
-    if (items.length > 0 && !busy) {
+    if (!runtimeRef.current?.invalidated && items.length > 0 && !busy) {
       void saveMessages(chatId, items).catch((error) => {
         console.error("Could not persist the local chat", error);
       });
@@ -293,7 +357,10 @@ export function Chat({
   }, [items]);
   useEffect(() => {
     return () => {
-      if (latestMessagesRef.current.length > 0) {
+      if (
+        !runtimeRef.current?.invalidated &&
+        latestMessagesRef.current.length > 0
+      ) {
         void saveMessages(chatId, latestMessagesRef.current).catch((error) => {
           console.error("Could not persist the local chat on navigation", error);
         });
@@ -405,6 +472,12 @@ export function Chat({
       if (target instanceof Element && target.closest("[data-chat-sidebar]")) {
         return;
       }
+      if (
+        target instanceof Element &&
+        target.closest("pre, .react-flow, [data-native-wheel]")
+      ) {
+        return;
+      }
 
       const scale =
         event.deltaMode === WheelEvent.DOM_DELTA_LINE
@@ -434,14 +507,14 @@ export function Chat({
   }
 
   return (
-    <QuizGateContext.Provider value={reportQuizBlocking}>
+    <QuizGateContext.Provider value={quizGateValue}>
       {/* Side rules define the reading column, so overflowing content reads as
           clipped by a boundary. `relative` anchors the floating composer. */}
       <main className="relative mx-auto flex h-dvh w-full max-w-[52rem] flex-col border-x border-grid-dimmed px-4 sm:px-6">
       <header className="flex h-16 shrink-0 items-center justify-between gap-4 border-b border-grid-dimmed">
         <div className="ml-12 flex items-center gap-2.5 md:ml-0">
-          <TriggerLogo className="size-5" />
-          <AgentWordmark className="text-lg" />
+          <TriggerLogo className="size-7" />
+          <AgentWordmark className="text-xl" />
         </div>
         <span className="font-mono text-2xs uppercase tracking-widest text-charcoal-500">
           interactive guide
@@ -591,7 +664,7 @@ export function Chat({
               <button
                 type="button"
                 onClick={() => stop()}
-                className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-charcoal-800 text-bright transition-colors duration-150 hover:bg-charcoal-700"
+                className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-charcoal-800 text-bright transition-colors duration-150 hover:bg-charcoal-700"
                 aria-label="Stop"
               >
                 <Square className="size-3.5" />
@@ -600,7 +673,7 @@ export function Chat({
               <button
                 type="submit"
                 disabled={!input.trim() || quizBlocked}
-                className="group flex size-11 shrink-0 items-center justify-center rounded-xl bg-apple-500 text-charcoal-900 transition-colors duration-150 hover:bg-apple-400 disabled:bg-charcoal-800 disabled:text-charcoal-500"
+                className="group flex size-10 shrink-0 items-center justify-center rounded-lg bg-apple-500 text-charcoal-900 transition-colors duration-150 hover:bg-apple-400 disabled:bg-transparent disabled:text-charcoal-500"
                 aria-label="Send"
               >
                 <ArrowUp className="size-4 transition-transform duration-150 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:-translate-y-0.5" />
@@ -699,6 +772,7 @@ function Message({
           <MessagePart
             key={i}
             part={group.part}
+            visualizationKey={`${message.id}:${group.partIndex}`}
             onPick={onPick}
             busy={busy}
             reduce={reduce}
@@ -801,11 +875,13 @@ function DocsToolChain({ parts }: { parts: MessagePartValue[] }) {
 
 function MessagePart({
   part,
+  visualizationKey,
   onPick,
   busy,
   reduce,
 }: {
   part: UIMessage["parts"][number];
+  visualizationKey: string;
   onPick: (t: string) => void;
   busy: boolean;
   reduce: boolean;
@@ -834,7 +910,7 @@ function MessagePart({
     // forever; the model's retry arrives as its own later part with its own status.
     if (failed) return <ToolStatus label="Couldn't draw that." />;
     if (!spec) return <ToolStatus label="Drawing…" spinning />;
-    return <Visualization spec={spec} />;
+    return <Visualization spec={spec} instanceKey={visualizationKey} />;
   }
 
   // suggestNext chips render docked above the composer (they don't survive the
