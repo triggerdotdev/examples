@@ -556,7 +556,7 @@ export function FlowGraph({ title, nodes, edges, sequence }: FlowGraphProps) {
       initial={reduceMotion ? false : { opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={reduceMotion ? { duration: 0 } : { duration: 0.4, ease: easings.outExpo }}
-      className="overflow-hidden rounded-2xl border border-grid-dimmed bg-charcoal-850"
+      className="col-span-full w-full min-w-0 overflow-hidden rounded-2xl border border-grid-dimmed bg-charcoal-850"
     >
       <div className="flex min-h-12 items-center justify-between gap-2 border-b border-grid-bright bg-charcoal-800 px-5 py-3">
         <span className="font-title text-sm font-medium text-bright/80">{title}</span>
@@ -590,7 +590,7 @@ export function FlowGraph({ title, nodes, edges, sequence }: FlowGraphProps) {
           <Controls
             showInteractive={false}
             position="bottom-right"
-            className="!shadow-none [&_button]:!size-10 [&_button]:!border-charcoal-700 [&_button]:!bg-charcoal-800/90 [&_button:hover]:!bg-charcoal-700 [&_button_svg]:!fill-dimmed [&_button:hover_svg]:!fill-bright"
+            className="!m-3 !overflow-hidden !rounded-lg !border !border-charcoal-700 !shadow-none [&_button]:!size-8 [&_button]:!border-charcoal-700 [&_button]:!bg-charcoal-800/90 [&_button:hover]:!bg-charcoal-700 [&_button_svg]:!max-h-3.5 [&_button_svg]:!max-w-3.5 [&_button_svg]:!fill-dimmed [&_button:hover_svg]:!fill-bright"
           />
         </ReactFlow>
       </div>

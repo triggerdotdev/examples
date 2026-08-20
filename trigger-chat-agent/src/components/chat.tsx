@@ -31,6 +31,7 @@ import { QuizGateContext } from "@/components/quiz-gate";
 import { TriggerLogo } from "@/components/trigger-logo";
 import { AgentWordmark } from "@/components/wordmark";
 import { Visualization } from "@/components/visualization";
+import { ThinkingOrb } from "@/components/thinking-orb";
 
 // The empty-state seed. The altitude of the chip picked calibrates the session.
 const START_HERE = [
@@ -589,7 +590,7 @@ export function Chat({
             ))
           )}
 
-          {status === "submitted" && <Thinking />}
+          {busy && <Thinking reduce={!!reduce} />}
 
           {error && (
             <ErrorNotice
@@ -920,24 +921,14 @@ function MessagePart({
   return null;
 }
 
-function Thinking() {
+function Thinking({ reduce }: { reduce: boolean }) {
   return (
-    <div className="flex justify-start">
-      <div className="flex items-center gap-2 text-xs text-dimmed">
-        <span className="relative flex size-2">
-          <motion.span
-            className="absolute inset-0 rounded-full bg-apple-500"
-            initial={{ opacity: 0.6, scale: 1 }}
-            animate={{ opacity: 0, scale: 2.4 }}
-            transition={{
-              duration: 1.4,
-              repeat: Infinity,
-              ease: easings.outExpo,
-            }}
-          />
-          <span className="size-2 rounded-full bg-apple-500" />
+    <div className="flex justify-start" role="status" aria-live="polite">
+      <div className="flex items-center gap-3 py-1 text-dimmed">
+        <ThinkingOrb reduced={reduce} />
+        <span className="font-mono text-2xs uppercase tracking-widest">
+          Thinking…
         </span>
-        Thinking…
       </div>
     </div>
   );
