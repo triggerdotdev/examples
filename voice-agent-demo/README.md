@@ -29,8 +29,9 @@ A voice assistant you hold a spoken conversation with in the browser:
   latency trade-offs.
 
 It's a Trigger.dev chat agent plus two browser audio streams. The browser talks
-straight to Trigger.dev — the only backend code is the agent and one small route
-that speeds up the first reply.
+straight to Trigger.dev; the server-side code is the agent, the server actions in
+`app/actions.ts` (which mint the browser's short-lived tokens using your API
+keys), and one small route that speeds up the first reply.
 
 ---
 
@@ -58,8 +59,8 @@ Plus [Node.js](https://nodejs.org) 20+ and [pnpm](https://pnpm.io/installation)
 ### 1. Install
 
 ```bash
-git clone https://github.com/triggerdotdev/voice-agent-demo
-cd voice-agent-demo
+git clone https://github.com/triggerdotdev/examples
+cd examples/voice-agent-demo
 pnpm install
 ```
 
@@ -148,6 +149,11 @@ pnpm deploy:trigger
 Then set the same environment variables in the Trigger.dev dashboard (under your
 project's **Production** environment) and point the web app at your production
 `TRIGGER_SECRET_KEY`.
+
+> **Before exposing the web app to anyone else, add authorization to the server
+> actions in `app/actions.ts`.** As written they have no caller checks, so anyone
+> who can reach the app can mint session and speech tokens and spend against your
+> provider quotas. That's fine on localhost; it is not safe on a public URL.
 
 ## Notes
 

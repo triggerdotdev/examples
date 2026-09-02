@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   TTS_MODEL,
   TTS_OUTPUT_FORMAT,
@@ -305,6 +305,15 @@ export function useElevenTts() {
   }, []);
 
   const clearError = useCallback(() => setError(null), []);
+
+  // Release the socket, scheduled audio and the AudioContext on unmount.
+  useEffect(() => {
+    return () => {
+      stop();
+      void ctx.current?.close();
+      ctx.current = null;
+    };
+  }, [stop]);
 
   return { speaking, error, clearError, arm, push, finish, say, stop, unlock };
 }

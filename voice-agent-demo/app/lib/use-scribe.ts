@@ -50,20 +50,26 @@ export function useScribe({
   const [error, setError] = useState<string | null>(null);
   const connection = useRef<RealtimeConnection | null>(null);
   const starting = useRef(false); // true while connecting (covers the async gap)
+  const attempt = useRef(0); // bumps on stop/unmount to cancel an in-flight start
 
   // Latest callback without rebuilding the socket on every render.
   const onUtteranceRef = useRef(onUtterance);
   onUtteranceRef.current = onUtterance;
 
-  const start = useCallback(async () => {
+  const start = useCallback(async (): Promise<boolean> => {
     // Guard the whole async connect, not just the initial check: `getToken()`
     // awaits, so two quick taps would otherwise both get past `connection.current`
     // (still null mid-connect) and open two microphone sockets.
-    if (connection.current || starting.current) return;
+    if (connection.current || starting.current) return false;
     starting.current = true;
+    const myAttempt = ++attempt.current;
+    let started = false;
     setError(null);
     try {
       const token = await getToken();
+      // Cancelled while we were minting the token (stop() or unmount) — don't
+      // open a socket the UI has already moved on from.
+      if (myAttempt !== attempt.current) return false;
       const conn = Scribe.connect({
         token,
         modelId: SCRIBE_MODEL,
@@ -78,6 +84,7 @@ export function useScribe({
         },
       });
       connection.current = conn;
+      started = true;
 
       conn.on(RealtimeEvents.OPEN, () => setConnected(true));
       conn.on(RealtimeEvents.PARTIAL_TRANSCRIPT, (data) => setPartial(data.text));
@@ -114,9 +121,11 @@ export function useScribe({
     } finally {
       starting.current = false;
     }
+    return started;
   }, [getToken]);
 
   const stop = useCallback(() => {
+    attempt.current++; // cancel any start still awaiting its token
     connection.current?.close();
     connection.current = null;
     setConnected(false);
@@ -135,7 +144,13 @@ export function useScribe({
     if (!muted && conn.isMuted) conn.unmute();
   }, []);
 
-  useEffect(() => () => connection.current?.close(), []);
+  useEffect(
+    () => () => {
+      attempt.current++; // cancel a start still awaiting its token
+      connection.current?.close();
+    },
+    [],
+  );
 
   const clearError = useCallback(() => setError(null), []);
 

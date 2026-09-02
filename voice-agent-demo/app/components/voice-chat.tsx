@@ -167,15 +167,18 @@ export function VoiceChat() {
     const timer = setTimeout(async () => {
       setFarewell(IDLE_FAREWELL_TEXT);
       try {
-        await tts.say(await mintTtsToken(), IDLE_FAREWELL_TEXT);
+        tts.say(await mintTtsToken(), IDLE_FAREWELL_TEXT);
       } catch {
-        // Saying goodbye is best-effort; still release the mic below.
+        // Saying goodbye is best-effort.
       }
-      stopListening();
+      // Release the mic but leave the TTS socket alone so the goodbye can play;
+      // stopListening() would call tts.stop() and cut it off.
+      scribe.stop();
+      setLive(false);
     }, IDLE_FAREWELL_MS);
 
     return () => clearTimeout(timer);
-  }, [live, busy, hasSpoken, tts, stopListening]);
+  }, [live, busy, hasSpoken, tts, scribe]);
 
   const toggle = useCallback(async () => {
     if (live) {
@@ -183,8 +186,10 @@ export function VoiceChat() {
     } else {
       tts.unlock(); // audio needs a user gesture
       setFarewell(null);
-      await scribe.start();
-      setLive(true);
+      // Only flip to the live/Stop state if the mic actually connected —
+      // scribe.start() reports failures (denied permission, bad token) by
+      // returning false rather than throwing.
+      if (await scribe.start()) setLive(true);
     }
   }, [live, stopListening, scribe, tts]);
 
