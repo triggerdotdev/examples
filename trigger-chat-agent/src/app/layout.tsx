@@ -6,7 +6,7 @@ const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Ask Trigger",
+  title: "Ask Trigger — learn Trigger.dev by asking",
   description:
     "A Trigger.dev chat agent that teaches you Trigger.dev by drawing — interactive diagrams and code cards, not walls of text.",
   icons: {
