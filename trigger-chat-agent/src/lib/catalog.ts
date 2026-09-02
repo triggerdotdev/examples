@@ -56,7 +56,11 @@ const flowNode = z.object({
 const flowEdge = z.object({
   from: z.string().describe("Source node id"),
   to: z.string().describe("Target node id"),
-  label: z.string().nullish(),
+  label: z
+    .string()
+    .max(18)
+    .nullish()
+    .describe("Optional short branch/retry label. Omit when the connection is obvious."),
   kind: z.enum(["default", "retry", "stream"]).nullish().describe("Edge style, defaults to 'default'"),
 });
 
@@ -106,16 +110,27 @@ export const cardComponentDefinitions = {
   },
   FlowGraph: {
     props: z.object({
-      title: z.string().describe("Card title, e.g. 'Fan-out with retries', 'This conversation'"),
-      nodes: z.array(flowNode).describe("Graph nodes"),
+      title: z
+        .string()
+        .max(64)
+        .describe("Card title, e.g. 'Fan-out with retries', 'This conversation'"),
+      nodes: z
+        .array(flowNode)
+        .min(2)
+        .max(7)
+        .describe("A compact graph of 2-7 nodes. Use another component if more detail is needed."),
       edges: z
-    .array(flowEdge)
-    .describe(
-      "Directed edges between node ids. Keep the graph readable: at most ~10 nodes, and at most 3 " +
-        "branches from any one node — wide fan-outs get cramped in a chat column."
-    ),
+        .array(flowEdge)
+        .min(1)
+        .max(8)
+        .describe(
+          "A connected, acyclic, top-to-bottom flow. Every id must exist. Keep at most 2 edge labels total, " +
+            "using them only for branch choices or retries; omit labels for obvious sequencing. Never connect " +
+            "the final node back to the first — duplicate an endpoint as a final response node instead.",
+        ),
       sequence: z
         .array(flowSeqStep)
+        .max(24)
         .nullable()
         .describe(
           "Animation script that makes the graph PLAY OUT like a real run — node statuses change over time. " +
@@ -128,11 +143,11 @@ export const cardComponentDefinitions = {
     }),
     description:
       "A directed node-graph (React Flow) styled like the Trigger.dev dashboard: rectangular " +
-      "nodes with a status dot, orthogonal edges, animated reveal. Use for architecture, task " +
-      "orchestration, fan-out, retries, waits, checkpoints, or queues — anything with branching " +
-      "or a real flow. When the topic is how something RUNS over time (retries, waits, a fan-out " +
-      "completing), ALSO pass a `sequence` so the graph animates through those states live — that " +
-      "moving diagram is the signature moment, not a static picture. Prefer this over DiagramCard for non-trivial diagrams.",
+      "nodes with a status dot, orthogonal edges, animated reveal. Keep it to one compact, connected, " +
+      "acyclic, top-to-bottom idea with 2-7 nodes. Use for architecture, task orchestration, fan-out, " +
+      "retries, waits, checkpoints, or queues. When the topic is how something RUNS over time, ALSO " +
+      "pass a `sequence` so statuses animate. Prefer DiagramCard for a linear lifecycle and Steps when " +
+      "the explanation needs more than seven nodes.",
   },
   DiagramCard: {
     props: z.object({
@@ -307,7 +322,7 @@ type ValidatedFlowGraph = {
     kind: z.infer<typeof flowNodeKind>;
     status?: z.infer<typeof flowNodeStatus> | null;
   }>;
-  edges: Array<{ from: string; to: string }>;
+  edges: Array<{ from: string; to: string; label?: string | null }>;
   sequence?: Array<{
     nodeId: string;
     status: z.infer<typeof flowNodeStatus>;
@@ -315,10 +330,8 @@ type ValidatedFlowGraph = {
   }> | null;
 };
 
-/**
- * Concurrency is a time/capacity constraint, not a fan-out relationship. Catch
- * the misleading graph shape from the model before it reaches the learner.
- */
+/** Catch factually impossible concurrency states without rejecting a useful
+ * static explanation merely because it doesn't include an animation. */
 function validateConcurrencyGraph(key: string, graph: ValidatedFlowGraph): string[] {
   const errors: string[] = [];
   const queues = graph.nodes.filter((node) => node.kind === "queue");
@@ -328,24 +341,9 @@ function validateConcurrencyGraph(key: string, graph: ValidatedFlowGraph): strin
   ].join(" ");
   if (!/concurren|\blimit\s*[:=]?\s*\d+/i.test(topic)) return errors;
 
-  if (!graph.sequence?.length) {
-    errors.push(
-      `elements.${key} (FlowGraph): concurrency diagrams need a sequence showing queued -> running -> success over time`,
-    );
-  }
-
-  for (const queue of queues) {
-    const outgoing = graph.edges.filter((edge) => edge.from === queue.id).length;
-    if (outgoing > 1) {
-      errors.push(
-        `elements.${key} (FlowGraph): don't fan queue "${queue.label}" directly into ${outgoing} runs; show one execution slot over time`,
-      );
-    }
-  }
-
   const limitMatch = topic.match(/(?:concurrency\s*limit|concurrencyLimit|\blimit)\s*[:=]?\s*(\d+)/i);
   const limit = limitMatch ? Number(limitMatch[1]) : null;
-  if (!limit || !graph.sequence?.length) return errors;
+  if (!limit) return errors;
 
   const statuses = new Map(
     graph.nodes.map((node) => [node.id, node.status ?? "default"] as const),
@@ -365,7 +363,7 @@ function validateConcurrencyGraph(key: string, graph: ValidatedFlowGraph): strin
   }
 
   const stepsByTime = new Map<number, NonNullable<ValidatedFlowGraph["sequence"]>>();
-  for (const step of graph.sequence) {
+  for (const step of graph.sequence ?? []) {
     const steps = stepsByTime.get(step.atMs) ?? [];
     steps.push(step);
     stepsByTime.set(step.atMs, steps);
@@ -379,6 +377,103 @@ function validateConcurrencyGraph(key: string, graph: ValidatedFlowGraph): strin
       );
       break;
     }
+  }
+
+  return errors;
+}
+
+/** FlowGraph uses a DAG layout. Reject the topology mistakes that otherwise
+ * turn into overlapping routes, floating nodes, or backwards lines. */
+function validateFlowGraph(key: string, graph: ValidatedFlowGraph): string[] {
+  const errors = validateConcurrencyGraph(key, graph);
+  const ids = new Set<string>();
+
+  for (const node of graph.nodes) {
+    if (ids.has(node.id)) {
+      errors.push(
+        `elements.${key} (FlowGraph): duplicate node id "${node.id}"`,
+      );
+    }
+    ids.add(node.id);
+  }
+
+  const edgeKeys = new Set<string>();
+  const validEdges: Array<{ from: string; to: string }> = [];
+  for (const edge of graph.edges) {
+    if (!ids.has(edge.from) || !ids.has(edge.to)) {
+      errors.push(
+        `elements.${key} (FlowGraph): edge ${edge.from} -> ${edge.to} references an unknown node`,
+      );
+      continue;
+    }
+    if (edge.from === edge.to) {
+      errors.push(
+        `elements.${key} (FlowGraph): node "${edge.from}" cannot connect to itself`,
+      );
+      continue;
+    }
+    const edgeId = `${edge.from}->${edge.to}`;
+    if (edgeKeys.has(edgeId)) {
+      errors.push(
+        `elements.${key} (FlowGraph): duplicate edge ${edge.from} -> ${edge.to}`,
+      );
+      continue;
+    }
+    edgeKeys.add(edgeId);
+    validEdges.push(edge);
+  }
+
+  const labelledEdges = graph.edges.filter(
+    (edge) => typeof edge.label === "string" && edge.label.trim(),
+  ).length;
+  if (labelledEdges > 2) {
+    errors.push(
+      `elements.${key} (FlowGraph): use at most 2 edge labels; omit labels for obvious sequencing`,
+    );
+  }
+
+  if (graph.nodes.length > 0) {
+    const neighbours = new Map(graph.nodes.map((node) => [node.id, [] as string[]]));
+    for (const edge of validEdges) {
+      neighbours.get(edge.from)?.push(edge.to);
+      neighbours.get(edge.to)?.push(edge.from);
+    }
+    const connected = new Set<string>();
+    const pending = [graph.nodes[0].id];
+    while (pending.length) {
+      const id = pending.pop();
+      if (!id || connected.has(id)) continue;
+      connected.add(id);
+      pending.push(...(neighbours.get(id) ?? []));
+    }
+    if (connected.size !== ids.size) {
+      errors.push(
+        `elements.${key} (FlowGraph): every node must belong to one connected diagram`,
+      );
+    }
+  }
+
+  const outgoing = new Map(graph.nodes.map((node) => [node.id, [] as string[]]));
+  for (const edge of validEdges) outgoing.get(edge.from)?.push(edge.to);
+  const visiting = new Set<string>();
+  const visited = new Set<string>();
+  let cyclic = false;
+  const visit = (id: string) => {
+    if (visiting.has(id)) {
+      cyclic = true;
+      return;
+    }
+    if (visited.has(id) || cyclic) return;
+    visiting.add(id);
+    for (const next of outgoing.get(id) ?? []) visit(next);
+    visiting.delete(id);
+    visited.add(id);
+  };
+  for (const node of graph.nodes) visit(node.id);
+  if (cyclic) {
+    errors.push(
+      `elements.${key} (FlowGraph): edges must be acyclic and move forward; duplicate a returning endpoint as a final node`,
+    );
   }
 
   return errors;
@@ -439,7 +534,7 @@ export function validateSpec(spec: VisualizationSpec): { ok: true } | { ok: fals
       }
     } else if (element.type === "FlowGraph") {
       errors.push(
-        ...validateConcurrencyGraph(key, parsed.data as ValidatedFlowGraph),
+        ...validateFlowGraph(key, parsed.data as ValidatedFlowGraph),
       );
     }
 

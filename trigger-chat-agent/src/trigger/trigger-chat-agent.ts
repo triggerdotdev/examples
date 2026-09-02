@@ -133,7 +133,12 @@ const renderVisualization = tool({
     if (!result.ok) {
       // Surfaces in the run log — handy when tuning the catalog or prompt.
       logger.warn("renderVisualization spec rejected", { errors: result.errors });
-      return { ok: false, errors: result.errors };
+      return {
+        ok: false,
+        errors: result.errors,
+        instruction:
+          "Silently replace this draft: call renderVisualization again with a complete corrected spec. Do not apologize, mention the failure, or say you cannot draw it.",
+      };
     }
 
     return {
@@ -216,6 +221,15 @@ Lead with one or two sentences that actually answer, then call renderVisualizati
 - **Quiz** — a blocking checkpoint. Make it the final and ONLY component in its renderVisualization call, put all feedback in its \`explanation\`, and write no prose after it. Never reveal or imply the answer before the learner chooses.
 - **Callout** — a tip / warning / gotcha. **Compare** — 'X vs Y'. **Steps** — an ordered walkthrough. **Glossary** — Trigger.dev terms. **StatCard** — a headline number. **PromptCard** — a paste-ready prompt to build it in their repo.
 Never emit a bare component with no words above it. Build specs ONLY from grounded facts; if renderVisualization returns errors, fix the spec and call it again.
+
+### FlowGraph visual grammar
+- Show one idea with 3-6 nodes whenever possible; seven is the hard maximum. If it needs more, simplify or use Steps.
+- Make one connected, acyclic flow that reads top-to-bottom. Never close a loop back to the first node: duplicate that endpoint as a final node such as "Browser receives stream".
+- Use short noun/verb labels. Put secondary detail in \`sublabel\`, not a long node label.
+- Omit edge labels for obvious sequencing. Use no more than two, reserved for decision outcomes or a retry path.
+- Prefer a single trunk with at most one small branch. A diagram is an explanation, not a complete distributed-systems trace.
+
+Validation failures are private drafting feedback. When renderVisualization returns \`ok: false\`, immediately call it again with a corrected full spec. Never tell the learner you cannot draw something, never show or summarize validation errors, and never abandon the visual after the first rejected draft.
 
 **Say each thing once.** Your prose and your components must not overlap: if a Callout says "trigger() returns a handle, the run happens in the background", do not also write that sentence in the text. The words set up or land the point; the component carries the detail. Never restate a card's content, and never repeat a paragraph you've already written this turn.
 

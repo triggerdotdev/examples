@@ -110,19 +110,19 @@ const edgeStroke: Record<"default" | "retry" | "stream", string> = {
 // Node width is MEASURED from the content, not fixed, and the same number is
 // used for the dagre layout and the rendered node — if those disagree, dagre
 // reserves too little room and siblings on a rank visibly overlap.
-const NODE_MIN_WIDTH = 132;
+const NODE_MIN_WIDTH = 150;
 const NODE_MAX_WIDTH = 300;
 
 // Rough advance widths for the fonts in use. They only need to be close: any
 // error is absorbed by the layout gaps, and the rendered node is pinned to the
 // same computed width, so text truncates rather than overflowing.
-const LABEL_CHAR = 7.8; // 14px sans, medium
-const KIND_CHAR = 6.7; // 10px mono, uppercase + tracking
+const LABEL_CHAR = 8.6; // 14px sans, medium
+const KIND_CHAR = 7; // 10px mono, uppercase + tracking
 const SUB_CHAR = 7.8; // 12px mono + a little safety for tracking/font variance
 
 function nodeWidth(n: FlowNode): number {
   // px-3 padding + status dot + gaps + the kind tag on the right
-  const labelRow = 24 + 8 + 8 + n.label.length * LABEL_CHAR + 8 + kindLabels[n.kind].length * KIND_CHAR;
+  const labelRow = 36 + n.label.length * LABEL_CHAR + 10 + kindLabels[n.kind].length * KIND_CHAR;
   const subRow = n.sublabel ? 24 + 16 + n.sublabel.length * SUB_CHAR : 0;
   return Math.round(Math.min(NODE_MAX_WIDTH, Math.max(NODE_MIN_WIDTH, labelRow, subRow)));
 }
@@ -202,6 +202,7 @@ function dagreLayout(nodes: FlowNode[], edges: FlowEdge[]): GraphLayout {
   const g = new dagre.graphlib.Graph();
   g.setGraph({
     rankdir: "TB",
+    ranker: "tight-tree",
     nodesep: DAGRE_NODESEP,
     ranksep: DAGRE_RANKSEP,
     marginx: 8,
@@ -577,7 +578,7 @@ export function FlowGraph({ title, nodes, edges, sequence }: FlowGraphProps) {
           fitView
           // Less margin + a legibility floor (minZoom) so a wide graph isn't
           // shrunk to mush; it overflows and the reader pans/zooms to explore.
-          fitViewOptions={{ padding: 0.12, maxZoom: 1 }}
+          fitViewOptions={{ padding: 0.18, maxZoom: 1 }}
           proOptions={{ hideAttribution: true }}
           nodesDraggable={false}
           nodesConnectable={false}

@@ -24,7 +24,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { mintChatAccessToken, startChatSession } from "@/app/actions";
 import { normalizeSpec } from "@/lib/catalog";
 import { saveMessages, saveSession, setTitle } from "@/lib/chat-store";
-import { bubbleIn, easings } from "@/lib/motion";
+import { bubbleIn } from "@/lib/motion";
 import { AssistantText } from "@/components/streaming-text";
 import { ErrorNotice } from "@/components/error-notice";
 import { QuizGateContext } from "@/components/quiz-gate";
@@ -906,11 +906,19 @@ function MessagePart({
     const state = partState(part);
     const output = partOutput(part);
     const failed = state === "output-error" || output?.ok === false;
-    const spec = state === "input-streaming" ? null : normalizeSpec(partInput(part)?.spec);
-    // A rejected/failed spec settles to a static notice instead of spinning
-    // forever; the model's retry arrives as its own later part with its own status.
-    if (failed) return <ToolStatus label="Couldn't draw that." />;
-    if (!spec) return <ToolStatus label="Drawing…" spinning />;
+    // Validation failures are an internal repair loop: the tool returns precise
+    // errors and the model submits a corrected spec. Don't expose those failed
+    // drafts as user-facing "Couldn't draw" messages.
+    if (failed) return null;
+    if (state !== "output-available") {
+      return <ToolStatus label="Drawing…" spinning />;
+    }
+
+    // Wait for successful server-side validation before mounting json-render.
+    // Rendering input-available drafts caused malformed or cyclic graphs to
+    // flash on screen before the tool result rejected them.
+    const spec = normalizeSpec(partInput(part)?.spec);
+    if (!spec || output?.ok !== true) return null;
     return <Visualization spec={spec} instanceKey={visualizationKey} />;
   }
 
