@@ -169,6 +169,34 @@ type FlowNodeData = {
 };
 type FlowRFNode = Node<FlowNodeData, "flow">;
 
+/** Keep the largest forward-only subset in source order. Old persisted chats
+ * can contain a return edge that closes a conceptual loop; Dagre routes those
+ * cycles around the whole graph, so omit only the edge that would close one. */
+function withoutCycles(nodes: FlowNode[], edges: FlowEdge[]): FlowEdge[] {
+  const outgoing = new Map(nodes.map((node) => [node.id, [] as string[]]));
+  const kept: FlowEdge[] = [];
+
+  const canReach = (from: string, target: string): boolean => {
+    const seen = new Set<string>();
+    const pending = [from];
+    while (pending.length) {
+      const id = pending.pop();
+      if (!id || seen.has(id)) continue;
+      if (id === target) return true;
+      seen.add(id);
+      pending.push(...(outgoing.get(id) ?? []));
+    }
+    return false;
+  };
+
+  for (const edge of edges) {
+    if (canReach(edge.to, edge.from)) continue;
+    kept.push(edge);
+    outgoing.get(edge.from)?.push(edge.to);
+  }
+  return kept;
+}
+
 /** True for a single unbranched chain (each node ≤1 in, ≤1 out, one source,
  * one sink, edges === nodes-1) — the shape that should wrap rather than tower. */
 function isLinearPath(nodes: FlowNode[], edges: FlowEdge[]): boolean {
@@ -439,15 +467,15 @@ export function FlowGraph({ title, nodes, edges, sequence }: FlowGraphProps) {
     .map((s) => `${s.nodeId}|${s.status}|${s.atMs}`)
     .join(";");
 
-  // Robustness guard: a model can emit an edge whose `from`/`to` doesn't match
-  // any node id (typo, stale reference, partial catalog data). React Flow
-  // doesn't validate this itself — an edge pointing at a missing node id can
-  // throw during rendering. Drop those edges before they reach layout, the
-  // topo sort, or React Flow; every downstream computation uses this filtered
-  // list instead of the raw `edges` prop.
+  // Robustness guard for old persisted specs as well as streamed input: remove
+  // missing endpoints and any edge that would close a cycle before React Flow
+  // or Dagre sees it. New specs are also rejected server-side and repaired.
   const safeEdges = useMemo(() => {
     const ids = new Set(nodes.map((n) => n.id));
-    return edges.filter((e) => ids.has(e.from) && ids.has(e.to));
+    return withoutCycles(
+      nodes,
+      edges.filter((e) => ids.has(e.from) && ids.has(e.to)),
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodesSig, edgesSig]);
 
@@ -525,8 +553,27 @@ export function FlowGraph({ title, nodes, edges, sequence }: FlowGraphProps) {
   );
 
   const rfEdges: Edge[] = useMemo(
-    () =>
-      safeEdges.map((e, i) => {
+    () => {
+      const outdegree = new Map<string, number>();
+      for (const edge of safeEdges) {
+        outdegree.set(edge.from, (outdegree.get(edge.from) ?? 0) + 1);
+      }
+      // Labels help at a real branch/retry/stream boundary. On ordinary linear
+      // edges they repeat the node text and quickly turn the graph into noise.
+      const labelled = new Set(
+        safeEdges
+          .filter(
+            (edge) =>
+              edge.label &&
+              (edge.kind === "retry" ||
+                edge.kind === "stream" ||
+                (outdegree.get(edge.from) ?? 0) > 1),
+          )
+          .slice(0, 2)
+          .map((edge) => edgeKey(edge.from, edge.to)),
+      );
+
+      return safeEdges.map((e, i) => {
         const kind = e.kind ?? "default";
         const handles = edgeHandles[edgeKey(e.from, e.to)];
         return {
@@ -535,7 +582,9 @@ export function FlowGraph({ title, nodes, edges, sequence }: FlowGraphProps) {
           target: e.to,
           sourceHandle: handles?.sourceHandle,
           targetHandle: handles?.targetHandle,
-          label: e.label ?? undefined,
+          label: labelled.has(edgeKey(e.from, e.to))
+            ? (e.label ?? undefined)
+            : undefined,
           type: "smoothstep",
           animated: kind !== "default" && !reduceMotion,
           style: {
@@ -549,7 +598,8 @@ export function FlowGraph({ title, nodes, edges, sequence }: FlowGraphProps) {
           labelBgStyle: { fill: "var(--color-charcoal-850)" },
           labelBgPadding: [4, 2] as [number, number],
         };
-      }),
+      });
+    },
     [safeEdges, edgeHandles, edgesVisible, reduceMotion]
   );
 
