@@ -30,8 +30,8 @@ importers:
         specifier: ^0.19.0
         version: 0.19.0(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(tailwindcss@4.3.3)(zod@4.4.3)
       '@trigger.dev/sdk':
-        specifier: ^4.5.1
-        version: 4.5.9(ai@6.0.244(zod@4.4.3))(react@19.2.3)(zod@4.4.3)
+        specifier: 4.5.12
+        version: 4.5.12(ai@6.0.244(zod@4.4.3))(react@19.2.3)(zod@4.4.3)
       '@xyflow/react':
         specifier: ^12.11.2
         version: 12.11.2(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -1488,6 +1488,9 @@ packages:
   '@s2-dev/streamstore@0.22.10':
     resolution: {integrity: sha512-dtm+oFHVE8szINwOUoNQdx9xpGSJOrcAEvsxspPFvomjYKGnmhIRmU4OX8o6kxcPoiK76S1tPeU0smjZdmOngA==}
 
+  '@s2-dev/streamstore@0.25.0':
+    resolution: {integrity: sha512-oB8OJObT/s2Q68Tr01NLfDnQPFJp/Kn2pP3seWybgP7VrjQ+j1efXReOsyVCDsUBVMxkyPlzt75o/+GuL5Q3vg==}
+
   '@socket.io/component-emitter@3.1.2':
     resolution: {integrity: sha512-9BCxFwvbGg/RsZK9tjXd8s4UcwR0MWeFQ1XEKIQVVvAGJyINdrqKMcTRyLoK8Rse1GjzLV9cwjWV1olXRWEXVA==}
 
@@ -1596,6 +1599,10 @@ packages:
     resolution: {integrity: sha512-CAZTBZBqErQSPjl0T0C/EB3vwS5pMNVGruYtzQIaCXnKXfg0abGRiH1sNrj7M2buGm+h8ttbpWfssyb/GlvGdA==}
     engines: {node: '>=18.20.0'}
 
+  '@trigger.dev/core@4.5.12':
+    resolution: {integrity: sha512-MvDJg01vELqtc2d+fzcqwWlLN8MhBHt4xKPQQqur/Xlz5dzuD2YHbZGdursAJg8PPXWgNnelipr5cUh0GYxaqQ==}
+    engines: {node: '>=18.20.0'}
+
   '@trigger.dev/core@4.5.9':
     resolution: {integrity: sha512-tXmIxg31Z5cPAXZozvTxLhHY8r8dbDNIFsaKZAcPYLSnaPMCK7uwJufYDLpvLmfNStPvs9x4DNAD4UW3ClyUIA==}
     engines: {node: '>=18.20.0'}
@@ -1621,8 +1628,8 @@ packages:
       valibot:
         optional: true
 
-  '@trigger.dev/sdk@4.5.9':
-    resolution: {integrity: sha512-YZ7Re6ys6E52Pt0siWtDw5rJodUbSl0DieChHH57Wtvqx/UF6dm2v6cf2wzCbtFAHxkNg33kPiAmz+FI74ZrJg==}
+  '@trigger.dev/sdk@4.5.12':
+    resolution: {integrity: sha512-kSbLzD50v9VmczK+GD97Iwl8qYgd8d42UbGeH3cBbJMoQSR0rNtSZ8WhUpcj8qunbPJHU5VM3usLDA3Bk6qdkg==}
     engines: {node: '>=18.20.0'}
     peerDependencies:
       '@ai-sdk/otel': '>=1.0.0-0 <2'
@@ -1980,10 +1987,6 @@ packages:
   cors@2.8.6:
     resolution: {integrity: sha512-tJtZBBHA6vjIAaF6EnIaq6laBBP9aq/Y3ouVJjEfoHbRBcHBAHYcMh/w8LDrk2PvIMMq8gmopa5D4V8RmbrxGw==}
     engines: {node: '>= 0.10'}
-
-  cronstrue@2.59.0:
-    resolution: {integrity: sha512-YKGmAy84hKH+hHIIER07VCAHf9u0Ldelx1uU6EBxsRPDXIA1m5fsKmJfyC3xBhw6cVC/1i83VdbL4PvepTrt8A==}
-    hasBin: true
 
   cross-spawn@7.0.6:
     resolution: {integrity: sha512-uV2QOWP2nWzsy2aMp8aRibhi9dlzF5Hgh5SHaB9OiTGEyDTiJJyx0uy51QXdyWbtAHNua4XJzUKca3OzKUd3vA==}
@@ -2827,6 +2830,11 @@ packages:
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
     hasBin: true
 
+  nanoid@3.3.18:
+    resolution: {integrity: sha512-DTg4MJbGMWkfi6VZFdNt2/caMbQy4Ou+Op/hJQvGEWcnVfoA1QA+xzRKAzw9jD6+GVOOeYr/mIcuDSdug6F6+w==}
+    engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
+    hasBin: true
+
   nanoid@3.3.8:
     resolution: {integrity: sha512-WNLf5Sd8oZxOm+TzppcYk8gVOgP+l58xNy58D0nbUnOxOWRWvlcCV4kUF7ltmI6PsrLl/BgKEyS4mqsGChFN0w==}
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
@@ -3006,6 +3014,7 @@ packages:
   prom-client@15.1.3:
     resolution: {integrity: sha512-6ZiOBfCywsD4k1BN9IX0uZhF+tJkV8q8llP64G5Hajs4JOeVLPCwpPVcpXy3BwYiUGgyJzsJJQeOIv7+hDSq8g==}
     engines: {node: ^16 || ^18 || >=20}
+    deprecated: prom-client has been replaced by @prometheus-io/client
 
   property-information@7.2.0:
     resolution: {integrity: sha512-IAtzIB6sUiWaJYrX9smp3V46pBGbBeLFRGdh25kg1334VcBlD8HzhPeNIWQH9zhGmo2itIe25EHt9dQP7G5hmg==}
@@ -3198,9 +3207,6 @@ packages:
 
   sisteransi@1.0.5:
     resolution: {integrity: sha512-bLGGlR1QxBcynn2d5YmDX4MGjlZvy2MRBDRNHLJ8VI6l6+9FUiyTFNJ0IveOSP0bcXgVDPRcfGqA0pjaqUpfVg==}
-
-  slug@6.1.0:
-    resolution: {integrity: sha512-x6vLHCMasg4DR2LPiyFGI0gJJhywY6DTiGhCrOMzb3SOk/0JVLIaL4UhyFSHu04SD3uAavrKY/K3zZ3i6iRcgA==}
 
   socket.io-adapter@2.5.8:
     resolution: {integrity: sha512-6Oy52pbg+kvdCVvjcN+FnY7BvxZ7cIHNScbvztT/It5d0vbwoJoVZmF2gjJmnV0/4WlXRfG15zc45ySk9Ah8bw==}
@@ -3401,10 +3407,6 @@ packages:
 
   ufo@1.6.4:
     resolution: {integrity: sha512-JFNbkD1Svwe0KvGi8GOeLcP4kAWQ609twvCdcHxq1oSL8svv39ZuSvajcD8B+5D0eL4+s1Is2D/O6KN3qcTeRA==}
-
-  ulid@2.4.0:
-    resolution: {integrity: sha512-fIRiVTJNcSRmXKPZtGzFQv9WRrZ3M9eoptl/teFJvjOzmpU+/K/JH6HZ8deBfb5vMEpicJcLn7JmvdknlMq7Zg==}
-    hasBin: true
 
   uncrypto@0.1.3:
     resolution: {integrity: sha512-Ql87qFHB3s/De2ClA9e0gsnS6zXG27SkTiSJwjCc9MebbfapQfuPzumMIUMi38ezPZVNFcHI9sUIepeQfw8J8Q==}
@@ -4898,6 +4900,13 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
+  '@s2-dev/streamstore@0.25.0':
+    dependencies:
+      '@protobuf-ts/runtime': 2.11.1
+      debug: 4.4.3(supports-color@10.2.2)
+    transitivePeerDependencies:
+      - supports-color
+
   '@socket.io/component-emitter@3.1.2': {}
 
   '@sodaru/yup-to-json-schema@2.0.1': {}
@@ -4993,6 +5002,44 @@ snapshots:
       - typescript
       - utf-8-validate
 
+  '@trigger.dev/core@4.5.12':
+    dependencies:
+      '@bugsnag/cuid': 3.2.2
+      '@electric-sql/client': 1.0.14
+      '@google-cloud/precise-date': 4.0.0
+      '@jsonhero/path': 1.0.21
+      '@opentelemetry/api': 1.9.1
+      '@opentelemetry/api-logs': 0.218.0
+      '@opentelemetry/core': 2.7.1(@opentelemetry/api@1.9.1)
+      '@opentelemetry/exporter-logs-otlp-http': 0.218.0(@opentelemetry/api@1.9.1)
+      '@opentelemetry/exporter-metrics-otlp-http': 0.218.0(@opentelemetry/api@1.9.1)
+      '@opentelemetry/exporter-trace-otlp-http': 0.218.0(@opentelemetry/api@1.9.1)
+      '@opentelemetry/host-metrics': 0.38.3(@opentelemetry/api@1.9.1)
+      '@opentelemetry/instrumentation': 0.218.0(@opentelemetry/api@1.9.1)(supports-color@10.2.2)
+      '@opentelemetry/resources': 2.7.1(@opentelemetry/api@1.9.1)
+      '@opentelemetry/sdk-logs': 0.218.0(@opentelemetry/api@1.9.1)
+      '@opentelemetry/sdk-metrics': 2.7.1(@opentelemetry/api@1.9.1)
+      '@opentelemetry/sdk-trace-base': 2.7.1(@opentelemetry/api@1.9.1)
+      '@opentelemetry/sdk-trace-node': 2.7.1(@opentelemetry/api@1.9.1)
+      '@s2-dev/streamstore': 0.25.0
+      dequal: 2.0.3
+      eventsource: 3.0.7
+      eventsource-parser: 3.1.0
+      humanize-duration: 3.34.0
+      jose: 5.10.0
+      nanoid: 3.3.18
+      prom-client: 15.1.3
+      socket.io-client: 4.7.5(supports-color@10.2.2)
+      std-env: 3.10.0
+      tinyexec: 0.3.2
+      uncrypto: 0.1.3
+      zod: 3.25.76
+      zod-validation-error: 1.5.0(zod@3.25.76)
+    transitivePeerDependencies:
+      - bufferutil
+      - supports-color
+      - utf-8-validate
+
   '@trigger.dev/core@4.5.9(supports-color@10.2.2)':
     dependencies:
       '@bugsnag/cuid': 3.2.2
@@ -5047,19 +5094,12 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  '@trigger.dev/sdk@4.5.9(ai@6.0.244(zod@4.4.3))(react@19.2.3)(zod@4.4.3)':
+  '@trigger.dev/sdk@4.5.12(ai@6.0.244(zod@4.4.3))(react@19.2.3)(zod@4.4.3)':
     dependencies:
       '@opentelemetry/api': 1.9.1
       '@opentelemetry/semantic-conventions': 1.41.1
-      '@trigger.dev/core': 4.5.9(supports-color@10.2.2)
-      chalk: 5.6.2
-      cronstrue: 2.59.0
-      debug: 4.4.3(supports-color@10.2.2)
-      evt: 2.5.9
-      slug: 6.1.0
-      ulid: 2.4.0
+      '@trigger.dev/core': 4.5.12
       uncrypto: 0.1.3
-      ws: 8.21.2
       zod: 4.4.3
     optionalDependencies:
       ai: 6.0.244(zod@4.4.3)
@@ -5411,8 +5451,6 @@ snapshots:
     dependencies:
       object-assign: 4.1.1
       vary: 1.1.2
-
-  cronstrue@2.59.0: {}
 
   cross-spawn@7.0.6:
     dependencies:
@@ -6445,6 +6483,8 @@ snapshots:
 
   nanoid@3.3.17: {}
 
+  nanoid@3.3.18: {}
+
   nanoid@3.3.8: {}
 
   negotiator@0.6.3: {}
@@ -6948,8 +6988,6 @@ snapshots:
 
   sisteransi@1.0.5: {}
 
-  slug@6.1.0: {}
-
   socket.io-adapter@2.5.8(supports-color@10.2.2):
     dependencies:
       debug: 4.4.3(supports-color@10.2.2)
@@ -7217,8 +7255,6 @@ snapshots:
   typescript@5.9.3: {}
 
   ufo@1.6.4: {}
-
-  ulid@2.4.0: {}
 
   uncrypto@0.1.3: {}
 
