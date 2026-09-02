@@ -1,0 +1,152 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@plugin "tailwind-scrollbar";
+/* Satoshi (titles) loads from Fontshare's free CDN via a <link> in layout.tsx;
+   Geist sans/mono load via next/font. */
+
+/* Tailwind only scans app source by default — include the pre-built
+   @json-render/shadcn components so their classes are generated. */
+@source "../../node_modules/@json-render/shadcn/dist";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-title: "Satoshi", var(--font-geist-sans), ui-sans-serif, sans-serif;
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+/* ---------------------------------------------------------------------------
+   Trigger.dev Launch Week brand palette. Emitted as real CSS variables (plain
+   @theme, not inline) so they generate utilities (bg-charcoal-850, text-apple-500,
+   border-grid-bright, text-bright/dimmed, text-error/warning/success) AND are
+   readable from JS as var(--color-*) — used for the React Flow SVG edge layer,
+   which Tailwind classes can't reach.
+   --------------------------------------------------------------------------- */
+@theme {
+  --color-charcoal-100: #e8e9ec;
+  --color-charcoal-200: #d7d9dd;
+  --color-charcoal-300: #b5b8c0;
+  --color-charcoal-350: #a4a8b0;
+  --color-charcoal-400: #878c99;
+  --color-charcoal-500: #5f6570;
+  --color-charcoal-600: #3b3e45;
+  --color-charcoal-650: #31353a;
+  --color-charcoal-700: #272a2e;
+  --color-charcoal-750: #212327;
+  --color-charcoal-775: #1c1e21;
+  --color-charcoal-800: #1a1b1f;
+  --color-charcoal-850: #15171a;
+  --color-charcoal-900: #121317;
+  --color-charcoal-950: #0d0e12;
+  --color-charcoal-1000: #0b0c0f;
+
+  --color-apple-100: #e4ffc9;
+  --color-apple-200: #cfffa0;
+  --color-apple-300: #bfff81;
+  --color-apple-400: #afff62;
+  --color-apple-500: #a8ff53;
+  --color-apple-600: #82d134;
+  --color-apple-700: #6fb12f;
+  --color-apple-750: #5e932a;
+  --color-apple-800: #45711a;
+  --color-apple-850: #2e4e10;
+  --color-apple-900: #20370a;
+  --color-apple-950: #152506;
+
+  --color-lavender-400: #826dff;
+  --color-lavender-500: #7655fd; /* user message bubble */
+
+  --color-bright: #d7d9dd; /* charcoal-200 */
+  --color-dimmed: #878c99; /* charcoal-400 */
+  --color-grid-bright: #272a2e; /* charcoal-700 */
+  --color-grid-dimmed: #1c1e21; /* charcoal-775 */
+  --color-success: #a8ff53; /* apple-500 */
+  --color-warning: #f59e0b; /* amber-500 */
+  --color-error: #f43f5e; /* rose-500 */
+
+  --text-2xs: 0.625rem;
+}
+
+/* Dark-only app: the shadcn semantic tokens are remapped to the LW3 charcoal /
+   apple palette so the chat shell and the @json-render/shadcn primitives adopt
+   the Launch Week look with no per-component overrides. Both :root and .dark
+   carry the same values (layout forces `dark`) to avoid any light flash. */
+:root,
+.dark {
+  --radius: 0.875rem;
+  --background: #0b0c0f; /* charcoal-1000 — the page is the darkest; cards sit above it */
+  --foreground: #e8e9ec; /* charcoal-100 */
+  --card: #15171a; /* charcoal-850 */
+  --card-foreground: #e8e9ec;
+  --popover: #1a1b1f; /* charcoal-800 */
+  --popover-foreground: #e8e9ec;
+  --primary: #a8ff53; /* apple-500 */
+  --primary-foreground: #121317; /* dark text on the apple accent */
+  --secondary: #1a1b1f; /* charcoal-800 */
+  --secondary-foreground: #e8e9ec;
+  --muted: #1a1b1f; /* charcoal-800 */
+  --muted-foreground: #878c99; /* dimmed */
+  --accent: #272a2e; /* charcoal-700 */
+  --accent-foreground: #e8e9ec;
+  --destructive: #f43f5e; /* rose-500 */
+  --border: #272a2e; /* grid-bright */
+  --input: #212327; /* charcoal-750 */
+  --ring: #afff62; /* apple-400 */
+  --sidebar: #15171a;
+  --sidebar-foreground: #e8e9ec;
+  --sidebar-primary: #a8ff53;
+  --sidebar-primary-foreground: #121317;
+  --sidebar-accent: #272a2e;
+  --sidebar-accent-foreground: #e8e9ec;
+  --sidebar-border: #272a2e;
+  --sidebar-ring: #afff62;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply overflow-hidden bg-background text-foreground;
+  }
+  /* Clickable buttons (chips, send, quiz options, copy) show a pointer;
+     disabled ones don't. Native buttons default to the arrow cursor. */
+  button:not(:disabled) {
+    cursor: pointer;
+  }
+  :where(button, a):focus-visible {
+    outline: 2px solid var(--color-apple-400);
+    outline-offset: 3px;
+  }
+}

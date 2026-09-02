@@ -1,0 +1,100 @@
+"use client";
+
+import {
+  BarChart3,
+  Bolt,
+  Check,
+  Clock,
+  Cog,
+  Command,
+  Cpu,
+  Database,
+  Rocket,
+  Server,
+  Shield,
+  Signal,
+  type LucideIcon,
+} from "lucide-react";
+import { motion, useReducedMotion } from "motion/react";
+import { cn } from "@/lib/utils";
+import { reducedVariants, revealBlur, staggerContainer } from "@/lib/motion";
+import { CodeAwareLabel } from "@/components/code-aware-label";
+
+/**
+ * HeroCard — the intro card that opens a topic: an optional icon badge, a mono
+ * apple kicker, a display title, and a short blurb. Ported from the Launch Week
+ * hero card (image/link layouts dropped). `featured` steps the type up for the
+ * single lead card of an answer.
+ */
+
+const ICONS: Record<string, LucideIcon> = {
+  bolt: Bolt,
+  server: Server,
+  cpu: Cpu,
+  clock: Clock,
+  rocket: Rocket,
+  command: Command,
+  cog: Cog,
+  database: Database,
+  chart: BarChart3,
+  shield: Shield,
+  signal: Signal,
+  check: Check,
+};
+
+export function HeroCard({
+  icon,
+  kicker,
+  title,
+  description,
+  featured,
+}: {
+  icon?: string | null;
+  kicker?: string | null;
+  title: string;
+  description: string;
+  featured?: boolean | null;
+}) {
+  const reduce = useReducedMotion();
+  const item = reduce ? reducedVariants : revealBlur;
+  const container = reduce ? staggerContainer(0, 0) : staggerContainer(0.05);
+  const Icon = ICONS[icon ?? "bolt"] ?? Bolt;
+
+  return (
+    <motion.div
+      initial="hidden"
+      animate="show"
+      variants={container}
+      className="min-h-56 overflow-hidden rounded-2xl border border-grid-dimmed bg-charcoal-850 p-6 sm:p-8"
+    >
+      {icon && (
+        <motion.div
+          variants={item}
+          className="mb-6 flex size-10 items-center justify-center rounded-xl border border-grid-bright bg-charcoal-800 text-apple-500"
+        >
+          <Icon className="size-5" />
+        </motion.div>
+      )}
+      {kicker && (
+        <motion.div variants={item} className="mb-3">
+          <CodeAwareLabel
+            value={kicker}
+            className="font-mono text-xs font-medium tracking-wider text-apple-500"
+          />
+        </motion.div>
+      )}
+      <motion.h3
+        variants={item}
+        className={cn(
+          "mb-2 font-title font-semibold tracking-tight text-bright [text-wrap:balance]",
+          featured ? "text-3xl leading-[1.1]" : "text-2xl leading-[1.2]"
+        )}
+      >
+        {title}
+      </motion.h3>
+      <motion.p variants={item} className="max-w-[55ch] font-sans text-base leading-7 text-dimmed [text-wrap:pretty]">
+        {description}
+      </motion.p>
+    </motion.div>
+  );
+}

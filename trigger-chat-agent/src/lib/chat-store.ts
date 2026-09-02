@@ -1,0 +1,322 @@
+// Device-local chat storage. This demo has no server database, so a chat's
+// transcript and a lightweight index of every chat live in the browser's
+// IndexedDB, keyed by chatId. Everything is therefore per-device: clearing
+// site data or switching browsers loses the history — which is the point, the
+// transcripts never leave the machine.
+//
+// The module is imported by client components but must stay SSR-safe: it never
+// touches `indexedDB` at import time or on the server. Every entry point guards
+// on `typeof indexedDB === "undefined"` and resolves to an empty/no-op result
+// there, and the raw IndexedDB request/transaction callbacks are wrapped in
+// small typed Promise helpers so the rest of the file reads as async/await.
+
+import type { UIMessage } from "ai";
+import type { ChatSessionPersistedState } from "@trigger.dev/sdk/chat";
+
+// `createdAt` fixes a chat's position in the sidebar (newest created on top, and
+// it never moves when you send another message); `updatedAt` drives the 48h
+// read-only expiry only.
+export type ChatMeta = { chatId: string; title: string | null; createdAt: number; updatedAt: number };
+
+const DB_NAME = "trigger-chat-agent";
+const DB_VERSION = 3;
+const MESSAGES_STORE = "messages";
+const CHATS_STORE = "chats";
+const SESSIONS_STORE = "sessions";
+const QUIZ_ANSWERS_STORE = "quiz-answers";
+
+// Stable empty array for SSR — a fresh `[]` each call would make
+// useSyncExternalStore think the snapshot changed and loop forever.
+const EMPTY_CHATS: readonly ChatMeta[] = Object.freeze([]);
+
+function isBrowser(): boolean {
+  return typeof indexedDB !== "undefined";
+}
+
+// --- typed wrappers around the raw IndexedDB callback API ------------------
+
+function requestToPromise<T>(request: IDBRequest<T>): Promise<T> {
+  return new Promise((resolve, reject) => {
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+function transactionToPromise(tx: IDBTransaction): Promise<void> {
+  return new Promise((resolve, reject) => {
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error);
+  });
+}
+
+let dbPromise: Promise<IDBDatabase> | null = null;
+
+function openDb(): Promise<IDBDatabase> {
+  if (dbPromise) return dbPromise;
+  const opening = new Promise<IDBDatabase>((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(MESSAGES_STORE)) {
+        // Value is a UIMessage[] with no natural key — use out-of-line keys.
+        db.createObjectStore(MESSAGES_STORE);
+      }
+      if (!db.objectStoreNames.contains(CHATS_STORE)) {
+        db.createObjectStore(CHATS_STORE, { keyPath: "chatId" });
+      }
+      if (!db.objectStoreNames.contains(SESSIONS_STORE)) {
+        db.createObjectStore(SESSIONS_STORE);
+      }
+      if (!db.objectStoreNames.contains(QUIZ_ANSWERS_STORE)) {
+        db.createObjectStore(QUIZ_ANSWERS_STORE);
+      }
+    };
+    request.onsuccess = () => {
+      const db = request.result;
+      db.onversionchange = () => {
+        db.close();
+        dbPromise = null;
+      };
+      resolve(db);
+    };
+    request.onerror = () => reject(request.error);
+    request.onblocked = () =>
+      reject(new Error("IndexedDB upgrade blocked by another tab"));
+  }).catch((error) => {
+    // A blocked or failed open must be retryable later in the page lifetime.
+    dbPromise = null;
+    throw error;
+  });
+  dbPromise = opening;
+  return opening;
+}
+
+// --- narrowing --------------------------------------------------------------
+
+// Validate a stored record and normalize it. `createdAt` was added later, so a
+// record written before this falls back to its `updatedAt` (best available).
+function toChatMeta(value: unknown): ChatMeta | null {
+  if (typeof value !== "object" || value === null) return null;
+  const v = value as Record<string, unknown>;
+  if (typeof v.chatId !== "string") return null;
+  if (!(v.title === null || typeof v.title === "string")) return null;
+  if (typeof v.updatedAt !== "number") return null;
+  const createdAt = typeof v.createdAt === "number" ? v.createdAt : v.updatedAt;
+  return { chatId: v.chatId, title: v.title, createdAt, updatedAt: v.updatedAt };
+}
+
+async function readMeta(db: IDBDatabase, chatId: string): Promise<ChatMeta | null> {
+  const tx = db.transaction(CHATS_STORE, "readonly");
+  const value = await requestToPromise<unknown>(tx.objectStore(CHATS_STORE).get(chatId));
+  return toChatMeta(value);
+}
+
+// --- public read/write API --------------------------------------------------
+
+export async function loadMessages(chatId: string): Promise<UIMessage[]> {
+  if (!isBrowser()) return [];
+  const db = await openDb();
+  const tx = db.transaction(MESSAGES_STORE, "readonly");
+  const value = await requestToPromise<unknown>(tx.objectStore(MESSAGES_STORE).get(chatId));
+  return Array.isArray(value) ? (value as UIMessage[]) : [];
+}
+
+export async function loadSession(
+  chatId: string,
+): Promise<ChatSessionPersistedState | null> {
+  if (!isBrowser()) return null;
+  const db = await openDb();
+  const tx = db.transaction(SESSIONS_STORE, "readonly");
+  const value = await requestToPromise<unknown>(
+    tx.objectStore(SESSIONS_STORE).get(chatId),
+  );
+  if (typeof value !== "object" || value === null) return null;
+  const session = value as Record<string, unknown>;
+  if (typeof session.publicAccessToken !== "string") return null;
+  if (
+    session.lastEventId !== undefined &&
+    typeof session.lastEventId !== "string"
+  ) {
+    return null;
+  }
+  if (
+    session.isStreaming !== undefined &&
+    typeof session.isStreaming !== "boolean"
+  ) {
+    return null;
+  }
+  return session as ChatSessionPersistedState;
+}
+
+export async function saveSession(
+  chatId: string,
+  session: ChatSessionPersistedState | null,
+): Promise<void> {
+  if (!isBrowser()) return;
+  const db = await openDb();
+  const tx = db.transaction(SESSIONS_STORE, "readwrite");
+  const store = tx.objectStore(SESSIONS_STORE);
+  if (session) store.put(session, chatId);
+  else store.delete(chatId);
+  await transactionToPromise(tx);
+}
+
+export async function loadQuizAnswer(
+  chatId: string,
+  quizKey: string,
+): Promise<number | null> {
+  if (!isBrowser()) return null;
+  const db = await openDb();
+  const tx = db.transaction(QUIZ_ANSWERS_STORE, "readonly");
+  const value = await requestToPromise<unknown>(
+    tx.objectStore(QUIZ_ANSWERS_STORE).get([chatId, quizKey]),
+  );
+  return typeof value === "number" && Number.isInteger(value) ? value : null;
+}
+
+export async function saveQuizAnswer(
+  chatId: string,
+  quizKey: string,
+  picked: number,
+): Promise<void> {
+  if (!isBrowser()) return;
+  const db = await openDb();
+  const tx = db.transaction(QUIZ_ANSWERS_STORE, "readwrite");
+  tx.objectStore(QUIZ_ANSWERS_STORE).put(picked, [chatId, quizKey]);
+  await transactionToPromise(tx);
+}
+
+export async function saveMessages(chatId: string, messages: UIMessage[]): Promise<void> {
+  if (!isBrowser()) return;
+  const db = await openDb();
+  // Read the existing meta in its own transaction: interleaving awaits inside a
+  // single readwrite transaction can let IndexedDB auto-commit between steps.
+  const existing = await readMeta(db, chatId);
+  const meta: ChatMeta = {
+    chatId,
+    title: existing ? existing.title : null,
+    createdAt: existing ? existing.createdAt : Date.now(),
+    updatedAt: Date.now(),
+  };
+  const tx = db.transaction([MESSAGES_STORE, CHATS_STORE], "readwrite");
+  tx.objectStore(MESSAGES_STORE).put(messages, chatId);
+  tx.objectStore(CHATS_STORE).put(meta);
+  await transactionToPromise(tx);
+  await refreshSnapshot();
+}
+
+export async function listChats(): Promise<ChatMeta[]> {
+  if (!isBrowser()) return [];
+  const db = await openDb();
+  const tx = db.transaction(CHATS_STORE, "readonly");
+  const all = await requestToPromise<unknown[]>(tx.objectStore(CHATS_STORE).getAll());
+  const metas = Array.isArray(all)
+    ? all.map(toChatMeta).filter((m): m is ChatMeta => m !== null)
+    : [];
+  // Newest created first, and stable: sending a message doesn't reorder.
+  return metas.sort((a, b) => b.createdAt - a.createdAt);
+}
+
+export async function setTitle(chatId: string, title: string): Promise<void> {
+  if (!isBrowser()) return;
+  const db = await openDb();
+  const existing = await readMeta(db, chatId);
+  const meta: ChatMeta = {
+    chatId,
+    title,
+    createdAt: existing ? existing.createdAt : Date.now(),
+    updatedAt: existing ? existing.updatedAt : Date.now(),
+  };
+  const tx = db.transaction(CHATS_STORE, "readwrite");
+  tx.objectStore(CHATS_STORE).put(meta);
+  await transactionToPromise(tx);
+  await refreshSnapshot();
+}
+
+export async function removeChat(chatId: string): Promise<void> {
+  if (!isBrowser()) return;
+  const db = await openDb();
+  const tx = db.transaction(
+    [MESSAGES_STORE, CHATS_STORE, SESSIONS_STORE, QUIZ_ANSWERS_STORE],
+    "readwrite",
+  );
+  tx.objectStore(MESSAGES_STORE).delete(chatId);
+  tx.objectStore(CHATS_STORE).delete(chatId);
+  tx.objectStore(SESSIONS_STORE).delete(chatId);
+  const quizStore = tx.objectStore(QUIZ_ANSWERS_STORE);
+  const quizRange = IDBKeyRange.bound([chatId, ""], [chatId, "\uffff"]);
+  quizStore.openKeyCursor(quizRange).onsuccess = (event) => {
+    const cursor = (event.target as IDBRequest<IDBCursor | null>).result;
+    if (!cursor) return;
+    quizStore.delete(cursor.primaryKey);
+    cursor.continue();
+  };
+  await transactionToPromise(tx);
+  await refreshSnapshot();
+}
+
+// --- useSyncExternalStore surface for the chat list -------------------------
+
+const listeners = new Set<() => void>();
+let cachedChats: ChatMeta[] = [];
+let hydrated = false;
+
+function sameList(a: ChatMeta[], b: ChatMeta[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (
+      a[i].chatId !== b[i].chatId ||
+      a[i].title !== b[i].title ||
+      a[i].updatedAt !== b[i].updatedAt
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function emit(): void {
+  for (const listener of listeners) listener();
+}
+
+// Reload the list from IndexedDB and, only if it actually changed, swap the
+// cached reference and notify subscribers. Keeping the reference stable when
+// nothing changed is what makes getChatsSnapshot safe for useSyncExternalStore.
+async function refreshSnapshot(): Promise<void> {
+  if (!isBrowser()) return;
+  const next = await listChats();
+  if (!sameList(cachedChats, next)) {
+    cachedChats = next;
+    emit();
+  }
+}
+
+function refreshSnapshotInBackground(): void {
+  void refreshSnapshot().catch((error) => {
+    console.error("Could not refresh the local chat list", error);
+  });
+}
+
+export function subscribeChats(callback: () => void): () => void {
+  if (!isBrowser()) return () => {};
+  listeners.add(callback);
+  refreshSnapshotInBackground();
+  return () => {
+    listeners.delete(callback);
+  };
+}
+
+export function getChatsSnapshot(): ChatMeta[] {
+  // Lazily kick off the first load; the background refresh will notify
+  // subscribers once real data lands. No render loop, no polling.
+  if (!hydrated && isBrowser()) {
+    hydrated = true;
+    refreshSnapshotInBackground();
+  }
+  return cachedChats;
+}
+
+export function getServerChatsSnapshot(): ChatMeta[] {
+  return EMPTY_CHATS as ChatMeta[];
+}
