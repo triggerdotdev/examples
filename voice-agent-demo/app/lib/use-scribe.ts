@@ -30,6 +30,9 @@ const SCRIBE_ERRORS: Partial<Record<RealtimeEvents, string>> = {
   [RealtimeEvents.INPUT_ERROR]: "ElevenLabs rejected the audio format.",
 };
 
+/** Give up on a mic start if neither OPEN nor an error arrives in this long. */
+const CONNECT_TIMEOUT_MS = 8000;
+
 /**
  * Mic -> text over ElevenLabs' realtime Scribe socket.
  *
@@ -62,14 +65,23 @@ export function useScribe({
     // (still null mid-connect) and open two microphone sockets.
     if (connection.current || starting.current) return false;
     starting.current = true;
+    // Every start bumps the generation. stop()/unmount bump it too, so handlers
+    // and the post-await checks can tell whether they still belong to the live
+    // attempt — the client keeps delivering events after close(), and a token
+    // can resolve after the user has moved on.
     const myAttempt = ++attempt.current;
-    let started = false;
+    const active = () => myAttempt === attempt.current;
     setError(null);
     try {
       const token = await getToken();
-      // Cancelled while we were minting the token (stop() or unmount) — don't
-      // open a socket the UI has already moved on from.
-      if (myAttempt !== attempt.current) return false;
+      if (!active()) return false;
+
+      // Resolve start() only once the mic is actually live: OPEN means the
+      // socket connected AND getUserMedia succeeded. An error or an early close
+      // resolves false, so a denied-permission start never reports success.
+      let markReady!: (ok: boolean) => void;
+      const ready = new Promise<boolean>((resolve) => (markReady = resolve));
+
       const conn = Scribe.connect({
         token,
         modelId: SCRIBE_MODEL,
@@ -84,30 +96,56 @@ export function useScribe({
         },
       });
       connection.current = conn;
-      started = true;
 
-      conn.on(RealtimeEvents.OPEN, () => setConnected(true));
-      conn.on(RealtimeEvents.PARTIAL_TRANSCRIPT, (data) => setPartial(data.text));
+      conn.on(RealtimeEvents.OPEN, () => {
+        if (!active()) return;
+        setConnected(true);
+        markReady(true);
+      });
+      conn.on(RealtimeEvents.PARTIAL_TRANSCRIPT, (data) => {
+        if (active()) setPartial(data.text);
+      });
       conn.on(RealtimeEvents.COMMITTED_TRANSCRIPT, (data) => {
+        if (!active()) return;
         setPartial("");
         const text = data.text.trim();
         if (text) onUtteranceRef.current(text);
       });
       for (const [event, message] of Object.entries(SCRIBE_ERRORS)) {
-        conn.on(event as RealtimeEvents, () => setError(message));
+        conn.on(event as RealtimeEvents, () => {
+          if (!active()) return;
+          setError(message);
+          markReady(false);
+        });
       }
       // Anything not in the map above still needs to reach the user.
-      conn.on(RealtimeEvents.ERROR, (data) =>
-        setError(data?.error ?? "The microphone stream failed."),
-      );
-      conn.on(RealtimeEvents.INSUFFICIENT_AUDIO_ACTIVITY, () =>
-        setError("Didn't hear anything. Is the right microphone selected?"),
-      );
+      conn.on(RealtimeEvents.ERROR, (data) => {
+        if (!active()) return;
+        setError(data?.error ?? "The microphone stream failed.");
+        markReady(false);
+      });
+      conn.on(RealtimeEvents.INSUFFICIENT_AUDIO_ACTIVITY, () => {
+        if (active()) setError("Didn't hear anything. Is the right microphone selected?");
+      });
       conn.on(RealtimeEvents.CLOSE, () => {
+        if (!active()) return;
         setConnected(false);
         setPartial("");
         if (connection.current === conn) connection.current = null;
+        markReady(false); // closing before OPEN means the start failed
       });
+
+      const timer = setTimeout(() => markReady(false), CONNECT_TIMEOUT_MS);
+      const ok = await ready;
+      clearTimeout(timer);
+
+      // Failed or superseded: tear down the half-open connection.
+      if (!ok || !active()) {
+        conn.close();
+        if (connection.current === conn) connection.current = null;
+        return false;
+      }
+      return true;
     } catch (cause) {
       // Covers a failed token mint (missing/underscoped key) and a denied
       // getUserMedia prompt, which are the two most likely first-run failures.
@@ -118,10 +156,10 @@ export function useScribe({
           : message,
       );
       connection.current = null;
+      return false;
     } finally {
       starting.current = false;
     }
-    return started;
   }, [getToken]);
 
   const stop = useCallback(() => {
