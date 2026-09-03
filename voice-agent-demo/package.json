@@ -1,0 +1,35 @@
+{
+  "name": "voice-agent-demo",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --port 4000",
+    "build": "next build",
+    "start": "next start --port 4000",
+    "dev:trigger": "trigger dev",
+    "deploy:trigger": "trigger deploy"
+  },
+  "dependencies": {
+    "@ai-sdk/anthropic": "^4.0.39",
+    "@ai-sdk/otel": "^1.0.66",
+    "@ai-sdk/react": "^4.0.69",
+    "@elevenlabs/client": "^1.18.0",
+    "@elevenlabs/elevenlabs-js": "^2.64.0",
+    "@trigger.dev/sdk": "^4.5.12",
+    "ai": "^7.0.66",
+    "next": "16.3.1",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@trigger.dev/build": "^4.5.12",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "tailwindcss": "^4",
+    "trigger.dev": "^4.5.12",
+    "typescript": "^5"
+  },
+  "packageManager": "pnpm@10.23.0"
+}
