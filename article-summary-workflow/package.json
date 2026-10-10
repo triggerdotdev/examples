@@ -28,7 +28,7 @@
     "tailwind-merge": "^3.2.0"
   },
   "devDependencies": {
-    "trigger.dev": "4.0.0-v4-beta.0",
+    "trigger.dev": "4.5.9",
     "@trigger.dev/build": "4.0.0-v4-beta.0",
     "@tailwindcss/postcss": "^4",
     "@types/html-to-text": "^9.0.4",
