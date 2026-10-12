@@ -11,8 +11,8 @@
     "deploy:trigger": "trigger deploy"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "4.0.78",
     "@ai-sdk/react": "4.0.140",
-    "@openrouter/ai-sdk-provider": "3.1.0",
     "@trigger.dev/sdk": "4.7.3",
     "ai": "7.0.137",
     "apify-client": "2.25.0",

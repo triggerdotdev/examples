@@ -45,15 +45,15 @@ The task then asks the model to extract emails, phone numbers, social profiles a
 ## Setup
 
 1. Create a project in the [Trigger.dev dashboard](https://cloud.trigger.dev) and copy its project ref and a dev secret key (API keys page).
-2. Get an [Apify API token](https://console.apify.com/settings/integrations?utm_source=trigger.dev&utm_medium=integrations) and an [OpenRouter API key](https://openrouter.ai/settings/keys).
+2. Get an [Apify API token](https://console.apify.com/settings/integrations?utm_source=trigger.dev&utm_medium=integrations) and an [Anthropic API key](https://console.anthropic.com/settings/keys).
 3. Configure the environment:
 
    ```sh
    cp .env.example .env
-   # fill in TRIGGER_PROJECT_REF, TRIGGER_SECRET_KEY, APIFY_TOKEN and OPENROUTER_API_KEY
+   # fill in TRIGGER_PROJECT_REF, TRIGGER_SECRET_KEY, APIFY_TOKEN and ANTHROPIC_API_KEY
    ```
 
-   The model defaults to `anthropic/claude-sonnet-5.5`. Set `OPENROUTER_MODEL` to use another OpenRouter model with tool calling. Smaller models follow Actor input schemas less reliably, so expect more failed or denied runs before they get the input right.
+   The tasks use Claude Sonnet 5.5, set in `src/trigger/model.ts`. Smaller models follow Actor input schemas less reliably, so expect more failed or denied runs if you switch to one.
 
 4. Install and run both processes (two terminals):
 
@@ -116,9 +116,9 @@ The agent searches Apify Store, reads the Actor's input schema and asks before r
 pnpm deploy:trigger
 ```
 
-Set `APIFY_TOKEN`, `OPENROUTER_API_KEY` and, optionally, `OPENROUTER_MODEL` on the Environment Variables page for the Prod environment. Deploy the Next.js app anywhere with a prod `TRIGGER_SECRET_KEY`.
+Set `APIFY_TOKEN` and `ANTHROPIC_API_KEY` on the Environment Variables page for the Prod environment. Deploy the Next.js app anywhere with a prod `TRIGGER_SECRET_KEY`.
 
-The app has no authentication: `mintChatAccessToken` issues a token for any chat ID, and every approved run spends your Apify and OpenRouter credit. Before you make it public, put it behind your own sign-in and limit how many agent runs can run at once, for example with a [queue](https://trigger.dev/docs/concurrency) on `research-agent`.
+The app has no authentication: `mintChatAccessToken` issues a token for any chat ID, and every approved run spends your Apify and Anthropic credit. Before you make it public, put it behind your own sign-in and limit how many agent runs can run at once, for example with a [queue](https://trigger.dev/docs/concurrency) on `research-agent`.
 
 ## Things to know
 

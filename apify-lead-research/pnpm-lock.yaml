@@ -8,12 +8,12 @@ importers:
 
   .:
     dependencies:
+      '@ai-sdk/anthropic':
+        specifier: 4.0.78
+        version: 4.0.78(zod@4.6.6)
       '@ai-sdk/react':
         specifier: 4.0.140
         version: 4.0.140(react@19.3.0)(zod@4.6.6)
-      '@openrouter/ai-sdk-provider':
-        specifier: 3.1.0
-        version: 3.1.0(ai@7.0.137(zod@4.6.6))(zod@4.6.6)
       '@trigger.dev/sdk':
         specifier: 4.7.3
         version: 4.7.3(ai@7.0.137(zod@4.6.6))(react@19.3.0)(zod@4.6.6)
@@ -68,6 +68,12 @@ importers:
         version: 5.9.3
 
 packages:
+
+  '@ai-sdk/anthropic@4.0.78':
+    resolution: {integrity: sha512-lVMxa9tLM5WoB72bqxjzWEWQlCwtBTo1L3yIKxAefowWATd+1YKohrINey6wTn8gtGEqyYm79z4DUGJBYauUFw==}
+    engines: {node: '>=22'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4.1.8
 
   '@ai-sdk/gateway@4.0.110':
     resolution: {integrity: sha512-5IwnOR6v7KC+D9eddUqsCobXl/FbLUVb2LaQc/uyuQdpP3/n9s0YLc9zl4/W3IS/R2pjHrqUfCzEAeOu7bFLoQ==}
@@ -615,13 +621,6 @@ packages:
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [win32]
-
-  '@openrouter/ai-sdk-provider@3.1.0':
-    resolution: {integrity: sha512-BQy1TA9fKrh47s9ivsO6FY5QimN7GUF0i8Qon3pkxQclEgShso0dClpcWn8OIyPLEZZPFaFKgI8TW4S/O0p0Dw==}
-    engines: {node: '>=22'}
-    peerDependencies:
-      ai: ^7.0.0
-      zod: ^3.25.76 || ^4.1.8
 
   '@opentelemetry/api-logs@0.219.0':
     resolution: {integrity: sha512-FFx7YnaYJlIjqWW/AG/yAZ0L/NEY724PipXXXQLdtZPbLwBGbUMTGL1i/esI56TWfTUXxhLfpgrnWJCG8aUJyg==}
@@ -2644,6 +2643,12 @@ packages:
 
 snapshots:
 
+  '@ai-sdk/anthropic@4.0.78(zod@4.6.6)':
+    dependencies:
+      '@ai-sdk/provider': 4.0.26
+      '@ai-sdk/provider-utils': 5.0.58(zod@4.6.6)
+      zod: 4.6.6
+
   '@ai-sdk/gateway@4.0.110(zod@4.6.6)':
     dependencies:
       '@ai-sdk/provider': 4.0.26
@@ -3040,11 +3045,6 @@ snapshots:
 
   '@next/swc-win32-x64-msvc@16.4.0':
     optional: true
-
-  '@openrouter/ai-sdk-provider@3.1.0(ai@7.0.137(zod@4.6.6))(zod@4.6.6)':
-    dependencies:
-      ai: 7.0.137(zod@4.6.6)
-      zod: 4.6.6
 
   '@opentelemetry/api-logs@0.219.0':
     dependencies:

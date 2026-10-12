@@ -1,5 +1,3 @@
-import { createOpenRouter } from "@openrouter/ai-sdk-provider";
+import { anthropic } from "@ai-sdk/anthropic";
 
-const openrouter = createOpenRouter({ apiKey: process.env.OPENROUTER_API_KEY });
-
-export const model = openrouter(process.env.OPENROUTER_MODEL ?? "anthropic/claude-sonnet-5.5");
+export const model = anthropic("claude-sonnet-5-5");
