@@ -53,6 +53,14 @@ For information on how to run each project, see the README in each directory.
 | [Vercel AI SDK image generator](/vercel-ai-sdk-image-generator)                                            | Generate images using [OpenAI DALL-E](https://openai.com/dall-e) models with Vercel's [AI SDK](https://sdk.vercel.ai/docs/introduction) and Trigger.dev                                                                                                                                                                                                                                                                              |
 | [Voice agent](/voice-agent-demo)                                                                          | A low-latency voice chatbot on a [Trigger.dev chat agent](https://trigger.dev/docs/ai-chat/overview) — talk to it and it replies out loud, streaming speech both ways with [ElevenLabs](https://elevenlabs.io) Scribe (STT) and Flash (TTS) |
 
+### Community examples
+
+Full projects built with Trigger.dev by people in the community, hosted in their own repositories.
+
+| Project                                                                                         | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [AI Teammates](https://github.com/code-with-antonio/ai-teammates) by [Code with Antonio](https://github.com/code-with-antonio) | The open-source alternative to Grok Bot: AI teammates with a job, a memory and a cloud computer of their own. A [Trigger.dev chat agent](https://trigger.dev/docs/ai-chat/overview) runs each durable turn and drives a [Daytona](https://daytona.io) sandbox, and a scheduled task meters usage. [Watch it being built on YouTube](https://www.youtube.com/watch?v=mQBuZ6Dp0u0) or read the [docs guide](https://trigger.dev/docs/guides/example-projects/ai-teammates). |
+
 ### Contributing
 
 We welcome contributions! If you have an example that you'd like to add, please open a PR.
