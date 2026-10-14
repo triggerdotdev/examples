@@ -1,0 +1,24 @@
+@import "tailwindcss";
+
+/* Apify's dark theme colors, from apify.com */
+@theme {
+  --color-background: #020202;
+  --color-card: #0f0f0f;
+  --color-subtle: #1d1d1d;
+  --color-border: #2a2a2a;
+  --color-field-border: #454545;
+  --color-hover: #313131;
+  --color-text: #dfdfdf;
+  --color-muted: #a3a3a3;
+  --color-primary: #528fff;
+  --color-primary-hover: #7aa8ff;
+  --color-primary-text: #6b9fff;
+  --color-warning-background: #301806;
+  --color-warning-border: #8a4f05;
+  --color-warning-text: #f9ce4b;
+}
+
+/* inline, because next/font sets --font-inter on <body>, not :root */
+@theme inline {
+  --font-sans: var(--font-inter), sans-serif;
+}
