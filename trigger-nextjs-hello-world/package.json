@@ -11,7 +11,7 @@
   "dependencies": {
     "@tailwindcss/postcss": "^4.2.1",
     "@trigger.dev/sdk": "4.4.3",
-    "next": "^15.1.0",
+    "next": "^15.5.24",
     "postcss": "^8.5.8",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
