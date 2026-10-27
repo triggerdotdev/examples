@@ -1,0 +1,28 @@
+{
+  "name": "resend-slack-email-agent",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "trigger dev",
+    "deploy": "trigger deploy",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@trigger.dev/sdk": "4.8.0-webhooks.20261020092920",
+    "@trigger.dev/slack": "4.8.0-webhooks.20261020092920",
+    "ai": "^7.0.143",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@trigger.dev/build": "4.8.0-webhooks.20261020092920",
+    "@types/node": "^26.6.5",
+    "trigger.dev": "4.8.0-webhooks.20261020092920",
+    "typescript": "^5.9.3"
+  },
+  "packageManager": "pnpm@10.34.5",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  }
+}
