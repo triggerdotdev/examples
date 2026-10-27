@@ -50,7 +50,33 @@ export function escapeMrkdwn(text: string, max = 2800): string {
   return escaped.length > max ? `${escaped.slice(0, max)}…` : escaped;
 }
 
-export const quote = (text: string) => `>${escapeMrkdwn(text).replace(/\n/g, "\n>")}`;
+// Slack rejects a section over 3,000 characters, so cap after the > prefixes are added.
+const SECTION_MAX = 2900;
+
+export function quote(text: string): string {
+  const quoted = `>${escapeMrkdwn(text, Infinity).replace(/\n/g, "\n>")}`;
+  return quoted.length > SECTION_MAX ? `${quoted.slice(0, SECTION_MAX)}…` : quoted;
+}
+
+// The whole text as quoted sections under a heading, none over Slack's limit.
+// Drafts use this so what you approve is exactly what gets sent.
+export function quoteSections(heading: string, text: string) {
+  const texts: string[] = [];
+  let current = heading;
+  for (const line of escapeMrkdwn(text, Infinity).split("\n")) {
+    for (let i = 0; i === 0 || i < line.length; i += SECTION_MAX - 1) {
+      const piece = `>${line.slice(i, i + SECTION_MAX - 1)}`;
+      if (current.length + 1 + piece.length > SECTION_MAX) {
+        texts.push(current);
+        current = piece;
+      } else {
+        current = `${current}\n${piece}`;
+      }
+    }
+  }
+  texts.push(current);
+  return texts.map(section);
+}
 
 export const section = (text: string) => ({ type: "section", text: { type: "mrkdwn", text } });
 export const context = (text: string) => ({ type: "context", elements: [{ type: "mrkdwn", text }] });

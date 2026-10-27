@@ -2,24 +2,10 @@ import { logger, runs, wait, webhook } from "@trigger.dev/sdk";
 import type { SlackBlockActions, SlackMessageEvent } from "@trigger.dev/slack";
 import { resendEvents, slackEvents } from "./endpoints";
 import { DISCARD_ACTION, emailTag, emailThread, SEND_ACTION, slackTag, type Signal } from "./email-thread";
+import { ALLOWED_DOMAINS, allowedSender } from "./senders";
 import { ephemeralReply, slackUser } from "./slack";
 
 const ACTIVE = ["PENDING_VERSION", "DELAYED", "QUEUED", "DEQUEUED", "EXECUTING", "WAITING"] as const;
-
-// Only emails from these domains reach Slack and get a draft. An inbox address
-// is public, and every draft is a model call, so set ALLOWED_SENDER_DOMAINS
-// (comma-separated) to ignore everyone else. Empty = draft for every sender.
-const ALLOWED_DOMAINS = (process.env.ALLOWED_SENDER_DOMAINS ?? "")
-  .split(",")
-  .map((d) => d.trim().toLowerCase())
-  .filter(Boolean);
-
-function allowedSender(from: string | undefined): boolean {
-  if (ALLOWED_DOMAINS.length === 0) return true;
-  const address = from?.match(/<([^>]+)>/)?.[1] ?? from;
-  const domain = address?.trim().toLowerCase().split("@")[1];
-  return !!domain && ALLOWED_DOMAINS.includes(domain);
-}
 
 async function waitingToken(tag: string): Promise<string | undefined> {
   for await (const t of wait.listTokens({ status: "WAITING", tags: [tag] })) return t.id;
