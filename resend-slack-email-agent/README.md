@@ -22,7 +22,7 @@ What keeps it safe:
 - **Senders can be filtered.** `ALLOWED_SENDER_DOMAINS` stops unknown senders before they reach Slack or cost a model call.
 - **Sends are idempotent.** A retried attempt reuses the same Resend idempotency key, so nobody gets a reply twice.
 
-Hosted webhooks are in private beta, so your Trigger.dev org needs beta access. The packages are pinned to the `4.8.0-webhooks` beta.
+Hosted webhooks are in public beta. The packages are pinned to the `4.8.0-webhooks` beta release.
 
 ## Setup
 
