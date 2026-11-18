@@ -1,0 +1,31 @@
+# Create the app at https://api.slack.com/apps -> Create New App -> From a manifest.
+# Replace both request_urls with your "slack" endpoint URL from the Webhooks page
+# of your Trigger.dev environment. Dev and prod have different URLs, and a Slack
+# app points at one environment at a time.
+#
+# DM-only: the bot can post to and read its own DMs, and nothing else. It has no
+# access to channels.
+display_information:
+  name: Inbox Bot
+  description: Posts each email thread from a Resend inbox, drafts replies, and sends the ones you approve.
+features:
+  bot_user:
+    display_name: Inbox Bot
+    always_online: true
+  app_home:
+    messages_tab_enabled: true
+    messages_tab_read_only_enabled: false
+oauth_config:
+  scopes:
+    bot:
+      - chat:write
+      - im:history
+      - im:write
+settings:
+  event_subscriptions:
+    request_url: https://webhooks.trigger.dev/webhooks/v1/ingest/YOUR_SLACK_ENDPOINT_ID
+    bot_events:
+      - message.im
+  interactivity:
+    is_enabled: true
+    request_url: https://webhooks.trigger.dev/webhooks/v1/ingest/YOUR_SLACK_ENDPOINT_ID
