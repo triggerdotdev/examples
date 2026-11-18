@@ -88,8 +88,8 @@ importers:
         specifier: ^4
         version: 4.3.2
       trigger.dev:
-        specifier: ^4.5.1
-        version: 4.5.1(react@19.2.3)(typescript@5.9.3)
+        specifier: ^4.5.9
+        version: 4.5.9(react@19.2.3)(typescript@5.9.3)
       tw-animate-css:
         specifier: ^1.4.0
         version: 1.4.0
@@ -146,10 +146,6 @@ packages:
   '@alloc/quick-lru@5.2.0':
     resolution: {integrity: sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw==}
     engines: {node: '>=10'}
-
-  '@arr/every@1.0.1':
-    resolution: {integrity: sha512-UQFQ6SgyJ6LX42W8rHCs8KVc0JS0tzVL9ct4XYedJukskYVWTo49tNiMEK9C2HTyarbNiT/RVIRSY82vH+6sTg==}
-    engines: {node: '>=4'}
 
   '@babel/helper-string-parser@7.29.7':
     resolution: {integrity: sha512-Pb5ijPrZ89GDH8223L4UP8i6QApWxs04RbPQJTeWDV0/keR2E36MeKnyr6LYmUUvqRRI+Iv87SuF1W6ErINzYw==}
@@ -815,15 +811,13 @@ packages:
   '@opentelemetry/sdk-trace-web@2.7.1':
     resolution: {integrity: sha512-K806OouCSOjMd8Nr7+ZCq3QT22tdAzzS/7h8vprfiKjkgFQ99/dvwU8d12WJANA6D5Qtme65hyBAqAu9CkQuxQ==}
     engines: {node: ^18.19.0 || >=20.6.0}
+    deprecated: Use @opentelemetry/sdk-trace package
     peerDependencies:
       '@opentelemetry/api': '>=1.0.0 <1.10.0'
 
   '@opentelemetry/semantic-conventions@1.41.1':
     resolution: {integrity: sha512-/UhIkaZgPutTFmQ7RnIJGgDXZmtEJ7Dvi86xNTFWcnRxVRNk/aotsqDJYeEvDP+FSMB2SdW+pQzNMcWP0rwuNA==}
     engines: {node: '>=14'}
-
-  '@polka/url@0.5.0':
-    resolution: {integrity: sha512-oZLYFEAzUKyi3SKnXvj32ZCEGH6RDnao7COuCVhDydMS9NrCSVXhM79VaKyP5+Zc33m0QXEd2DN3UkU7OsHcfw==}
 
   '@prisma/config@6.19.3':
     resolution: {integrity: sha512-CBPT44BjlQxEt8kiMEauji2WHTDoVBOKl7UlewXmUgBPnr/oPRZC3psci5chJnYmH0ivEIog2OU9PGWoki3DLQ==}
@@ -1633,16 +1627,20 @@ packages:
   '@tailwindcss/postcss@4.3.2':
     resolution: {integrity: sha512-rjVWYCa7Ngbi5AarT6k8TkxUG3Wl1QKzHdIZVsjZSzf36Jmo2IKZt/NHRAwly8oDkbBOH0YTu+CHuf9jPxMc+g==}
 
-  '@trigger.dev/build@4.5.1':
-    resolution: {integrity: sha512-pB+lVJv75YAaU5tV5DFtgJab/3atDnwTeULc+2Ytwtn6LGaiJvpjpLnU3MDnaTxrq6NxLjYPmvgrw0sIbXrZ1w==}
+  '@trigger.dev/build@4.5.9':
+    resolution: {integrity: sha512-CAZTBZBqErQSPjl0T0C/EB3vwS5pMNVGruYtzQIaCXnKXfg0abGRiH1sNrj7M2buGm+h8ttbpWfssyb/GlvGdA==}
     engines: {node: '>=18.20.0'}
 
   '@trigger.dev/core@4.5.1':
     resolution: {integrity: sha512-HAn5m63JwfWbvTS82/jmmjq4fCx5LyqhJ1hUUN75T1Ei8juB2yKGpT0JwRUfFZWpOQCfRZQ05CrEIseO7BIInA==}
     engines: {node: '>=18.20.0'}
 
-  '@trigger.dev/schema-to-json@4.5.1':
-    resolution: {integrity: sha512-h6k/k99TVCAxNVNhYcJqlnBZ6tbml8+BXZsxLbgwqg8kfX9Pe8R9z7sf8ME1gQ6i82N3gpfV1MpWi5g4zwm8jA==}
+  '@trigger.dev/core@4.5.9':
+    resolution: {integrity: sha512-tXmIxg31Z5cPAXZozvTxLhHY8r8dbDNIFsaKZAcPYLSnaPMCK7uwJufYDLpvLmfNStPvs9x4DNAD4UW3ClyUIA==}
+    engines: {node: '>=18.20.0'}
+
+  '@trigger.dev/schema-to-json@4.5.9':
+    resolution: {integrity: sha512-R3rZJFHVW92NMXRZtmxS1laP8sZdRTCioDBmLH4hsqXmsvnPwOZQEBSnW/7kJGIzW6B2DF/esLAAr6ArfGGwrg==}
     engines: {node: '>=18.20.0'}
     peerDependencies:
       '@sinclair/typebox': '>=0.34.30'
@@ -1797,11 +1795,6 @@ packages:
 
   ajv-formats@3.0.1:
     resolution: {integrity: sha512-8iUql50EUR+uUcdRQ3HDqa6EVyo3docL8g5WJ3FNcWmu62IbkGUue/pEyLBW8VGKKucTPgqeks4fIU1DA4yowQ==}
-    peerDependencies:
-      ajv: ^8.0.0
-    peerDependenciesMeta:
-      ajv:
-        optional: true
 
   ajv@8.20.0:
     resolution: {integrity: sha512-Thbli+OlOj+iMPYFBVBfJ3OmCAnaSyNn4M1vz9T6Gka5Jt9ba/HIR56joy65tY6kx/FCF5VXNB819Y7/GUrBGA==}
@@ -2672,10 +2665,6 @@ packages:
   markdown-table@3.0.4:
     resolution: {integrity: sha512-wiYz4+JrLyb/DqW2hkFJxP7Vd7JuTDm77fvbM8VfEQdmSMqcImWeeRbHwZjBjIFki/VaMK2BhFi7oUUZeM5bqw==}
 
-  matchit@1.1.0:
-    resolution: {integrity: sha512-+nGYoOlfHmxe5BW5tE0EMJppXEwdSf8uBA1GTZC7Q77kbT35+VKLYJMzVNWCHSsga1ps1tPYFtFyvxvKzWVmMA==}
-    engines: {node: '>=6'}
-
   math-intrinsics@1.1.0:
     resolution: {integrity: sha512-/IXtbwEk5HTPyEwyKX6hGkYXxM9nbj64B+ilVJnC/R6B0pH5G4V3b0pVbL7DBj4tkhBAppbQUlf6F6Xl9LHu1g==}
     engines: {node: '>= 0.4'}
@@ -3058,9 +3047,6 @@ packages:
 
   pkg-types@2.3.1:
     resolution: {integrity: sha512-y+ichcgc2LrADuhLNAx8DFjVfgz91pRxfZdI3UDhxHvcVEZsenLO+7XaU5vOp0u/7V/wZ+plyuQxtrDlZJ+yeg==}
-
-  polka@0.5.2:
-    resolution: {integrity: sha512-FVg3vDmCqP80tOrs+OeNlgXYmFppTXdjD5E7I4ET1NjvtNmQrb1/mJibybKkb/d4NA7YWAr1ojxuhpL3FHqdlw==}
 
   postcss@8.4.31:
     resolution: {integrity: sha512-PS08Iboia9mts/2ygV3eLpY5ghnUcfLV/EXTOW1E2qYxJKGGBUtNjN76FYHnMs36RmARn41bC0AZmn+rR0OVpQ==}
@@ -3479,8 +3465,8 @@ packages:
     resolution: {integrity: sha512-o5sSPKEkg/DIQNmH43V0/uerLrpzVedkUh8tGNvaeXpfpuwjKenlSox/2O/BTlZUtEe+JG7s5YhEz608PlAHRA==}
     engines: {node: '>=0.6'}
 
-  trigger.dev@4.5.1:
-    resolution: {integrity: sha512-5WpVQ9jRMz0/Uf8b3ErLUyaJqRbjbBxc/mmyPUeBzv8ZIaUG7WA8rVTEKZ/QLbGtThOxNxEzXWIWdjn04f5C5g==}
+  trigger.dev@4.5.9:
+    resolution: {integrity: sha512-2MgUqMD6CnUhmefFDRiYy86lQ0h/j/QFkL9NE3JgDNQfxrOVxWHYDLwclc6USUEn1liSiTAc7EqHfKyvNn2rUQ==}
     engines: {node: '>=18.20.0'}
     hasBin: true
 
@@ -3489,10 +3475,6 @@ packages:
 
   trough@2.2.0:
     resolution: {integrity: sha512-tmMpK00BjZiUyVyvrBK7knerNgmgvcV/KLVyuma/SC+TQN167GrMRciANTz09+k3zW8L8t60jWO1GpfkZdjTaw==}
-
-  trouter@2.0.1:
-    resolution: {integrity: sha512-kr8SKKw94OI+xTGOkfsvwZQ8mWoikZDd2n8XZHjJVZUARZT+4/VV6cacRS6CLsH9bNm+HFIPU1Zx4CnNnb4qlQ==}
-    engines: {node: '>=6'}
 
   tsafe@1.8.12:
     resolution: {integrity: sha512-nFRqW0ttu/2o6XTXsHiVZWJBCOaxhVqZLg7dgs3coZNsCMPXPfwz+zPHAQA+70fNnVJLAPg1EgGIqK9Q84tvAw==}
@@ -3739,8 +3721,6 @@ snapshots:
       - zod
 
   '@alloc/quick-lru@5.2.0': {}
-
-  '@arr/every@1.0.1': {}
 
   '@babel/helper-string-parser@7.29.7': {}
 
@@ -4115,7 +4095,7 @@ snapshots:
     dependencies:
       '@hono/node-server': 1.19.14(hono@4.12.27)
       ajv: 8.20.0
-      ajv-formats: 3.0.1(ajv@8.20.0)
+      ajv-formats: 3.0.1
       content-type: 1.0.5
       cors: 2.8.6
       cross-spawn: 7.0.6
@@ -4282,8 +4262,6 @@ snapshots:
       '@opentelemetry/sdk-trace-base': 2.7.1(@opentelemetry/api@1.9.1)
 
   '@opentelemetry/semantic-conventions@1.41.1': {}
-
-  '@polka/url@0.5.0': {}
 
   '@prisma/config@6.19.3(magicast@0.3.5)':
     dependencies:
@@ -5131,10 +5109,10 @@ snapshots:
       postcss: 8.5.16
       tailwindcss: 4.3.2
 
-  '@trigger.dev/build@4.5.1(magicast@0.3.5)(supports-color@10.2.2)(typescript@5.9.3)':
+  '@trigger.dev/build@4.5.9(magicast@0.3.5)(supports-color@10.2.2)(typescript@5.9.3)':
     dependencies:
       '@prisma/config': 6.19.3(magicast@0.3.5)
-      '@trigger.dev/core': 4.5.1(supports-color@10.2.2)
+      '@trigger.dev/core': 4.5.9(supports-color@10.2.2)
       mlly: 1.8.2
       pkg-types: 1.3.1
       resolve: 1.22.12
@@ -5189,10 +5167,52 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  '@trigger.dev/schema-to-json@4.5.1(supports-color@10.2.2)':
+  '@trigger.dev/core@4.5.9(supports-color@10.2.2)':
+    dependencies:
+      '@bugsnag/cuid': 3.2.2
+      '@electric-sql/client': 1.0.14
+      '@google-cloud/precise-date': 4.0.0
+      '@jsonhero/path': 1.0.21
+      '@opentelemetry/api': 1.9.1
+      '@opentelemetry/api-logs': 0.218.0
+      '@opentelemetry/core': 2.7.1(@opentelemetry/api@1.9.1)
+      '@opentelemetry/exporter-logs-otlp-http': 0.218.0(@opentelemetry/api@1.9.1)
+      '@opentelemetry/exporter-metrics-otlp-http': 0.218.0(@opentelemetry/api@1.9.1)
+      '@opentelemetry/exporter-trace-otlp-http': 0.218.0(@opentelemetry/api@1.9.1)
+      '@opentelemetry/host-metrics': 0.38.3(@opentelemetry/api@1.9.1)
+      '@opentelemetry/instrumentation': 0.218.0(@opentelemetry/api@1.9.1)(supports-color@10.2.2)
+      '@opentelemetry/resources': 2.7.1(@opentelemetry/api@1.9.1)
+      '@opentelemetry/sdk-logs': 0.218.0(@opentelemetry/api@1.9.1)
+      '@opentelemetry/sdk-metrics': 2.7.1(@opentelemetry/api@1.9.1)
+      '@opentelemetry/sdk-trace-base': 2.7.1(@opentelemetry/api@1.9.1)
+      '@opentelemetry/sdk-trace-node': 2.7.1(@opentelemetry/api@1.9.1)
+      '@opentelemetry/semantic-conventions': 1.41.1
+      '@s2-dev/streamstore': 0.22.10(supports-color@10.2.2)
+      dequal: 2.0.3
+      eventsource: 3.0.7
+      eventsource-parser: 3.1.0
+      execa: 8.0.1
+      humanize-duration: 3.34.0
+      jose: 5.10.0
+      nanoid: 3.3.8
+      prom-client: 15.1.3
+      socket.io: 4.7.4(supports-color@10.2.2)
+      socket.io-client: 4.7.5(supports-color@10.2.2)
+      std-env: 3.10.0
+      tinyexec: 0.3.2
+      uncrypto: 0.1.3
+      zod: 3.25.76
+      zod-error: 1.5.0
+      zod-validation-error: 1.5.0(zod@3.25.76)
+    transitivePeerDependencies:
+      - bufferutil
+      - supports-color
+      - utf-8-validate
+
+  '@trigger.dev/schema-to-json@4.5.9(supports-color@10.2.2)':
     dependencies:
       '@sodaru/yup-to-json-schema': 2.0.1
-      '@trigger.dev/core': 4.5.1(supports-color@10.2.2)
+      '@trigger.dev/core': 4.5.9(supports-color@10.2.2)
       effect: 3.21.4
       zod: 3.25.76
       zod-to-json-schema: 3.25.2(zod@3.25.76)
@@ -5333,8 +5353,8 @@ snapshots:
       '@opentelemetry/api': 1.9.1
       zod: 4.4.3
 
-  ajv-formats@3.0.1(ajv@8.20.0):
-    optionalDependencies:
+  ajv-formats@3.0.1:
+    dependencies:
       ajv: 8.20.0
 
   ajv@8.20.0:
@@ -6206,10 +6226,6 @@ snapshots:
 
   markdown-table@3.0.4: {}
 
-  matchit@1.1.0:
-    dependencies:
-      '@arr/every': 1.0.1
-
   math-intrinsics@1.1.0: {}
 
   mdast-util-find-and-replace@3.0.2:
@@ -6772,11 +6788,6 @@ snapshots:
       confbox: 0.2.4
       exsolve: 1.1.0
       pathe: 2.0.3
-
-  polka@0.5.2:
-    dependencies:
-      '@polka/url': 0.5.0
-      trouter: 2.0.1
 
   postcss@8.4.31:
     dependencies:
@@ -7354,7 +7365,7 @@ snapshots:
 
   toidentifier@1.0.1: {}
 
-  trigger.dev@4.5.1(react@19.2.3)(typescript@5.9.3):
+  trigger.dev@4.5.9(react@19.2.3)(typescript@5.9.3):
     dependencies:
       '@clack/prompts': 0.11.0
       '@depot/cli': 0.0.1-cli.2.80.0
@@ -7368,9 +7379,9 @@ snapshots:
       '@opentelemetry/sdk-trace-node': 2.7.1(@opentelemetry/api@1.9.1)
       '@opentelemetry/semantic-conventions': 1.41.1
       '@s2-dev/streamstore': 0.22.10(supports-color@10.2.2)
-      '@trigger.dev/build': 4.5.1(magicast@0.3.5)(supports-color@10.2.2)(typescript@5.9.3)
-      '@trigger.dev/core': 4.5.1(supports-color@10.2.2)
-      '@trigger.dev/schema-to-json': 4.5.1(supports-color@10.2.2)
+      '@trigger.dev/build': 4.5.9(magicast@0.3.5)(supports-color@10.2.2)(typescript@5.9.3)
+      '@trigger.dev/core': 4.5.9(supports-color@10.2.2)
+      '@trigger.dev/schema-to-json': 4.5.9(supports-color@10.2.2)
       ansi-escapes: 7.3.0
       braces: 3.0.3
       c12: 1.11.2(magicast@0.3.5)
@@ -7404,7 +7415,6 @@ snapshots:
       p-retry: 6.2.1
       partysocket: 1.3.0(react@19.2.3)
       pkg-types: 1.3.1
-      polka: 0.5.2
       resolve: 1.22.12
       semver: 7.8.5
       signal-exit: 4.1.0
@@ -7436,10 +7446,6 @@ snapshots:
   trim-lines@3.0.1: {}
 
   trough@2.2.0: {}
-
-  trouter@2.0.1:
-    dependencies:
-      matchit: 1.1.0
 
   tsafe@1.8.12: {}
 
