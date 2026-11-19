@@ -1,0 +1,463 @@
+:root {
+  --bg: #0b0d10;
+  --panel: #14171c;
+  --line: #262b33;
+  --text: #f2f4f7;
+  --muted: #8b93a1;
+  --accent: #a8ff53;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+/* The bot renders this page at 1280x720 as its camera. */
+.stage {
+  width: 1280px;
+  height: 720px;
+  display: grid;
+  grid-template-columns: 420px 1fr;
+  gap: 40px;
+  padding: 56px;
+  overflow: hidden;
+}
+
+.self {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+}
+
+.orb {
+  width: 220px;
+  height: 220px;
+  border-radius: 50%;
+  border: 3px solid var(--line);
+  display: grid;
+  place-items: center;
+  font-size: 44px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.orb.speaking {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 10px rgba(168, 255, 83, 0.12), 0 0 60px rgba(168, 255, 83, 0.25);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+.orb.waiting {
+  border-color: #6b7c4f;
+}
+
+@keyframes pulse {
+  50% {
+    box-shadow: 0 0 0 18px rgba(168, 255, 83, 0.06), 0 0 80px rgba(168, 255, 83, 0.3);
+  }
+}
+
+.name {
+  font-size: 30px;
+  font-weight: 600;
+}
+
+.status {
+  font-size: 20px;
+  color: var(--muted);
+}
+
+.main {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 28px;
+  min-width: 0;
+}
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 40px 44px;
+}
+
+.eyebrow {
+  color: var(--accent);
+  font-size: 18px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.title {
+  font-size: 48px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 12px 0 6px;
+}
+
+.subtitle {
+  font-size: 24px;
+  color: var(--muted);
+}
+
+.points {
+  margin: 26px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 14px;
+}
+
+.points li {
+  font-size: 24px;
+  line-height: 1.35;
+  padding-left: 26px;
+  position: relative;
+}
+
+.points li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 13px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.url {
+  margin-top: 24px;
+  font-size: 20px;
+  color: var(--muted);
+}
+
+.caption {
+  font-size: 26px;
+  line-height: 1.4;
+  color: var(--text);
+  min-height: 74px;
+}
+
+.idle {
+  color: var(--muted);
+  font-size: 26px;
+  line-height: 1.5;
+}
+
+.idle b {
+  color: var(--text);
+}
+
+/* Screenshare view: the lead brief, 1280x720. */
+.screen {
+  width: 1280px;
+  height: 720px;
+  padding: 56px 72px;
+  overflow: hidden;
+  background: radial-gradient(circle at 85% 10%, rgba(168, 255, 83, 0.08), transparent 45%), var(--bg);
+}
+
+.screen-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.brand {
+  color: var(--muted);
+  font-size: 18px;
+}
+
+.screen-title {
+  font-size: 64px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-top: 14px;
+}
+
+.screen-subtitle {
+  font-size: 28px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.screen-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+  margin-top: 36px;
+}
+
+.screen-col {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.screen section {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 22px 26px;
+}
+
+.screen h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.screen p {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.4;
+}
+
+.screen .points {
+  margin-top: 4px;
+}
+
+.screen .points li {
+  font-size: 22px;
+}
+
+.screen .next {
+  border-color: rgba(168, 255, 83, 0.5);
+}
+
+.screen .next h3 {
+  color: var(--accent);
+}
+
+/* Tighter brief so research fits the 720px screenshare. */
+.screen { padding: 44px 64px; }
+.screen-title { font-size: 54px; }
+.screen-subtitle { font-size: 24px; }
+.screen-grid { margin-top: 26px; gap: 24px; }
+.screen-col { gap: 16px; }
+.screen section { padding: 16px 22px; }
+.screen p, .screen .points li { font-size: 19px; }
+.screen .points { gap: 8px; }
+.screen .points li::before { top: 10px; }
+
+.news {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.news li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.news-title {
+  font-size: 18px;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.news-source {
+  font-size: 14px;
+  color: var(--accent);
+}
+
+/* Draft reply on the shared screen. */
+.draft {
+  margin-top: 22px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 24px 30px;
+  height: 520px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  overflow: hidden;
+}
+
+.draft-meta {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  row-gap: 8px;
+  font-size: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.draft-label {
+  color: var(--muted);
+}
+
+.draft-body {
+  font-size: 21px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow: hidden;
+}
+
+.draft-foot {
+  margin-top: 14px;
+  font-size: 17px;
+  color: var(--muted);
+}
+
+/* Camera tile: Meet crops the sides, so keep everything in a centered ~600px column. */
+.tile {
+  width: 1280px;
+  height: 720px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+}
+
+.tile-col {
+  width: 600px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 26px;
+  text-align: center;
+}
+
+.self-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+}
+
+.self-row.compact {
+  flex-direction: row;
+  gap: 20px;
+  text-align: left;
+}
+
+.self-row.compact .orb {
+  width: 84px;
+  height: 84px;
+  font-size: 32px;
+}
+
+.self-row.compact .name {
+  font-size: 26px;
+}
+
+.tile .card {
+  width: 600px;
+  text-align: left;
+  padding: 30px 34px;
+}
+
+.tile .title {
+  font-size: 42px;
+}
+
+.tile .subtitle {
+  font-size: 22px;
+}
+
+.tile .points li {
+  font-size: 22px;
+}
+
+.tile .idle {
+  text-align: center;
+}
+
+.tile .caption {
+  font-size: 22px;
+  min-height: 0;
+}
+
+/* The triangle buddy. */
+.buddy svg { overflow: visible; display: block; }
+.buddy-body { transform-origin: 100px 172px; animation: buddy-bob 2.4s ease-in-out infinite; }
+.buddy-shadow { fill: #000; opacity: 0.35; transform-origin: 100px 188px; animation: buddy-shadow 2.4s ease-in-out infinite; }
+.buddy-eyes { transform-origin: 100px 117px; animation: buddy-blink 4.2s infinite; }
+.buddy-arm-left { transform-origin: 32px 150px; }
+.buddy-arm-right { transform-origin: 168px 150px; }
+.buddy-talk { display: none; transform-origin: 100px 150px; }
+
+@keyframes buddy-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+@keyframes buddy-shadow { 0%, 100% { transform: scaleX(1); opacity: 0.35; } 50% { transform: scaleX(0.82); opacity: 0.22; } }
+@keyframes buddy-blink { 0%, 92%, 100% { transform: scaleY(1); } 95% { transform: scaleY(0.1); } }
+@keyframes buddy-talk { 0%, 100% { transform: scaleY(0.35); } 50% { transform: scaleY(1.1); } }
+@keyframes buddy-wave { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(-35deg); } }
+@keyframes buddy-tilt { 0%, 100% { transform: rotate(-6deg) translateY(-3px); } 50% { transform: rotate(6deg) translateY(-3px); } }
+@keyframes buddy-hop { 0%, 100% { transform: translateY(0); } 40% { transform: translateY(-16px) scaleY(1.04); } 60% { transform: translateY(0) scaleY(0.96); } }
+
+.buddy-speaking .buddy-smile { display: none; }
+.buddy-speaking .buddy-talk { display: inline; animation: buddy-talk 0.28s ease-in-out infinite; }
+.buddy-speaking .buddy-arm-right { animation: buddy-wave 0.9s ease-in-out infinite; }
+.buddy-speaking .buddy-body { animation-duration: 1.2s; }
+.buddy-thinking .buddy-body { animation: buddy-tilt 1.6s ease-in-out infinite; }
+.buddy-waiting .buddy-body { animation: buddy-hop 1s ease-in-out infinite; }
+
+/* Layout around the buddy in the camera tile. */
+.self-row .buddy { flex: none; }
+.tile .status { font-size: 22px; }
+
+/* Screenshare: the email as it arrived, with the CRM record beside it. */
+.mail-grid {
+  display: grid;
+  grid-template-columns: 1.35fr 1fr;
+  gap: 28px;
+  margin-top: 26px;
+  height: 540px;
+}
+
+.mail {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  overflow: hidden;
+}
+
+.mail .draft-body {
+  font-size: 24px;
+}
+
+.crm dl {
+  margin: 6px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.crm dt {
+  font-size: 15px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.crm dd {
+  margin: 4px 0 0;
+  font-size: 21px;
+  line-height: 1.35;
+}
