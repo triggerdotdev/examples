@@ -110,7 +110,9 @@ export async function recallApi<T>(path: string, init: { method?: string; body?:
     body: init.body ? JSON.stringify(init.body) : undefined,
   });
   if (!res.ok) throw new Error(`Recall ${res.status}: ${await res.text()}`);
-  return (await res.json()) as T;
+  // Some calls (stopping a screenshare) succeed with an empty body.
+  const text = await res.text();
+  return (text ? JSON.parse(text) : undefined) as T;
 }
 
 function htmlToText(html: string) {

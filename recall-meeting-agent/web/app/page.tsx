@@ -159,8 +159,10 @@ export default function BotPage() {
             await sleep(3000);
             continue;
           }
+          setProblem("");
           let text = "";
           const toolNames = new Map<string, string>(); // tool outputs only carry the call id
+          const draftInputs = new Map<string, Draft>(); // a draft shows only once draft_reply reports it saved
           let turn: Pick<Utterance, "lead" | "draft" | "shareBot" | "stopShare"> = {};
           for await (const chunk of iterate(stream)) {
             const live = Date.now() - connectedAt > REPLAY_WINDOW_MS;
@@ -181,21 +183,25 @@ export default function BotPage() {
                 toolNames.set(chunk.toolCallId, chunk.toolName);
                 if (screen) {
                   // The screen view opens mid-turn, so it shows the latest email or draft, replay included.
-                  if (chunk.toolName === "draft_reply") {
-                    setDraft(chunk.input as Draft);
-                    setScreenMode("draft");
-                  }
+                  if (chunk.toolName === "draft_reply") draftInputs.set(chunk.toolCallId, chunk.input as Draft);
                   break;
                 }
                 if (!live) break;
                 // The camera holds these until it speaks.
-                if (chunk.toolName === "draft_reply") turn.draft = chunk.input as Draft;
+                if (chunk.toolName === "draft_reply") draftInputs.set(chunk.toolCallId, chunk.input as Draft);
                 else if (chunk.toolName === "stop_sharing") turn.stopShare = true;
                 break;
               case "tool-output-available": {
                 const out = chunk.output as ({ botId?: string } & Partial<Lead>) | undefined;
                 // The email card comes from the tool's output: the email and CRM record verbatim.
                 const isLead = LEAD_TOOLS.has(toolNames.get(chunk.toolCallId) ?? "") && out?.email;
+                const savedDraft = draftInputs.get(chunk.toolCallId);
+                if (savedDraft && (chunk.output as { saved?: boolean } | undefined)?.saved) {
+                  if (screen) {
+                    setDraft(savedDraft);
+                    setScreenMode("draft");
+                  } else if (live) turn.draft = savedDraft;
+                }
                 if (screen) {
                   if (isLead) {
                     setLead({ email: out.email!, crm: out.crm ?? null });
@@ -225,6 +231,8 @@ export default function BotPage() {
               }
             }
           }
+          // The stream ended (the session settled): pause briefly before reconnecting.
+          await sleep(500);
         } catch (error) {
           setProblem(String(error));
           await sleep(3000);

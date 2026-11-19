@@ -251,8 +251,12 @@ export const meetingAgent = chat.agent({
           inputSchema: z.object({}),
           execute: async () => {
             if (!botId) return { stopped: false, reason: "not in a meeting" };
-            await stopScreenshare(botId).catch(() => {});
-                return { stopped: true };
+            try {
+              await stopScreenshare(botId);
+            } catch (error) {
+              return { stopped: false, reason: String(error).slice(0, 200) };
+            }
+            return { stopped: true };
           },
         }),
       },

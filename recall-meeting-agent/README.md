@@ -66,7 +66,10 @@ To check the layout without a meeting, open `/?demo` (camera tile), `/?demo&view
 
 ### 3. Run the tasks
 
+From the project root (step 2 left you in `web/`):
+
 ```bash
+cd ..
 pnpm dev
 ```
 

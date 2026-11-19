@@ -11,6 +11,8 @@ import { botPageUrl, recallApi } from "./services";
  */
 export const joinMeeting = task({
   id: "join-meeting",
+  // A retry after the bot is created would send a second bot into the meeting, so don't retry.
+  retry: { maxAttempts: 1 },
   run: async ({ meetingUrl }: { meetingUrl: string }) => {
     const apiUrl = process.env.TRIGGER_API_URL ?? "https://api.trigger.dev";
     const transcriptUrl = await endpointUrl(apiUrl, "recall");
