@@ -7,7 +7,9 @@ export const summarizeArticle = task({
   maxDuration: 300,
   run: async (payload: { content: string }) => {
     const { text } = await generateText({
-      model: openai("gpt-4o-mini"),
+      model: openai("gpt-6-luna"),
+      // This AI SDK version sends temperature: 0 by default.
+      providerOptions: { openai: { reasoningEffort: "none" } },
       prompt: `
       Summarize the following article in a concise manner, focus on the main body of the article and generate a summary that sounds good in speech too.
       The result will be converted to speech for a news report. Make it no longer than 500 words.
