@@ -12,7 +12,7 @@ Each email chain gets one long-running [Trigger.dev](https://trigger.dev) run th
 - `src/trigger/email-thread.ts`: one run per email chain. It posts the email to Slack, drafts a reply, creates a wait token and waits on it. A click sends or drops the draft, a thread reply redrafts it, and a new email posts and redrafts. After 30 quiet days the run ends; the next email starts a new run in the same Slack thread.
 - `src/trigger/inbound.ts`: the webhook tasks. A new email wakes the chain's run, or starts one. Slack thread replies and button clicks complete the waiting token.
 - `src/trigger/draft.ts`: the drafting prompt, using the [AI SDK](https://ai-sdk.dev) through the Vercel AI Gateway. Tune `SYSTEM_PROMPT` for your inbox.
-- `src/trigger/resend.ts` and `src/trigger/slack.ts`: thin API clients.
+- `src/trigger/resend.ts`: reads threads and sends replies with the [Resend SDK](https://resend.com/docs/sdks). `src/trigger/slack.ts`: a thin Slack Web API client.
 
 What keeps it safe:
 

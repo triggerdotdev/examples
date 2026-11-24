@@ -1,4 +1,5 @@
-// Thin client for the Resend Inboxes API: https://resend.com/docs/api-reference/inboxes
+// Resend Inboxes, through the Resend SDK: https://resend.com/docs/api-reference/inboxes
+import { Resend } from "resend";
 
 export type ResendWebhookEvent = {
   type: string;
@@ -23,30 +24,29 @@ export type ThreadEmail = {
   received_at: string;
 };
 
-async function resend<T>(path: string, init: RequestInit = {}): Promise<T> {
+// Created on first use, so the task files load without RESEND_API_KEY set.
+let client: Resend | undefined;
+function resend(): Resend {
   const key = process.env.RESEND_API_KEY;
   if (!key) throw new Error("RESEND_API_KEY is not set");
-  const res = await fetch(`https://api.resend.com${path}`, {
-    ...init,
-    headers: { authorization: `Bearer ${key}`, "content-type": "application/json", ...init.headers },
-  });
-  if (!res.ok) throw new Error(`Resend ${init.method ?? "GET"} ${path} failed: ${res.status} ${await res.text()}`);
-  return (await res.json()) as T;
+  return (client ??= new Resend(key));
 }
-
-const threadPath = (inboxId: string, threadId: string) =>
-  `/inboxes/${encodeURIComponent(inboxId)}/threads/${encodeURIComponent(threadId)}`;
 
 // Every message in the thread, oldest first, with bodies.
 export async function listThreadEmails(inboxId: string, threadId: string): Promise<ThreadEmail[]> {
   const emails: ThreadEmail[] = [];
   let after: string | undefined;
   for (;;) {
-    const query = new URLSearchParams({ limit: "100", ...(after ? { after } : {}) });
-    const page = await resend<{ data: ThreadEmail[]; has_more: boolean }>(`${threadPath(inboxId, threadId)}/emails?${query}`);
-    emails.push(...page.data);
-    if (!page.has_more || page.data.length === 0) return emails;
-    after = page.data.at(-1)!.id;
+    const { data, error } = await resend().inboxes.threads.emails.list({
+      inboxId,
+      threadId,
+      limit: 100,
+      ...(after ? { after } : {}),
+    });
+    if (error) throw new Error(`Resend list thread emails failed: ${error.message}`);
+    emails.push(...data.data);
+    if (!data.has_more || data.data.length === 0) return emails;
+    after = data.data.at(-1)!.id;
   }
 }
 
@@ -59,11 +59,12 @@ export async function replyToEmail(
   text: string,
   idempotencyKey: string
 ): Promise<{ id: string }> {
-  return resend(`${threadPath(inboxId, threadId)}/emails/${encodeURIComponent(emailId)}/reply`, {
-    method: "POST",
-    headers: { "idempotency-key": idempotencyKey },
-    body: JSON.stringify({ text }),
-  });
+  const { data, error } = await resend().inboxes.threads.emails.reply(
+    { inboxId, threadId, emailId, text },
+    { idempotencyKey }
+  );
+  if (error) throw new Error(`Resend reply failed: ${error.message}`);
+  return data;
 }
 
 // The readable body of an email: its text part, or its HTML with the tags stripped.
