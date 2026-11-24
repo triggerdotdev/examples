@@ -11,6 +11,7 @@
     "@trigger.dev/sdk": "4.8.0-webhooks.20261020092920",
     "@trigger.dev/slack": "4.8.0-webhooks.20261020092920",
     "ai": "^7.0.143",
+    "resend": "^6.39.0",
     "zod": "^4.6.7"
   },
   "devDependencies": {
